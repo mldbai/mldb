@@ -30,9 +30,9 @@ functionName() const
 {
     if (empty())
         throw MLDB::Exception("nil value is not a function");
-    if (!front().is<Function>())
-        throw MLDB::Exception("head of list is not a function: " + front().print());
-    return front().as<Function>().fn;
+    if (!front().is<Symbol>())
+        throw MLDB::Exception("head of list is not a symbol: " + front().print());
+    return front().as<Symbol>().sym;
 }
 
 Value::
@@ -42,13 +42,13 @@ Value()
 
 Value::
 Value(const Value & other)
-    : context_(other.context_), value_(other.value_), md_(other.md_)
+    : context_(other.context_), quotes_(other.quotes_), value_(other.value_), md_(other.md_)
 {
 }
 
 Value::
 Value(Value && other)
-    : context_(other.context_), value_(std::move(other.value_)), md_(std::move(other.md_))
+    : context_(other.context_), quotes_(other.quotes_), value_(std::move(other.value_)), md_(std::move(other.md_))
 {
     other.context_ = nullptr;
 }
@@ -61,6 +61,7 @@ operator = (const Value & other)
     context_ = other.context_;
     value_ = other.value_;
     md_ = other.md_;
+    quotes_ = other.quotes_;
     return *this;
 }
 
@@ -72,6 +73,7 @@ operator = (Value && other)
     context_ = other.context_;
     value_ = std::move(other.value_);
     md_ = std::move(other.md_);
+    quotes_ = other.quotes_;
     other.context_ = nullptr;
     return *this;
 }
@@ -131,18 +133,6 @@ Value(Context & context, Symbol sym)
 }
 
 Value::
-Value(Context & context, Variable var)
-    : context_(&context), value_(std::move(var))
-{
-}
-
-Value::
-Value(Context & context, Function fn)
-    : context_(&context), value_(std::move(fn))
-{
-}
-
-Value::
 Value(Context & context, Wildcard)
     : context_(&context), value_(Wildcard{})
 {
@@ -165,81 +155,6 @@ Value(Context & context, Null)
     : context_(&context), value_(Null{})
 {
 }
-
-#if 0
-Value Value::list(PathElement type, std::vector<Value> args)
-{
-    List result;
-    result.emplace_back(Function{type});
-    result.insert(result.end(), std::move_iterator(args.begin()), std::move_iterator(args.end()));
-    return { std::move(result) };
-}
-
-Value Value::path(Path path)
-{
-    return Path{path};
-}
-
-Value Value::var(PathElement name)
-{
-    return Variable{std::move(name)};
-}
-
-Value Value::str(Utf8String str)
-{
-    return std::move(str);
-}
-
-Value Value::boolean(bool b)
-{
-    Value result;
-    result.atom = b;
-    return result;
-}
-
-Value Value::i64(int64_t i)
-{
-    Value result;
-    result.atom = i;
-    return result;
-}
-
-Value Value::u64(uint64_t i)
-{
-    Value result;
-    result.atom = i;
-    return result;
-}
-
-Value Value::f64(double d)
-{
-    Value result;
-    result.atom = d;
-    return result;
-}
-
-Value Value::null()
-{
-    Value result;
-    result.atom = Null{};
-    return result;
-}
-
-Utf8String Value::print() const
-{
-    Utf8String result;
-    if (type.null()) {
-        result = jsonEncodeStr(this->atom);
-    }
-    else {
-        result = "(" + type.toUtf8String();
-        for (auto & a: args)
-            result += " " + a.print();
-        result += ")";
-    }
-    return result;
-}
-#endif
 
 bool
 Value::
@@ -280,16 +195,6 @@ operator == (const Value & other) const
     }
 
     return value_ == other.value_;
-}
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(Variable)
-{
-    addField("var", &Variable::var, "");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(Function)
-{
-    addField("fn", &Function::fn, "");
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(Symbol)
@@ -439,9 +344,7 @@ toJson(JsonPrintingContext & context) const
         [&] (Null)                 { OBJ("atom");  context.writeNull(); },
         [&] (Wildcard)             { OBJ("wc");    context.writeString("_"); },
         [&] (Ellipsis)             { OBJ("wc");    context.writeString("..."); },
-        [&] (const Variable& v)    { OBJ("var");   context.writeStringUtf8(v.var.toUtf8String()); },
         [&] (const Symbol& s)      { OBJ("sym");   context.writeStringUtf8(s.sym.toUtf8String()); },
-        [&] (const Function& f)    { OBJ("fn");    context.writeStringUtf8(f.fn.toUtf8String()); },
         [&] (const List & l)
         {
             OBJ("list");
@@ -459,6 +362,11 @@ toJson(JsonPrintingContext & context) const
     if (hasMetadata()) {
         OBJ("md");
         getMetadata().toJson(context);
+    }
+
+    if (quotes_) {
+        OBJ("q");
+        context.writeUnsignedLongLong(quotes_);
     }
 
     context.endObject();
@@ -485,11 +393,20 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
 
     Value result;
     Value md;
+    int quotes = 0;
 
     auto onMember = [&] ()
     {
         if (pcontext.inField("md")) {
+            if (md.isInitialized())
+                pcontext.exception("md field is repeated");
             md = Value::fromJson(lcontext, pcontext);
+            return;
+        }
+        else if (pcontext.inField("q")) {
+            if (quotes != 0)
+                pcontext.exception("quote field is repeated");
+            quotes = pcontext.expectUnsignedLongLong();
             return;
         }
         ExcAssert(result.isUninitialized());
@@ -502,17 +419,9 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
             else if (s == "...") { result = make(Ellipsis{}); }
             else pcontext.exception("expected '_' or '...' for wildcard");
         }
-        else if (pcontext.inField("var")) {
-            auto name = pcontext.expectStringUtf8();
-            result = make(Variable{std::move(name)});
-        }
         else if (pcontext.inField("sym")) {
             auto name = pcontext.expectStringUtf8();
             result = make(Symbol{std::move(name)});
-        }
-        else if (pcontext.inField("fn")) {
-            auto name = pcontext.expectStringUtf8();
-            result = make(Function{PathElement{std::move(name)}, nullptr});
         }
         else if (pcontext.inField("list")) {
             List list;
@@ -524,6 +433,8 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
         }
     };
     pcontext.forEachMember(onMember);
+
+    result.setQuotes(quotes);
 
     if (md.isInitialized())
         result.addMetadata(std::move(md));
@@ -553,18 +464,45 @@ print() const
         [] (const Utf8String & s) { return jsonEncodeStr(s); },
         [] (Null)                 { return "null"; },
         [] (Wildcard)             { return "_"; },
-        [] (Ellipsis)              { return "..."; },
-        [] (const Variable& v)    { return v.var.toUtf8String(); },
-        [] (const Symbol& s)      { return "`" + s.sym.toUtf8String(); },
-        [] (const Function& f)    { return f.fn.toUtf8String(); },
+        [] (Ellipsis)             { return "..."; },
+        [] (const Symbol& s)      { return s.sym.toUtf8String(); },
         [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::print), "(", " ", ")"); }
     };
 
-    Utf8String result = visit(visitor, *this);
+    Utf8String result = string(quotes_, '\'');
+    result += visit(visitor, *this);
+
     if (hasMetadata()) {
         result += ":" + getMetadata().print();
     }
     return result;
+}
+
+Utf8String
+Value::
+asString() const
+{
+    if (!context_)
+        MLDB_THROW_UNIMPLEMENTED();
+
+    LambdaVisitor visitor {
+        [] (const Value & val) -> Utf8String // first is for unmatched values
+        {
+            MLDB_THROW_UNIMPLEMENTED(("print of lisp value with type " + demangle(val.value_.type())).c_str());
+        },
+        [] (bool b)               { return b ? "true" : "false"; },
+        [] (int64_t i)            { return std::to_string(i); },
+        [] (uint64_t i)           { return std::to_string(i); },
+        [] (double d)             { return std::to_string(d); },
+        [] (const Utf8String & s) { return s; },
+        [] (Null)                 { return "null"; },
+        [] (Wildcard)             { return "_"; },
+        [] (Ellipsis)             { return "..."; },
+        [] (const Symbol& s)      { return s.sym.toUtf8String(); },
+        [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::asString), "(", " ", ")"); }
+    };
+
+    return visit(visitor, *this);
 }
 
 optional<Value>
@@ -573,23 +511,12 @@ match(Context & lcontext, ParseContext & pcontext)
 {
     auto res = match_recursive(lcontext, pcontext,
                                [] (Context & lc, ParseContext & pc) { return matchAtom(lc, pc); },
+                               [] (Context & lc, ParseContext & pc) { return Value::match(lc, pc); },
                                [] (Context & lc, ParseContext & pc) { return match(lc, pc); });
     if (!res)
         return nullopt;
 
-    Value result = std::move(*res);    
-    if (pcontext.match_literal(':')) {
-        // metadata
-        auto mdo = match(lcontext, pcontext);
-        if (!mdo)
-            pcontext.exception("expected metadata after a ':'");
-        else if (mdo->hasMetadata())
-            pcontext.exception("metadata can't have metadata");
-        else {
-            result.addMetadata(std::move(*mdo));
-        }
-    }
-
+    Value result = std::move(*res);
     return std::move(result);
 }
 
@@ -599,15 +526,8 @@ parse(Context & lcontext, ParseContext & pcontext)
 {
     auto result = parse_recursive(lcontext, pcontext,
                                   [] (Context & lc, ParseContext & pc) { return parseAtom(lc, pc); },
+                                  [] (Context & lc, ParseContext & pc) { return parse(lc, pc); },
                                   [] (Context & lc, ParseContext & pc) { return parse(lc, pc); });
-
-    if (pcontext.match_literal(':')) {
-        auto md = parse(lcontext, pcontext);
-        if (md.hasMetadata())
-            pcontext.exception("Metadata can't have metadata");
-        result.addMetadata(std::move(md));
-    }
-
     return result;
 }
 
@@ -649,25 +569,15 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
     else if (pcontext.match_literal("null")) {
         result = make(Null{});
     }
-    else if (auto varName = match_variable_name(pcontext)) {
-        result = make(Variable{std::move(*varName)});
-    }
-    else if (auto symName = match_symbol_name(pcontext)) {
-        result = make(Symbol{std::move(*symName)});
-    }
     else {
         JsonNumber num;
         if (matchJsonNumber(pcontext, num)) {
             switch (num.type) {
-            case JsonNumber::FLOATING_POINT:    result = make(num.fp);  break;
+            case JsonNumber::FLOATING_POINT:    result = make(num.fp);   break;
             case JsonNumber::SIGNED_INT:        result = make(num.sgn);  break;
             case JsonNumber::UNSIGNED_INT:      result = make(num.uns);  break;
             default:                            MLDB_THROW_LOGIC_ERROR();
             }
-        }
-        else if (auto opName = match_operator_name(pcontext)) {
-            // Has to go after number
-            result = make(Function{*opName, nullptr});
         }
         else if (pcontext.match_literal('_')) {
             result = make(Wildcard{});
@@ -675,24 +585,14 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
         else if (pcontext.match_literal("...")) {
             result = make(Ellipsis{});
         }
+        // Has to go after number & wildcard
+        else if (auto symName = match_symbol_name(pcontext)) {
+            result = make(Symbol{std::move(*symName)});
+        }
         else {
             return nullopt;
         }
     }
-
-#if 0
-    if (pcontext.match_literal(':')) {
-        // metadata
-        auto mdo = match(lcontext, pcontext);
-        if (!mdo)
-            pcontext.exception("expected metadata after a ':'");
-        else if (mdo->hasMetadata())
-            pcontext.exception("metadata can't have metadata");
-        else {
-            result.addMetadata(std::move(*mdo));
-        }
-    }
-#endif
 
     return std::move(result);
 }
@@ -701,18 +601,20 @@ std::optional<Value>
 Value::
 matchRecursive(Context & lcontext, ParseContext & pcontext,
                const std::function<std::optional<Value>(Context &, ParseContext &)> & matchAtom,
+               const std::function<std::optional<Value>(Context &, ParseContext &)> & matchMetadata,
                const std::function<std::optional<Value>(Context &, ParseContext &)> & recurse)
 {
-    return match_recursive(lcontext, pcontext, matchAtom, recurse);
+    return match_recursive(lcontext, pcontext, matchAtom, matchMetadata, recurse);
 }
 
 Value
 Value::
 parseRecursive(Context & lcontext, ParseContext & pcontext,
                const std::function<Value(Context &, ParseContext &)> & parseAtom,
+               const std::function<Value(Context &, ParseContext &)> & parseMetadata,
                const std::function<Value(Context &, ParseContext &)> & recurse)
 {
-    return parse_recursive(lcontext, pcontext, parseAtom, recurse);
+    return parse_recursive(lcontext, pcontext, parseAtom, parseMetadata, recurse);
 }
 
 Value

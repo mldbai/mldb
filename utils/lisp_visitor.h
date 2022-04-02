@@ -49,6 +49,12 @@ struct LambdaVisitor
     {
         return (*this)(std::forward<Arg>(arg));
     }
+
+    template<typename Arg1, typename Arg2>
+    auto visit(Arg1&& arg1, Arg2&& arg2) -> std::invoke_result_t<LambdaVisitor, Arg1, Arg2>
+    {
+        return (*this)(std::forward<Arg1>(arg1), std::forward<Arg2>(arg2));
+    }
 };
 
 template<typename Unknown, class... Ts>
@@ -66,6 +72,12 @@ struct RecursiveLambdaVisitor
         return (*this)(std::forward<Arg>(arg));
     }
 
+    template<typename Arg1, typename Arg2>
+    auto visit(Arg1&& arg1, Arg2&& arg2) -> std::invoke_result_t<RecursiveLambdaVisitor, Arg1, Arg2>
+    {
+        return (*this)(std::forward<Arg1>(arg1), std::forward<Arg2>(arg2));
+    }
+
     template<typename ValueIn>
     Value unknown(ValueIn&&value)
     {
@@ -74,20 +86,43 @@ struct RecursiveLambdaVisitor
 };
 template<class... Ts> RecursiveLambdaVisitor(Ts...) -> RecursiveLambdaVisitor<Ts...>;
 
+template<typename Result>
+struct ExceptionOnUnknownReturning {
+    using return_type = Result;
+    Result unknown(const Value & val) const
+    {
+        MLDB_THROW_LOGIC_ERROR(msg);
+    }
+    ExceptionOnUnknownReturning(const char * msg) : msg(msg) {}
+    const char * msg;
+};
+
+template<typename Result>
+struct HandleUnknown<ExceptionOnUnknownReturning<Result>>: ExceptionOnUnknownReturning<Result> {
+    template<typename T>
+    HandleUnknown(T&&arg): ExceptionOnUnknownReturning<Result>(std::forward<T>(arg)) {}
+};
 
 template<typename Visitor, typename... ExtraTypes, typename Value>
 auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>::return_type
 {
     using DecayedVisitor = typename std::decay_t<Visitor>;
     using Return = typename DecayedVisitor::return_type;
-#define LISP_TRY_VISIT(type) if constexpr (isVisitable<DecayedVisitor, Return(type)>()) { if (value.template is<type>()) { return visitor.visit(value.template as<type>()); }}
+#define LISP_TRY_VISIT(Type) \
+    if constexpr (isVisitable<DecayedVisitor, Return(Value,Type)>()) { \
+        if (value.template is<Type>()) { \
+            return visitor.visit(value, value.template as<Type>()); \
+        }\
+    } \
+    if constexpr (isVisitable<DecayedVisitor, Return(Type)>()) { \
+        if (value.template is<Type>()) { \
+            return visitor.visit(value.template as<Type>()); \
+        }\
+    }
     LISP_TRY_VISIT(List);
-    LISP_TRY_VISIT(Variable);
-    LISP_TRY_VISIT(Function);
     LISP_TRY_VISIT(Symbol);
     LISP_TRY_VISIT(Wildcard);
     LISP_TRY_VISIT(Ellipsis);
-    LISP_TRY_VISIT(Variable);
     LISP_TRY_VISIT(Null);
     LISP_TRY_VISIT(uint64_t);
     LISP_TRY_VISIT(int64_t);
@@ -112,10 +147,15 @@ Value recurse(Visitor && visitor, ValueIn && value)
         for (auto && val: list) {
             recursed.emplace_back(recurse(visitor, val));
         }
-        if constexpr(isVisitable<DecayedVisitor, Value(List)>()) {
-            return visitor.visit(std::move(recursed));
-        }
+
         Value result{ value.getContext(), std::move(recursed) };
+
+        if constexpr(isVisitable<DecayedVisitor, Value(Value, List)>()) {
+            return visitor.visit(result, result.as<List>());
+        }
+        if constexpr(isVisitable<DecayedVisitor, Value(List)>()) {
+            return visitor.visit(std::move(result.as<List>()));
+        }
         if constexpr(isVisitable<DecayedVisitor, Value(Value)>()) {
             return visitor.visit(std::move(result));
         }

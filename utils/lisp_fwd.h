@@ -22,10 +22,6 @@ struct Context;
 struct CompilationScope;
 struct ExecutionScope;
 struct Value;
-struct CompilationState;
-struct Variable;
-struct FunctionHandle;
-struct Function;
 struct Symbol;
 struct Null;
 struct Wildcard;
@@ -35,8 +31,6 @@ struct Substitution;
 struct Pattern;
 struct Ellipsis;
 
-DECLARE_STRUCTURE_DESCRIPTION(Variable);
-DECLARE_STRUCTURE_DESCRIPTION(Function);
 DECLARE_STRUCTURE_DESCRIPTION(Symbol);
 DECLARE_STRUCTURE_DESCRIPTION(Null);
 PREDECLARE_VALUE_DESCRIPTION(Wildcard);
@@ -45,7 +39,6 @@ DECLARE_STRUCTURE_DESCRIPTION(Value);
 DECLARE_STRUCTURE_DESCRIPTION(Substitution);
 DECLARE_STRUCTURE_DESCRIPTION(Predicate);
 DECLARE_STRUCTURE_DESCRIPTION(Ellipsis);
-
 
 } // namespace Lisp
 } // namespace MLDB
