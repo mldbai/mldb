@@ -23,17 +23,6 @@ namespace Lisp {
 /* LISP VALUE                                                                  */
 /*******************************************************************************/
 
-struct Variable {
-    PathElement var;
-};
-
-struct FunctionHandle;
-
-struct Function {
-    Path fn;
-    std::shared_ptr<FunctionHandle> handle;
-};
-
 struct Symbol {
     PathElement sym;
 };
@@ -90,25 +79,10 @@ struct Value {
     Value(Context & context, bool b);
 
     Value(Context & context, Symbol sym);
-    Value(Context & context, Variable var);
-    Value(Context & context, Function fn);
     Value(Context & context, Wildcard);
     Value(Context & context, Ellipsis);
     Value(Context & context, List list);
     Value(Context & context, Null);
-
-#if 0
-    static Value list(PathElement type, std::vector<Value> args);
-    static Value var(PathElement name);
-    static Value str(Utf8String str);
-    static Value sym(PathElement name);
-    static Value boolean(bool val);
-    static Value i64(int64_t val);
-    static Value u64(uint64_t val);
-    static Value f64(double val);
-    static Value null();
-    static Value wildcard();
-#endif
 
     bool operator == (const Value & other) const;
     bool operator != (const Value & other) const = default;
@@ -120,7 +94,14 @@ struct Value {
     void addMetadata(Value md);
     Value getMetadata() const;
 
+    int getQuotes() const { return quotes_; }
+    void setQuotes(int q) { quotes_ = q; }
+    bool isQuoted() const { return quotes_ > 0; }
+    void unquote() { if (quotes_) quotes_ -= 1; }
+    Value unquoted() const { Value result(*this);  result.unquote(); return result; }
+
     Utf8String print() const;
+    Utf8String asString() const;
     static std::optional<Value> match(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, const Utf8String & str);
@@ -131,10 +112,12 @@ struct Value {
     static std::optional<Value>
     matchRecursive(Context & lcontext, ParseContext & pcontext,
                    const std::function<std::optional<Value>(Context &, ParseContext &)> & matchAtom,
+                   const std::function<std::optional<Value>(Context &, ParseContext &)> & matchMetadata,
                    const std::function<std::optional<Value>(Context &, ParseContext &)> & recurse);
     static Value
     parseRecursive(Context & lcontext, ParseContext & pcontext,
                    const std::function<Value(Context &, ParseContext &)> & parseAtom,
+                   const std::function<Value(Context &, ParseContext &)> & parseMetadata,
                    const std::function<Value(Context &, ParseContext &)> & recurse);
 
     // Verify that the context matches the expected, or throw an exception
@@ -154,12 +137,14 @@ struct Value {
     bool isUninitialized() const { return context_ == nullptr; }
 
     template<typename T> bool is() const { return value_.is<T>(); }
+    //template<typename T> T & as() { return value_.as<T>(); }
     template<typename T> const T & as() const { return value_.as<T>(); }
 
-    PathElement getVariableName() const { return as<Variable>().var; }
+    PathElement getSymbolName() const { return as<Symbol>().sym; }
 
 private:
     Context * context_ = nullptr;
+    int quotes_ = 0;   ///< Level to which the value is quoted
     Any value_;
     Any md_;
     friend class ValueDescription;

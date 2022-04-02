@@ -8,6 +8,7 @@
 #include "lisp_lib.h"
 #include "lisp_predicate.h"
 #include "lisp_visitor.h"
+#include "safe_clamp.h"
 #include <shared_mutex>
 #include <map>
 
@@ -120,19 +121,55 @@ recursePatterns(const std::vector<Pattern> & patterns,
     return recurse(visitor, applyPatterns(input));
 }
 
+double asDouble(const Value & v)
+{
+    LambdaVisitor visitor {
+        ExceptionOnUnknownReturning<double>("asDouble not defined for this value"),
+        [] (int64_t i)            { return i; },
+        [] (uint64_t i)           { return i; },
+        [] (double d)             { return d; },
+    };
+    return visit(visitor, v);
+}
+
+uint64_t asUInt(const Value & v)
+{
+    LambdaVisitor visitor {
+        ExceptionOnUnknownReturning<uint64_t>("asUInt not defined for this value"),
+        [] (int64_t i)            { if (i < 0) MLDB_THROW_LOGIC_ERROR();  return i; },
+        [] (uint64_t i)           { return i; },
+        [] (double d)             { return safe_clamp<uint64_t>(d); },
+    };
+    return visit(visitor, v);
+}
+
+int64_t asInt(const Value & v)
+{
+    LambdaVisitor visitor {
+        ExceptionOnUnknownReturning<uint64_t>("asInt not defined for this value"),
+        [] (int64_t i)            { return i; },
+        [] (uint64_t i)           { if (i > numeric_limits<int64_t>::max()) MLDB_THROW_LOGIC_ERROR(); return i; },
+        [] (double d)             { return safe_clamp<int64_t>(d); },
+    };
+    return visit(visitor, v);
+}
+
 DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
 {
     auto & context = scope.getContext();
     std::vector<Pattern> patterns {
-        Pattern::parse(context, "(+ x:i64) -> x"),
-        Pattern::parse(context, "(+ x:u64) -> x"),
-        Pattern::parse(context, "(+ x:i64 y:i64) -> (`addi64 x y)"),
-        Pattern::parse(context, "(+ x:i64 y:i64) -> (`addi64 x y)"),
-        Pattern::parse(context, "(+ x:i64 y:i64) -> (`addi64 x y)"),
-        Pattern::parse(context, "(+ x:i64 y:u64) -> (`addi64 x (`tosigned64 y))"),
-        Pattern::parse(context, "(+ x:u64 y:i64) -> (`addi64 (`tosigned64 x y))"),
-        Pattern::parse(context, "(+ x:u64 y:u64) -> (`addu64 x y)"),
-        Pattern::parse(context, "(+ x y rest...) -> (+ (+ x y) (+ rest...))"),
+        Pattern::parse(context, "(+ $x:i64) -> $x:i64"),
+        Pattern::parse(context, "(+ $x:u64) -> $x:u64"),
+        Pattern::parse(context, "(+ $x:i64 $y:i64) -> (`addi64 $x $y):i64"),
+        Pattern::parse(context, "(+ $x:i64 $y:i64) -> (`addi64 $x $y):i64"),
+        Pattern::parse(context, "(+ $x:i64 $y:i64) -> (`addi64 $x $y):i64"),
+        Pattern::parse(context, "(+ $x:i64 $y:u64) -> (`addi64 $x (`tosigned64 $y)):i64"),
+        Pattern::parse(context, "(+ $x:u64 $y:i64) -> (`addi64 (`tosigned64 $x) $y):i64"),
+        Pattern::parse(context, "(+ $x:u64 $y:u64) -> (`addu64 $x $y):u64"),
+        Pattern::parse(context, "(+ $x:str $y:str) -> (`concat $x $y):str"),
+        Pattern::parse(context, "(+ $x) -> $x"),
+        Pattern::parse(context, "(+ $x $y $z) -> (+ (+ $x $y) $z)"),
+        Pattern::parse(context, "(+ $x $y $z $rest...) -> (+ (+ $x $y) (+ $z $rest...))"),
     };
 
     auto source = Value{ context, expr };
@@ -157,24 +194,41 @@ DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
 
     Executor exec = [argExecutors] (ExecutionScope & scope) -> Value
     {
-        ExcAssert(&scope);
-        int64_t result = 0;
-        for (size_t i = 1;  i < argExecutors.size();  ++i) {
+        if (argExecutors.size() == 1)
+            return scope.getContext().null();
+
+        auto execN = [&] (size_t i)
+        {
             const auto & executor = argExecutors[i];
-            auto res = executor(scope);
-            //cerr << "i = " << i << " result = " << result << " res = " << res.print() << endl;
-            if (res.is<int64_t>()) {
-                result += res.as<int64_t>();
+            return executor(scope);
+        };
+
+        Value result = execN(1);
+
+        auto update = [&] (const Value & newValue)
+        {
+            if (result.is<Utf8String>() || newValue.is<Utf8String>()) {
+                result = { scope.getContext(), result.asString() + newValue.asString() };
             }
-            else if (res.as<uint64_t>()) {
-                result += res.as<uint64_t>();
+            else if (result.is<double>() || newValue.is<double>()) {
+                result = { scope.getContext(), asDouble(result) + asDouble(newValue) };
+            }
+            else if (result.is<int64_t>() || newValue.is<int64_t>()) {
+                result = { scope.getContext(), asInt(result) + asInt(newValue) };
+            }
+            else if (result.is<uint64_t>() || newValue.is<uint64_t>()) {
+                result = { scope.getContext(), asUInt(result) + asUInt(newValue) };
             }
             else {
-                MLDB_THROW_UNIMPLEMENTED();
+                MLDB_THROW_RUNTIME_ERROR("incompatible types for addition");
             }
+        };
+
+        for (size_t i = 2;  i < argExecutors.size();  ++i) {
+            update(execN(i));
         }
 
-        return Value(scope.getContext(), result);
+        return result;
     };
 
     return { std::move(exec), nullptr /* std::move(createScope) */ };

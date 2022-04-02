@@ -79,9 +79,9 @@ compile(const Value & program) const
             //};
 #endif
 
-            if (!list.empty() && list.front().is<Function>()) {
-                const Function & fn = list.front().as<Function>();
-                auto compiler = this->getFunctionCompiler(fn.fn);
+            if (!list.empty() && list.front().is<Symbol>()) {
+                const Symbol & sym = list.front().as<Symbol>();
+                auto compiler = this->getFunctionCompiler(sym.sym);
                 return compiler(list, *this);
             }
             else {
@@ -120,14 +120,14 @@ getFunctionCompiler(const Path & fn) const
 Value Context::call(PathElement head)
 {
     List l;
-    l.emplace_back(*this, Function{std::move(head), nullptr});
+    l.emplace_back(*this, Symbol{std::move(head)});
     return { *this, std::move(l) };
 }
 
 Value Context::call(PathElement head, std::vector<Value> vals)
 {
     List l;
-    l.emplace_back(*this, Function{std::move(head), nullptr});
+    l.emplace_back(*this, Symbol{std::move(head)});
     l.insert(l.end(), std::make_move_iterator(vals.begin()), std::make_move_iterator(vals.end()));
     return { *this, std::move(l) };
 }

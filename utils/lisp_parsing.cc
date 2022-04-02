@@ -45,6 +45,13 @@ match_rule_name(ParseContext & context)
     }
 }
 
+static bool isid(int c)
+{
+    return !(c == '(' || c == ')' || c == '\'' || c == '"' || c == ':'
+          || c == ';' || c == ',' || c == '['  || c == ']' || c == '{'
+          || c == '}' || c == '.' || isspace(c));
+}
+
 // Current character is included if include is true
 std::optional<PathElement>
 match_rest_of_name(ParseContext & context, bool includeFirst, ParseContext::Revert_Token * token)
@@ -61,7 +68,7 @@ match_rest_of_name(ParseContext & context, bool includeFirst, ParseContext::Reve
     while (context) {
         char c = *context;
         //cerr << "rest of name: next = " << *context << endl;
-        if (!isalpha(c) && c != '_' && (segment.empty() || !isnumber(c)))
+        if (!isid(c))
             break;
         segment += c;
         ++context;
@@ -94,11 +101,12 @@ match_symbol_name(ParseContext & context)
 {
     ParseContext::Revert_Token token(context);
     context.skip_whitespace();
-    if (!context || *context != '`')
+    if (!context)
         return nullopt;
-
-    //cerr << "Matching rest of symbol name" << endl;
-    return match_rest_of_name(context, false /* includeFirst */, &token);
+    char c = *context;
+    if (isdigit(c) || !isid(c))
+        return nullopt;
+    return match_rest_of_name(context, true, &token);
 }
 
 static constexpr std::array operators{'+', '-', '*', '/', '%'};

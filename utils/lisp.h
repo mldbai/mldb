@@ -79,7 +79,6 @@ struct CompilationScope {
 private:
     CompilationScope();
     CompilationScope(CompilationScope & parent);
-    std::shared_ptr<CompilationState> state;
     std::vector<PathElement> importedNamespaces = { "std" };
     Context * context_ = nullptr;
 };

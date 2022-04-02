@@ -17,6 +17,36 @@ using namespace std;
 namespace MLDB {
 namespace Lisp {
 
+namespace {
+
+static inline bool isEllipsis(const Value & v)
+{
+    if (v.is<Ellipsis>()) return true;
+    if (!v.is<List>()) return false;
+    auto & l = v.as<List>();
+    return !l.empty() && l[0].is<Ellipsis>();
+}
+
+static bool isVariable(const PathElement & el)
+{
+    return el.startsWith("$");
+}
+
+static bool isVariable(const Symbol & sym)
+{
+    return isVariable(sym.sym);
+}
+
+static bool isVariable(const Value & v)
+{
+    if (!v.is<Symbol>())
+        return false;
+    if (v.isQuoted())
+        return false;
+    return isVariable(v.as<Symbol>());
+}
+
+} // file scope
 
 /*******************************************************************************/
 /* LISP PREDICATE                                                              */
@@ -36,17 +66,10 @@ matchPredicateAtom(Context & lcontext, ParseContext & pcontext)
 optional<Value>
 matchPredicateRecurse(Context & lcontext, ParseContext & pcontext)
 {
-    auto m = Lisp::match_recursive(lcontext, pcontext, matchPredicateAtom, matchPredicateRecurse);
+    auto m = Lisp::match_recursive(lcontext, pcontext, matchPredicateAtom, Value::match, matchPredicateRecurse);
     if (!m)
         return m;
     Value result = std::move(*m);
-
-    if (pcontext.match_literal(':')) {
-        auto md = Value::parse(lcontext, pcontext);
-        if (md.hasMetadata())
-            pcontext.exception("Metadata can't have metadata");
-        result.addMetadata(std::move(md));
-    }
 
     if (pcontext.match_literal("...")) {
         // ellipsis as a suffix means repeated
@@ -111,7 +134,7 @@ match(const Value & input) const
 
     list.reserve(2 * vars.size());
     for (auto & [k,v]: vars) {
-        list.emplace_back(Value{context, Variable{k}});
+        list.emplace_back(Value{context, Symbol{k}});
         list.emplace_back(std::move(v));
     }
     return context.call("matched", list);
@@ -129,24 +152,116 @@ void applyUndoList(UnifiedValues & vars, UndoList & undos)
     }
 }
 
-static inline bool isEllipsis(const Value & v)
+void mergeUndos(UndoList & allUndos, UndoList & undos)
 {
-    if (v.is<Ellipsis>()) return true;
-    if (!v.is<List>()) return false;
-    auto & l = v.as<List>();
-    return !l.empty() && l[0].is<Ellipsis>();
+    allUndos.insert(allUndos.end(),
+                    make_move_iterator(undos.begin()), make_move_iterator(undos.end()));
 }
 
-bool matchesMd(Value input, Value source)
+Value inferType(const Value & input)
+{
+    if (input.hasMetadata()) {
+        return input.getMetadata();
+    }
+
+    auto make = [&] (const char * tp) -> Value
+    {
+        return { input.getContext(), Symbol { tp } };
+    };
+
+    LambdaVisitor visitor {
+        [&] (const Value & val) -> Value  // default case
+        { 
+            MLDB_THROW_UNIMPLEMENTED(("don't know how to test metadata " + val.print()).c_str());
+        },
+        [&] (const Symbol & sym) { return make("any"); },
+        [&] (int64_t i)  { return make("i64"); },
+        [&] (uint64_t i) { return make("u64"); },
+        [&] (double d)   { return make("f64"); },
+        [&] (bool b)     { return make("bool"); },
+        [&] (Null)       { return make("nil"); },
+        [&] (Utf8String) { return make("str"); },
+        [&] (const List & list) { return make("list"); },
+    };
+    
+    return visit(visitor, input);
+}
+
+bool matchesMd(const Value & input, const Value & source)
 {
     if (!source.hasMetadata())
         return true;
 
     const Value & md = source.getMetadata();
+    
+    auto tp = inferType(input);
 
-    cerr << "testing if " << input << " matches md " << jsonEncodeStr(md) << endl;
+    cerr << "testing if inferred " << tp << " matches md " << md << endl;
 
-    return true;
+    LambdaVisitor visitor {
+        [&] (const Value & val) -> bool  // default case
+        { 
+            MLDB_THROW_UNIMPLEMENTED(("don't know how to test metadata " + val.print()).c_str());
+        },
+        [&] (const Symbol & sym) -> bool
+        {
+            return tp.as<Symbol>().sym == sym.sym;
+        },
+    };
+
+    return visit(visitor, source.getMetadata());
+}
+
+// Called when we have an ellipsis which matches zero values.  We need to put empty
+// matches into the ununified variables.
+bool unifyEllipsisNoMatches(Context & lcontext,
+                            UnifiedValues & vars, UndoList & undos, const Value & source,
+                            int ellipsisLevel)
+{
+    //cerr << "unifyEllipsisNoMatches " << source << " level " << ellipsisLevel << endl;
+
+    if (source.isQuoted())
+        return true;
+
+    LambdaVisitor visitor {
+        [&] (const Value & val) -> bool
+        { 
+            //cerr << "ellipsis unify: default case " << val << endl;
+            return true;
+        },  // Default: return true
+        [&] (const Value & val, const List & list) -> bool
+        {
+            //cerr << "ellipsis unify: list " << val << endl;
+            // List: unify elements
+            bool ell = isEllipsis(val);
+            UndoList myUndos;
+            for (auto & child: list) {
+                if (!unifyEllipsisNoMatches(lcontext, vars, myUndos, child, ellipsisLevel + ell)) {
+                    applyUndoList(vars, myUndos);
+                    return false;
+                }
+            }
+            mergeUndos(undos, myUndos);
+            return true;
+        },
+        [&] (const Value & val, const Symbol & sym) -> bool
+        {
+            //cerr << "ellipsis unify: sym " << source << endl;
+            if (!isVariable(source))
+                return true;
+            auto var = sym.sym;
+            auto it = vars.find(var);
+            if (it != vars.end()) {
+                MLDB_THROW_UNIMPLEMENTED("found var");
+            }
+            else {
+                vars[var] = lcontext.make_list();
+            }
+            return true;
+        }
+    };            
+
+    return visit(visitor, source);
 }
 
 std::optional<UndoList>
@@ -164,8 +279,7 @@ matchImpl(UnifiedValues & vars,
 
     auto addUndos = [&] (UndoList & undos)
     {
-        allUndos.insert(allUndos.end(),
-                        make_move_iterator(undos.begin()), make_move_iterator(undos.end()));
+        mergeUndos(allUndos, undos);
     };
 
     auto match = [&] () -> std::optional<UndoList>
@@ -227,7 +341,7 @@ matchImpl(UnifiedValues & vars,
 
             bool inEllipsis = nSrc == sourceList.size() - 1 && hasEllipsis;
 
-            auto res = matchImpl(vars, valueList[nInput], sourceList[nSrc], inEllipsis);
+            auto res = matchImpl(vars, valueList[nInput], sourceList[nSrc], appendVars || inEllipsis);
 
             //cerr << " res = " << (bool)res << endl;
 
@@ -254,13 +368,17 @@ matchImpl(UnifiedValues & vars,
 
         if (unify(0, 0)) {
             if (hasEllipsis && !doneEllipsis && sourceList.back().is<List>()) {
+                UndoList undos;
+                if (unifyEllipsisNoMatches(input.getContext(), vars, undos, sourceList.back(), 0 /* ellipsis count */))
+                    addUndos(undos);
+#if 0
                 auto & ell = sourceList.back().as<List>();
                 for (size_t i = 1;  i < ell.size();  ++i) {
                     auto undos = matchImpl(vars, context.make_list(), ell[i], false /* append */);
                     if (!undos)
-                        MLDB_THROW_LOGIC_ERROR("unify with empty list shouldn't fail (I think)...");
                     addUndos(*undos);
                 }
+#endif
             }
             return std::move(allUndos);
         }
@@ -271,18 +389,18 @@ matchImpl(UnifiedValues & vars,
     else if (source.is<Wildcard>()) {
         return match();
     }
-    else if (source.is<Variable>()) {
-        auto & var = source.as<Variable>();
+    else if (isVariable(source)) {
+        auto var = source.as<Symbol>().sym;
 
-        //cerr << "unify variable: var = " << var.var << " input = " << input << endl;
-        auto it = vars.find(var.var);
+        //cerr << "unify variable: var = " << var << " input = " << input << endl;
+        auto it = vars.find(var);
         if (it == vars.end()) {
             UnifiedValues::iterator it;
             if (appendVars) {
-                it = vars.emplace(var.var, context.make_list(input)).first;
+                it = vars.emplace(var, context.make_list(input)).first;
             }
             else {
-                it = vars.emplace(var.var, input).first;
+                it = vars.emplace(var, input).first;
             }
             allUndos.emplace_back(std::move(it), std::nullopt);
             return match();
@@ -335,17 +453,6 @@ matchSubstitutionAtom(Context & lcontext, ParseContext & pcontext)
         result = std::move(*valAtom);
     else return nullopt;
 
-    if (pcontext.match_literal(':')) {
-        // metadata
-        auto mdo = Value::match(lcontext, pcontext);
-        if (!mdo)
-            pcontext.exception("expected metadata after a ':'");
-        else if (mdo->hasMetadata())
-            pcontext.exception("metadata can't have metadata");
-        else {
-            result.addMetadata(std::move(*mdo));
-        }
-    }
     if (pcontext.match_literal("...")) {
         // ellipsis as a suffix means repeated
         result = lcontext.make_list(Ellipsis{}, std::move(result));
@@ -357,7 +464,8 @@ matchSubstitutionAtom(Context & lcontext, ParseContext & pcontext)
 optional<Value>
 matchSubstitutionRecurse(Context & lcontext, ParseContext & pcontext)
 {
-    return Lisp::match_recursive(lcontext, pcontext, matchSubstitutionAtom, matchSubstitutionRecurse);
+    return Lisp::match_recursive(lcontext, pcontext,
+                                 matchSubstitutionAtom, Value::match, matchSubstitutionRecurse);
 }
 
 optional<Substitution>
@@ -410,9 +518,11 @@ subst(Value matched) const
         throw MLDB::Exception("Error applying substitution: not a match: " + matched.print());
     }
 
+    //cerr << "substituting matched values " << matched << endl;
+
     UnifiedValues vals;
     for (size_t i = 1;  i < list.size();  i += 2) {
-        auto var = list.at(i).getVariableName();
+        auto var = list.at(i).getSymbolName();
         auto & val = list.at(i + 1);
         vals.emplace(std::move(var), std::move(val));
     }
@@ -425,37 +535,48 @@ Substitution::
 substImpl(Context & context, const Value & source, const UnifiedValues & vals)
 {
     RecursiveLambdaVisitor visitor {
-        [&] (const Variable & var)
+        [&] (const Value & val, const Symbol & sym) -> Value
         {
-            auto it = vals.find(var.var);
-            if (it == vals.end()) {
-                throw MLDB::Exception("Substituting unset variable " + var.var.toUtf8String());
+            //cerr << "substituting symbol " << val << endl;
+            if (isVariable(val)) {
+                auto it = vals.find(sym.sym);
+                if (it == vals.end()) {
+                    throw MLDB::Exception("Substituting unset variable " + sym.sym.toUtf8String());
+                }
+                return it->second;
             }
-            return it->second;
+            else return val.unquoted();
         },
-        [&] (const List & list) -> Value  // expand ellipsis
+        [&] (const Value & val, const List & list) -> Value  // expand ellipsis
         {
+            //cerr << "substituting list" << endl;
+            if (val.isQuoted())
+                return val.unquoted();
+            
             //cerr << "handling " << Value{context, list}.print() << endl;
-            List result;
+            List listOut;
             for (auto & val: list) {
                 if (val.is<List>() && isEllipsis(val)) {
                     auto & l = val.as<List>();
                     for (size_t i = 1;  i < l.size();  ++i) {
                         auto & li = l[i].as<List>();
                         //cerr << "i = " << i << " li = " << l[i] << endl;
-                        result.insert(result.end(),
-                                      make_move_iterator(li.begin()),
-                                      make_move_iterator(li.end()));
+                        listOut.insert(listOut.end(),
+                                       make_move_iterator(li.begin()),
+                                       make_move_iterator(li.end()));
                     }
                 }
                 else {
-                    result.emplace_back(val);
+                    listOut.emplace_back(val);
                 }
             }
             
             //cerr << "  returning " << Value{context, result}.print() << endl;
 
-            return { context, std::move(result) };
+            Value result { context, std::move(listOut) };
+            if (source.hasMetadata())
+                result.addMetadata(source.getMetadata());
+            return result;
         }
     };
 
