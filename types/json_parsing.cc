@@ -775,6 +775,130 @@ JsonNumber expectJsonNumber(ParseContext & context)
     return result;
 }
 
+bool matchJsonNumber(ParseContext & context, JsonNumber & result)
+{
+    result = JsonNumber();
+    ParseContext::Revert_Token token(context);
+
+    std::string number;
+    number.reserve(32);
+
+    bool negative = false;
+    bool doublePrecision = false;
+
+    if (context.match_literal('-')) {
+        number += '-';
+        negative = true;
+    }
+
+    // EXTENSION: accept NaN and positive or negative infinity
+    if (context.match_literal('N')) {
+        if (!context.match_literal("aN"))
+            return false;
+        result.fp = negative ? -NAN : NAN;
+        result.type = JsonNumber::FLOATING_POINT;
+        token.ignore();
+        return true;
+    }
+    else if (context.match_literal('n')) {
+        if (!context.match_literal("an"))
+            return false;
+        result.fp = negative ? -NAN : NAN;
+        result.type = JsonNumber::FLOATING_POINT;
+        token.ignore();
+        return true;
+    }
+    else if (context.match_literal('I') || context.match_literal('i')) {
+        if (!context.match_literal("nf"))
+            return false;
+        result.fp = negative ? -INFINITY : INFINITY;
+        result.type = JsonNumber::FLOATING_POINT;
+        token.ignore();
+        return true;
+    }
+
+    while (context && isdigit(*context)) {
+        number += *context++;
+    }
+
+    if (context.match_literal('.')) {
+        doublePrecision = true;
+        number += '.';
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+    }
+
+    char sci = context ? *context : '\0';
+    if (sci == 'e' || sci == 'E') {
+        if (number.empty() || (number.size() == 1 && number[0] == '.')) {
+            context.exception("Expected number before exponential");
+        }
+        doublePrecision = true;
+        if (!context)
+            return false;
+        if (!context)
+            return false;
+        number += *context++;
+
+        char sign = context ? *context : '\0';
+        if (sign == '+' || sign == '-') {
+            if (!context)
+                return false;
+            number += *context++;
+        }
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+    }
+
+    auto parseAsDouble = [&] () -> bool
+        {
+            char * endptr = 0;
+            errno = 0;
+            result.fp = strtod(number.c_str(), &endptr);
+            if ((errno && errno != ERANGE) || endptr != number.c_str() + number.length())
+                return false;
+            result.type = JsonNumber::FLOATING_POINT;
+            token.ignore();
+            return true;
+        };
+
+    if (number.empty())
+        return false;
+
+    if (doublePrecision) {
+        return parseAsDouble();
+    } else if (negative) {
+        char * endptr = 0;
+        errno = 0;
+        result.sgn = strtoll(number.c_str(), &endptr, 10);
+        if (errno == ERANGE && endptr == number.c_str() + number.length()) {
+            return parseAsDouble();
+        }
+        else if (errno || endptr != number.c_str() + number.length()) {
+            return false;
+        }
+        result.type = JsonNumber::SIGNED_INT;
+    } else {
+        char * endptr = 0;
+        errno = 0;
+        result.uns = strtoull(number.c_str(), &endptr, 10);
+        if (errno == ERANGE && endptr == number.c_str() + number.length()) {
+            return parseAsDouble();
+        }
+        else if (errno || endptr != number.c_str() + number.length())
+            return false;
+        result.type = JsonNumber::UNSIGNED_INT;
+    }
+
+    token.ignore();
+    return true;
+}
+
+#if 0
 /** Match a JSON number. */
 bool matchJsonNumber(ParseContext & context, JsonNumber & num)
 {
@@ -790,7 +914,7 @@ bool matchJsonNumber(ParseContext & context, JsonNumber & num)
         return false;
     }
 }
-
+#endif
 
 /*****************************************************************************/
 /* JSON PATH ENTRY                                                           */
