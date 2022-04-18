@@ -18,6 +18,7 @@
 #include <unicode/unistr.h>
 #include <clocale>
 #include "mldb/base/parse_context.h"
+#include <cstdarg>
 
 using namespace std;
 
@@ -27,6 +28,11 @@ namespace MLDB {
 /*****************************************************************************/
 /* EXCEPTION UTF8STRING CONSTRUCTOR                                          */
 /*****************************************************************************/
+
+/** We want to be able to throw Utf8Strings in the exceptions, but the exception
+ *  classes are implemented in the base libraries where the Utf8String is not
+ *  available.  So we implement those methods here.
+ */
 
 Exception::Exception(const Utf8String & str)
     : Exception(str.rawString())
@@ -44,6 +50,19 @@ exception(const Utf8String & message) const
 {
     throw Exception(where() + ": " + message, filename_, line_, col_);
 }
+
+namespace {
+thread_local std::va_list exception_args;
+} /* file scope */
+
+#define MLDB_IMPLEMENT_EXCEPTION_CLASS_UTF8(Name) \
+void throw##Name(const char * function, const char * file, int line, const Utf8String msg, ...) \
+{                                                                                   \
+    throw Name(format(#Name ": %s at %s:%d : ", function, file, line)               \
+                        + ((va_start(exception_args, msg), format(msg.c_str(), exception_args)))); \
+}                                                                                   \
+
+MLDB_FOR_EACH_EXCEPTION_CLASS(MLDB_IMPLEMENT_EXCEPTION_CLASS_UTF8)
 
 
 /*****************************************************************************/

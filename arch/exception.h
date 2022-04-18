@@ -61,6 +61,15 @@ struct AssertionFailure: public Exception {
                       int line);
 };
 
+// Apply the macro to all of the exception classes; if we want another one,
+// we add it to this list
+#define MLDB_FOR_EACH_EXCEPTION_CLASS(macro) \
+    macro(UnimplementedException) \
+    macro(RuntimeError) \
+    macro(LogicError) \
+    macro(BadAlloc) \
+    macro(RangeError) \
+
 #define MLDB_DEFINE_EXCEPTION_CLASS(Name)   \
 struct Name: public Exception {             \
     Name(const std::string & message);      \
@@ -79,15 +88,11 @@ struct Name: public Exception {             \
          ...);                              \
 };                                          \
 [[noreturn]] void throw##Name(const char * function, const char * file, int line, const char * msg = nullptr, ...); \
-[[noreturn]] void throw##Name(const char * function, const char * file, int line, const std::string msg, ...);
+[[noreturn]] void throw##Name(const char * function, const char * file, int line, const std::string msg, ...); \
+[[noreturn]] void throw##Name(const char * function, const char * file, int line, const Utf8String msg, ...);
 [[noreturn]] void throwUnimplementedException(const std::type_info & thisType, const char * function, const char * file, int line, const std::string msg, ...);
 
-
-MLDB_DEFINE_EXCEPTION_CLASS(UnimplementedException);
-MLDB_DEFINE_EXCEPTION_CLASS(RuntimeError);
-MLDB_DEFINE_EXCEPTION_CLASS(LogicError);
-MLDB_DEFINE_EXCEPTION_CLASS(BadAlloc);
-MLDB_DEFINE_EXCEPTION_CLASS(RangeError);
+MLDB_FOR_EACH_EXCEPTION_CLASS(MLDB_DEFINE_EXCEPTION_CLASS)
 
 #define MLDB_THROW_UNIMPLEMENTED(...) do { throwUnimplementedException(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
 #define MLDB_THROW_UNIMPLEMENTED_ON_THIS(...) do { throwUnimplementedException(typeid(*this), __PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)

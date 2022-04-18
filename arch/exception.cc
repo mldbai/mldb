@@ -133,7 +133,6 @@ namespace {
 thread_local std::va_list exception_args;
 } /* file scope */
 
-
 #define MLDB_IMPLEMENT_EXCEPTION_CLASS(Name)                                        \
 Name::                                                                              \
 Name(const char * function,                                                         \
@@ -188,12 +187,9 @@ void throw##Name(const char * function, const char * file, int line, const std::
     throw Name(format(#Name ": %s at %s:%d : ", function, file, line)               \
                         + ((va_start(exception_args, msg), format(msg.c_str(), exception_args)))); \
 }                                                                                   \
+                                                                                    \
 
-MLDB_IMPLEMENT_EXCEPTION_CLASS(UnimplementedException);
-MLDB_IMPLEMENT_EXCEPTION_CLASS(RuntimeError);
-MLDB_IMPLEMENT_EXCEPTION_CLASS(LogicError);
-MLDB_IMPLEMENT_EXCEPTION_CLASS(RangeError);
-MLDB_IMPLEMENT_EXCEPTION_CLASS(BadAlloc);
+MLDB_FOR_EACH_EXCEPTION_CLASS(MLDB_IMPLEMENT_EXCEPTION_CLASS)
 
 void throwUnimplementedException(const std::type_info & thisType, const char * function, const char * file, int line, const std::string msg, ...)
 {
