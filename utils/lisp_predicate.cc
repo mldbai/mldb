@@ -73,7 +73,7 @@ matchPredicateRecurse(Context & lcontext, ParseContext & pcontext)
 
     if (pcontext.match_literal("...")) {
         // ellipsis as a suffix means repeated
-        result = lcontext.make_list(Ellipsis{}, std::move(result));
+        result = lcontext.list(Ellipsis{}, std::move(result));
     }
 
     return result;
@@ -192,11 +192,11 @@ bool matchesMd(const Value & input, const Value & source)
     if (!source.hasMetadata())
         return true;
 
-    const Value & md = source.getMetadata();
+    //const Value & md = source.getMetadata();
     
     auto tp = inferType(input);
 
-    cerr << "testing if inferred " << tp << " matches md " << md << endl;
+    //cerr << "testing if inferred " << tp << " matches md " << md << endl;
 
     LambdaVisitor visitor {
         [&] (const Value & val) -> bool  // default case
@@ -246,16 +246,17 @@ bool unifyEllipsisNoMatches(Context & lcontext,
         },
         [&] (const Value & val, const Symbol & sym) -> bool
         {
-            //cerr << "ellipsis unify: sym " << source << endl;
+            cerr << "ellipsis unify: sym " << val << endl;
             if (!isVariable(source))
                 return true;
             auto var = sym.sym;
             auto it = vars.find(var);
             if (it != vars.end()) {
+                cerr << "var value is " << it->second << endl;
                 MLDB_THROW_UNIMPLEMENTED("found var");
             }
             else {
-                vars[var] = lcontext.make_list();
+                vars[var] = lcontext.list();
             }
             return true;
         }
@@ -374,7 +375,7 @@ matchImpl(UnifiedValues & vars,
 #if 0
                 auto & ell = sourceList.back().as<List>();
                 for (size_t i = 1;  i < ell.size();  ++i) {
-                    auto undos = matchImpl(vars, context.make_list(), ell[i], false /* append */);
+                    auto undos = matchImpl(vars, context.list(), ell[i], false /* append */);
                     if (!undos)
                     addUndos(*undos);
                 }
@@ -397,7 +398,7 @@ matchImpl(UnifiedValues & vars,
         if (it == vars.end()) {
             UnifiedValues::iterator it;
             if (appendVars) {
-                it = vars.emplace(var, context.make_list(input)).first;
+                it = vars.emplace(var, context.list(input)).first;
             }
             else {
                 it = vars.emplace(var, input).first;
@@ -455,7 +456,7 @@ matchSubstitutionAtom(Context & lcontext, ParseContext & pcontext)
 
     if (pcontext.match_literal("...")) {
         // ellipsis as a suffix means repeated
-        result = lcontext.make_list(Ellipsis{}, std::move(result));
+        result = lcontext.list(Ellipsis{}, std::move(result));
     }
 
     return std::move(result);

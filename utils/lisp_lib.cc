@@ -180,7 +180,7 @@ DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
     std::vector<Executor> argExecutors;
 
     for (auto & item: expr) {
-        auto [itemExecutor, createItemScope] = scope.compile(item);
+        auto [name, itemExecutor, createItemScope, itemContext] = scope.compile(item);
         scopeCreators.emplace_back(std::move(createItemScope));
         argExecutors.emplace_back(std::move(itemExecutor));
     }
@@ -231,12 +231,129 @@ DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
         return result;
     };
 
-    return { std::move(exec), nullptr /* std::move(createScope) */ };
+    return { "plus", std::move(exec), nullptr /* std::move(createScope) */, &context };
 }
 
-//DEFINE_LISP_RULE("(+ v)", "v");
-//DEFINE_LISP_RULE("(+ (~rep* (v:i64)))", "(reduce.i64 + V)");
+Value returnNil(ExecutionScope & scope)
+{
+    return scope.getContext().list();
+}
 
+// (let (binding...) form...)
+DEFINE_LISP_FUNCTION_COMPILER(let, std, "let")
+{
+    auto & context = scope.getContext();
+    auto source = Value{ context, expr };
+
+    std::vector<CreateExecutionScope> scopeCreators;
+    std::vector<Executor> argExecutors;
+
+    // Empty let does nothing and returns nil
+    if (expr.empty()) {
+        return { "let", returnNil, nullptr, &context };
+    }
+
+    std::vector<std::pair<PathElement, CompiledExpression>> locals;
+
+    auto visitBind = [&] (const Value & val)
+    {
+        cerr << "doing binding " << val << endl;
+        PathElement name;
+        CompiledExpression value;
+
+        LambdaVisitor visitor {
+            ExceptionOnUnknownReturning<bool>("Cannot bind this value in let"),
+            [&] (const List & l)       
+            {
+                switch (l.size()) {
+                case 0:                 return false;
+                case 2:                 value = scope.compile(l[1]);  // fall through
+                case 1:                 name = l[0].as<Symbol>().sym;  return true;
+                default:                scope.exception("a binding; list should have 0-2 elements");
+                }
+            },
+            [&] (const Symbol & s)     { name = s.sym; return true; },
+        };
+        if (!visit(visitor, val))
+            return;
+
+        locals.emplace_back(std::move(name), std::move(value));
+    };
+
+    cerr << "binding let expression" << source << endl;
+    for (auto & b: expr[1].expect<List>("Expected list of bindings for second argument to let"))
+        visitBind(b);
+
+    cerr << "locals.size() = " << locals.size() << endl;
+
+    // The rest are the forms in which we evaluate it
+    for (size_t i = 2;  i < expr.size();  ++i) {
+        const Value & item = expr[i];
+        auto [name, itemExecutor, createItemScope, itemContext] = scope.compile(item);
+        scopeCreators.emplace_back(std::move(createItemScope));
+        argExecutors.emplace_back(std::move(itemExecutor));
+    }
+
+    auto [innerScope, innerScopeCreator] = scope.enterScopeWithLocals(std::move(locals));
+
+    CreateExecutionScope createScope
+        = [innerScopeCreator=innerScopeCreator, scopeCreators]
+          (ExecutionScope & outerScope, List args) -> std::shared_ptr<ExecutionScope>
+    {
+        // TODO: we need to call the scope creators...
+        return innerScopeCreator(outerScope, std::move(args));
+    };
+
+    Executor exec = [argExecutors, scopeCreators] (ExecutionScope & scope) -> Value
+    {
+        Value result = scope.getContext().list();
+        
+        for (size_t i = 0;  i < argExecutors.size();  ++i) {
+            result = argExecutors[i](scope);
+        }
+
+        return result;
+    };
+
+    return { "let", std::move(exec), std::move(createScope), &context };
+}
+
+// (setq var1 val1 var2 val2 ...)
+DEFINE_LISP_FUNCTION_COMPILER(setq, std, "setq")
+{
+    auto & context = scope.getContext();
+    auto source = Value{ context, expr };
+
+    std::vector<std::tuple<VariableWriter, CompiledExpression>> todos;
+
+    for (size_t i = 1;  i < expr.size();  i += 2) {
+        LambdaVisitor nameVisitor {
+            ExceptionOnUnknownReturning<PathElement>("Not implemented: evaluate symbol name"),
+            [&] (const Symbol & sym) -> PathElement { return sym.sym; },
+            // TODO: calculted symbol names?
+        };
+
+        PathElement varName = visit(nameVisitor, expr[i]);
+        VariableWriter setter = scope.getVariableWriter(varName);
+        CompiledExpression varVal = scope.compile(expr.at(i + 1));
+
+        todos.emplace_back(std::move(setter), std::move(varVal));
+    }
+
+    CreateExecutionScope createScope = nullptr;
+    
+    Executor exec = [todos] (ExecutionScope & scope) -> Value
+    {
+        Value result = scope.getContext().list();
+        for (auto & [writer, calcValue]: todos) {
+            writer(scope, result = calcValue(scope));            
+        }
+
+        return result;
+    };
+
+    return { "setq", std::move(exec), std::move(createScope), &context };
+}
 
 } // namespace Lisp
 } // namespace MLDB

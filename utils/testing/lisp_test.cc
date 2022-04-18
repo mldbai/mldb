@@ -11,6 +11,7 @@
 #include "mldb/utils/lisp.h"
 #include "mldb/utils/lisp_predicate.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/types/any_impl.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -81,33 +82,74 @@ TEST_CASE("test-lisp-parsing", "[none]")
 
 TEST_CASE("test-lisp-compilation", "[none]")
 {
-    auto runTest = [] (const std::string & expr, const std::string & input, const std::string & expectedOut)
+    auto runTest = [] (const std::string & expr, const std::string & expectedOut)
     {
-        SECTION(expr + " " + input + " --> " + expectedOut) {
+        SECTION(expr + " --> " + expectedOut) {
             Context lcontext;
             auto e = Value::parse(lcontext, expr);
-            auto i = Value::parse(lcontext, input);
             auto x = Value::parse(lcontext, expectedOut);
 
             CompilationScope cscope(lcontext);
-            auto [executor, createXScope] = cscope.compile(e);
+            auto [name, executor, createXScope, xcontext] = cscope.compile(e);
 
             auto outer = std::make_shared<ExecutionScope>(lcontext);
-            std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(*outer) : outer;
+            std::shared_ptr<ExecutionScope> xscope
+                = createXScope ? createXScope(*outer, List()) : outer;
             auto out = executor(*xscope);
 
             CHECK(out == x);
 
             testParsingPrinting(e);
+            testParsingPrinting(x);
+        }
+    };
+
+    runTest("(+ 1 2)", "3");
+    runTest("'(+ 1 2)", "(+ 1 2)");
+    runTest("(+ 1 -1)", "0");
+    runTest("(+ 1 2 -1 -2)", "0");
+    runTest("(+ \"hello\" \" \" \"world!\")", "\"hello world!\"");
+}
+
+TEST_CASE("test-lisp-evaluation", "[none]")
+{
+    auto runTest = [] (const std::string & expr, const std::string & input, const std::string & expectedOut)
+    {
+        SECTION(expr + " " + input + " --> " + expectedOut) {
+            cerr << "running test " << expr << endl;
+            Context lcontext;
+            ParseContext pcontext(expr, expr.data(), expr.size());
+            CompilationScope cscope(lcontext);
+            while (auto v = Value::match(lcontext, pcontext)) {
+                testParsingPrinting(*v);
+                cscope.consult(std::move(*v));
+            }
+
+            auto i = Value::parse(lcontext, input);
+            auto x = Value::parse(lcontext, expectedOut);
+
+            cerr << "compiling " << i << endl;
+
+            auto [name, executor, createXScope, xcontext] = cscope.compile(i);
+
+            auto outer = std::make_shared<ExecutionScope>(lcontext);
+            cerr << "creating scope; createXScope = " << (bool)createXScope << endl;
+            std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(*outer, List()) : outer;
+            cerr << "executing" << endl;
+            auto out = executor(*xscope);
+
+            CHECK(out == x);
+
             testParsingPrinting(i);
             testParsingPrinting(x);
         }
     };
 
-    runTest("(+ 1 2)", "()", "3");
-    runTest("(+ 1 -1)", "()", "0");
-    runTest("(+ 1 2 -1 -2)", "()", "0");
-    runTest("(+ \"hello\" \" \" \"world!\")", "()", "\"hello world!\"");
+    runTest("", "(+ 1 1)", "2");
+    runTest("", "(let ((a 3)) (+ a a a))", "9");
+    runTest("(defun dbl (x) (+ x x))", "(dbl 2)", "4");
+    runTest("(set 'z 1)", "z", "1");
+    runTest("(set 'z 1)(defun next () (setq z (+ z 1)) z)", "((next) (next) (next))", "(2 3 4)");
 }
 
 TEST_CASE("test-lisp-predicates-parsing", "[none]")
@@ -159,6 +201,8 @@ TEST_CASE("test-lisp-predicates", "[none]")
     runTest("(+ (- $x $y)...)", "(+)", "(matched $x () $y ())");
     runTest("(+ (- $x $y)...)", "(+ (- 1 2))", "(matched $x (1) $y (2))");
     runTest("(+ (- $x $y)...)", "(+ (- 1 2) (- 3 4)))", "(matched $x (1 3) $y (2 4))");
+    // TODO
+    //runTest("(($x...)...)", "((0 1 2) (3 4 5) (6 7) (8) ())", "(matched $x ((0 1 2) (3 4 5) (6 7) (8) ()))");
 }
 
 TEST_CASE("test-lisp-substitutions", "[none]")

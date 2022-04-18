@@ -91,7 +91,7 @@ struct ExceptionOnUnknownReturning {
     using return_type = Result;
     Result unknown(const Value & val) const
     {
-        MLDB_THROW_LOGIC_ERROR(msg);
+        MLDB_THROW_LOGIC_ERROR(val.getErrorMessageString(msg));
     }
     ExceptionOnUnknownReturning(const char * msg) : msg(msg) {}
     const char * msg;
@@ -129,6 +129,7 @@ auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>
     LISP_TRY_VISIT(double);
     LISP_TRY_VISIT(bool);
     LISP_TRY_VISIT(Utf8String);
+    LISP_TRY_VISIT(Function);
 #undef LISP_TRY_VISIT
     return visitor.unknown(value);    
 }

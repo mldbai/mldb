@@ -35,6 +35,25 @@ functionName() const
     return front().as<Symbol>().sym;
 }
 
+PathElement
+List::
+simpleFunctionName() const
+{
+    return functionName().toSimpleName();
+}
+
+Function::
+Function(PathElement name, CompiledExpression expr)
+    : Function(std::move(name), std::make_shared<CompiledExpression>(std::move(expr)))
+{
+}
+
+Function::
+Function(PathElement name, std::shared_ptr<const CompiledExpression> compiled)
+    : Symbol({name}), compiled(std::move(compiled))
+{
+}
+
 Value::
 Value()
 {
@@ -156,6 +175,20 @@ Value(Context & context, Null)
 {
 }
 
+Value::
+Value(Context & context, Function fn)
+    : context_(&context), value_(std::move(fn))
+{
+}
+
+#if 0
+Value::
+Value(Context & context, Type t)
+    : context_(&context), value_(std::move(t))
+{
+}
+#endif
+
 bool
 Value::
 operator == (const Value & other) const
@@ -204,6 +237,11 @@ DEFINE_STRUCTURE_DESCRIPTION_INLINE(Symbol)
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(Null)
 {
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(Function)
+{
+    addParent<Symbol>();
 }
 
 namespace {
@@ -499,10 +537,19 @@ asString() const
         [] (Wildcard)             { return "_"; },
         [] (Ellipsis)             { return "..."; },
         [] (const Symbol& s)      { return s.sym.toUtf8String(); },
+        [] (const Function& f)    { return f.sym; },
         [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::asString), "(", " ", ")"); }
     };
 
     return visit(visitor, *this);
+}
+
+Utf8String
+Value::
+getErrorMessageString(const char * msg) const
+{
+    // TODO: don't print the whole thing if it's too long
+    return Utf8String(msg) + " (value is " + print() + " of type " + demangle(value_.type()) + ")";
 }
 
 optional<Value>
@@ -647,6 +694,29 @@ getMetadata() const
         return getContext().null();
     else
         return md_.as<Value>();
+}
+
+void
+Value::
+throwUnexpectedValueTypeException(const char * msg, const std::type_info & found) const
+{
+    throw MLDB::Exception(Utf8String(msg) + " (on converting value " + print() + " to type " + demangle(found) + ")");
+}
+
+Value
+Value::
+toContext(Context & otherContext) const
+{
+    if (&otherContext != context_)
+        MLDB_THROW_UNIMPLEMENTED("toContext switch contexts");
+    return *this;
+}
+
+PathElement
+Value::
+getSymbolName() const
+{
+    return as<Symbol>().sym;
 }
 
 } // namespace Lisp

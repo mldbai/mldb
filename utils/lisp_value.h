@@ -39,6 +39,7 @@ struct Ellipsis {
 struct List: public std::vector<Value> {
     using std::vector<Value>::vector;
     Path functionName() const;
+    PathElement simpleFunctionName() const;
 
     template<typename T, typename UpdateFn, typename FoldFn>
     T fold(UpdateFn && updater, FoldFn && folder, T before = T(), T between = T(), T after = T()) const
@@ -51,6 +52,13 @@ struct List: public std::vector<Value> {
         updater(result, after);
         return result;
     }
+};
+
+struct Function: public Symbol {
+    Function() = default;
+    Function(PathElement name, CompiledExpression expr);
+    Function(PathElement name, std::shared_ptr<const CompiledExpression> compiled);
+    std::shared_ptr<const CompiledExpression> compiled;
 };
 
 struct Value {
@@ -83,6 +91,8 @@ struct Value {
     Value(Context & context, Ellipsis);
     Value(Context & context, List list);
     Value(Context & context, Null);
+    Value(Context & context, Type tp);
+    Value(Context & context, Function fn);
 
     bool operator == (const Value & other) const;
     bool operator != (const Value & other) const = default;
@@ -102,6 +112,8 @@ struct Value {
 
     Utf8String print() const;
     Utf8String asString() const;
+    Utf8String getErrorMessageString(const char * msg) const;
+
     static std::optional<Value> match(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, const Utf8String & str);
@@ -127,6 +139,9 @@ struct Value {
             MLDB_THROW_LOGIC_ERROR("mixed lisp contexts");
     }
 
+    // Move this value to a different context
+    Value toContext(Context & otherContext) const;
+
     Context & getContext() const
     {
         ExcAssert(context_);
@@ -136,11 +151,21 @@ struct Value {
     bool isInitialized() const { return context_ != nullptr; }
     bool isUninitialized() const { return context_ == nullptr; }
 
+    template<typename T> const T * cast() const { return is<T>() ? &as<T>() : nullptr; }
     template<typename T> bool is() const { return value_.is<T>(); }
     //template<typename T> T & as() { return value_.as<T>(); }
     template<typename T> const T & as() const { return value_.as<T>(); }
+    template<typename T> const T & expect(const char * msg) const
+    {
+        const T * result = cast<T>();
+        if (result) return *result;
+        throwUnexpectedValueTypeException(msg, typeid(T));
+    }
+    
+    void throwUnexpectedValueTypeException(const char * msg, const std::type_info & found) const MLDB_NORETURN;
 
-    PathElement getSymbolName() const { return as<Symbol>().sym; }
+    /// Asserts that the value is a symbol with a single element in its name; returns the name
+    PathElement getSymbolName() const;
 
 private:
     Context * context_ = nullptr;

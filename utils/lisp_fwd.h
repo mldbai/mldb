@@ -8,6 +8,8 @@
 #pragma once
 
 #include "mldb/types/value_description_fwd.h"
+#include <functional>
+#include <memory>
 
 namespace MLDB {
 
@@ -30,6 +32,9 @@ struct Predicate;
 struct Substitution;
 struct Pattern;
 struct Ellipsis;
+struct Type;
+struct Function;
+struct CompiledExpression;
 
 DECLARE_STRUCTURE_DESCRIPTION(Symbol);
 DECLARE_STRUCTURE_DESCRIPTION(Null);
@@ -39,6 +44,14 @@ DECLARE_STRUCTURE_DESCRIPTION(Value);
 DECLARE_STRUCTURE_DESCRIPTION(Substitution);
 DECLARE_STRUCTURE_DESCRIPTION(Predicate);
 DECLARE_STRUCTURE_DESCRIPTION(Ellipsis);
+DECLARE_STRUCTURE_DESCRIPTION(Type);
+DECLARE_STRUCTURE_DESCRIPTION(Function);
+
+using Executor = std::function<Value (ExecutionScope & scope)>;
+using CreateExecutionScope = std::function<std::shared_ptr<ExecutionScope>(ExecutionScope &, List args)>;
+using FunctionCompiler = std::function<CompiledExpression(const List & expr, const CompilationScope & scope)>;
+using VariableReader = std::function<Value (ExecutionScope & scope)>;
+using VariableWriter = std::function<void (ExecutionScope & scope, Value newVal)>;
 
 } // namespace Lisp
 } // namespace MLDB
