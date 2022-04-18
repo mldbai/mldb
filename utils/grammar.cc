@@ -10,118 +10,24 @@
 #include "types/vector_description.h"
 #include "mldb/base/scope.h"
 #include "mldb/types/any_impl.h"
+#include "lisp_visitor.h"
 #include <shared_mutex>
 
 using namespace std;
 
 namespace MLDB {
 
+// in json_parsing.cc
+Utf8String expectJsonStringUtf8(ParseContext & context);
+int getEscapedJsonCharacterPointUtf8(ParseContext & context);
+
+
+namespace Grammar {
+
 bool isUpperUtf8(int c)
 {
     static const std::locale loc("en_US.UTF-8");
     return std::isupper((wchar_t)c, loc);
-}
-
-Value Value::list(PathElement type, std::vector<Value> args)
-{
-    Value result;
-    result.type = std::move(type);
-    result.args = std::move(args);
-    return result;
-}
-
-Value Value::path(PathElement path)
-{
-    Value result;
-    result.atom = std::move(path);
-    return result;
-}
-
-Value Value::var(PathElement name)
-{
-    Value result;
-    result.atom = Variable{std::move(name)};
-    return result;
-}
-
-Value Value::str(Utf8String str)
-{
-    Value result;
-    result.atom = std::move(str);
-    return result;
-}
-
-Value Value::boolean(bool b)
-{
-    Value result;
-    result.atom = b;
-    return result;
-}
-
-Value Value::i64(int64_t i)
-{
-    Value result;
-    result.atom = i;
-    return result;
-}
-
-Value Value::u64(uint64_t i)
-{
-    Value result;
-    result.atom = i;
-    return result;
-}
-
-Value Value::f64(double d)
-{
-    Value result;
-    result.atom = d;
-    return result;
-}
-
-Value Value::null()
-{
-    Value result;
-    result.atom = Null{};
-    return result;
-}
-
-Utf8String Value::print() const
-{
-    Utf8String result;
-    if (type.null()) {
-        result = jsonEncodeStr(this->atom);
-    }
-    else {
-        result = "(" + type.toUtf8String();
-        for (auto & a: args)
-            result += " " + a.print();
-        result += ")";
-    }
-    return result;
-}
-
-bool
-Value::
-operator == (const Value & other) const
-{
-    return type == other.type && args == other.args && atom == other.atom;
-}
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(Variable)
-{
-    addField("name", &Variable::name, "Name of variable");
-}
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(Null)
-{
-}
-
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(Value)
-{
-    addAuto("type", &Value::type, "Type of list");
-    addAuto("args", &Value::args, "Arguments of list");
-    addAuto("atom", &Value::atom, "Atom value");
 }
 
 std::optional<PathElement>
@@ -179,8 +85,6 @@ match_variable_name(ParseContext & context)
         else return PathElement(segment);
     }
 }
-
-int getEscapedJsonCharacterPointUtf8(ParseContext & context);
 
 optional<Utf8String> match_delimited_string(ParseContext & context, char delim)
 {
@@ -303,47 +207,11 @@ optional<std::string> parseLispQualifiers(IndentedParseContext & context)
     return result;
 }
 
-optional<Value> parseLisp(IndentedParseContext & context)
-{
-    Value result;
-    context.skip_whitespace();
-    if (context.match_literal('(')) {
-        auto type = match_rule_name(context);
-        if (!type)
-            context.exception("expected list type");
-        result.type = std::move(*type);
-        std::optional<Value> arg;
-        while (context.match_whitespace() && (arg = parseLisp(context))) {
-            result.args.emplace_back(*arg);
-        }
-        context.skip_whitespace();
-        context.expect_literal(')', "expected closing lisp expression");
-    }
-    else if (auto str = match_delimited_string(context, '\'')) {
-        result = Value::str(std::move(*str));
-    }
-    else if (context.match_literal("true")) {
-        result = Value::boolean(true);
-    }
-    else if (context.match_literal("false")) {
-        result = Value::boolean(false);
-    }
-    else if (context.match_literal("null")) {
-        result = Value::null();
-    }
-    else if (auto varName = match_variable_name(context)) {
-        result = Value::var(std::move(*varName));
-    }
-    else return nullopt;
-
-    return std::move(result);
-}
-
-optional<std::vector<Value>> parseLispSequence(IndentedParseContext & context)
+optional<std::vector<Value>> matchLispSequence(Lisp::Context & lcontext, IndentedParseContext & context)
 {
     std::vector<Value> result;
 
-    while (auto val = parseLisp(context)) {
+    while (auto val = Value::match(lcontext, context)) {
         result.emplace_back(std::move(*val));
     }
 
@@ -354,7 +222,7 @@ optional<std::vector<Value>> parseLispSequence(IndentedParseContext & context)
 }
 
 optional<Value>
-parseLispExpression(IndentedParseContext & context)
+matchLispExpression(Lisp::Context & lcontext, IndentedParseContext & context)
 {
     ParseContext::Revert_Token token(context);
 
@@ -363,12 +231,12 @@ parseLispExpression(IndentedParseContext & context)
     context.skip_whitespace();
 
     if (context.match_literal('*')) {
-        auto next = parseLispExpression(context);
+        auto next = matchLispExpression(lcontext, context);
         if (!next)
             return nullopt;
-        result = Value::list("@deref", { std::move(*next) });
+        result = lcontext.call("@deref", { std::move(*next) });
     }
-    else if (auto val = parseLisp(context)) {
+    else if (auto val = Value::match(lcontext, context)) {
         result = std::move(*val);
     }
     else {
@@ -380,13 +248,13 @@ parseLispExpression(IndentedParseContext & context)
     while (context) {
         //cerr << "got " << result.print() << " *context = " << *context << endl;
         if (context.match_literal('*')) {
-            result = Value::list("@rep", { Value::u64(0), Value::null(), std::move(result) });
+            result = lcontext.call("@rep", { lcontext.u64(0), lcontext.null(), std::move(result) });
         }
         else if (context.match_literal('+')) {
-            result = Value::list("@rep", { Value::u64(1), Value::null(), std::move(result) });
+            result = lcontext.call("@rep", { lcontext.u64(1), lcontext.null(), std::move(result) });
         }
         else if (context.match_literal('?')) {
-            result = Value::list("@rep", { Value::u64(0), Value::u64(1), std::move(result) });
+            result = lcontext.call("@rep", { lcontext.u64(0), lcontext.u64(1), std::move(result) });
         }
         else break;
     }
@@ -395,11 +263,12 @@ parseLispExpression(IndentedParseContext & context)
     return std::move(result);
 }
 
-optional<std::vector<Value>> parseLispExpressionSequence(IndentedParseContext & context)
+optional<std::vector<Value>>
+matchLispExpressionSequence(Lisp::Context & lcontext, IndentedParseContext & context)
 {
     std::vector<Value> result;
 
-    while (auto val = parseLispExpression(context)) {
+    while (auto val = matchLispExpression(lcontext, context)) {
         result.emplace_back(std::move(*val));
     }
 
@@ -409,7 +278,8 @@ optional<std::vector<Value>> parseLispExpressionSequence(IndentedParseContext & 
     return result;
 }
 
-std::optional<GrammarRule> parseGrammarRule(IndentedParseContext & context)
+std::optional<GrammarRule>
+matchGrammarRule(Lisp::Context & lcontext, IndentedParseContext & context)
 {
     GrammarRule result;
     auto minIndent = context.indent;
@@ -435,7 +305,7 @@ std::optional<GrammarRule> parseGrammarRule(IndentedParseContext & context)
             context.exception("inconsistent indentation");
         }
 
-        auto rule = parseGrammarRule(context);
+        auto rule = matchGrammarRule(lcontext, context);
         if (rule) {
             if (!result.rules.emplace(rule->name, std::move(*rule)).second) {
                 context.exception("duplicate rule name");
@@ -444,21 +314,21 @@ std::optional<GrammarRule> parseGrammarRule(IndentedParseContext & context)
         }
 
         GrammarProduction production;
-        auto match = parseLispExpressionSequence(context);
+        auto match = matchLispExpressionSequence(lcontext, context);
         if (!match)
             context.exception("expected lisp expression for match clause");
         if (match->size() == 1) {
             production.match = std::move(match->at(0));
         }
         else {
-            production.match = Value::list("@seq", std::move(*match));
+            production.match = lcontext.call("@seq", std::move(*match));
         }
         context.skip_whitespace();
         context.expect_literal("->");
-        auto produce = parseLispExpressionSequence(context);
+        auto produce = matchLispExpressionSequence(lcontext, context);
         if (!produce)
             context.exception("expected lisp expression for match production");
-        production.produce = Value::list(result.name, std::move(*produce));
+        production.produce = lcontext.call(result.name, std::move(*produce));
 
         cerr << "got " << production.match.print() << " -> " << production.produce.print() << endl;
         context.skip_whitespace();
@@ -470,13 +340,13 @@ std::optional<GrammarRule> parseGrammarRule(IndentedParseContext & context)
     return std::move(result);
 }
 
-GrammarRule parseGrammar(ParseContext & contextIn)
+GrammarRule parseGrammar(Lisp::Context & lcontext, ParseContext & contextIn)
 {
     IndentedParseContext context;
     ParseContext & pcontext = context;
     pcontext = std::move(contextIn);
 
-    auto result = parseGrammarRule(context);
+    auto result = matchGrammarRule(lcontext, context);
     if (!result)
         context.exception("expected main rule");
     while (context && (context.match_whitespace() || context.match_eol())) ;
@@ -486,8 +356,14 @@ GrammarRule parseGrammar(ParseContext & contextIn)
 }
 
 ParsingContext::
-ParsingContext(ParseContext & context, const ParsingContext * parent)
-    : context(context), parent(parent)
+ParsingContext(Lisp::Context & lcontext, ParseContext & context)
+    : Lisp::ExecutionScope(lcontext), context(context)
+{
+}
+
+ParsingContext::
+ParsingContext(const ParsingContext & parent)
+    : Lisp::ExecutionScope(parent.getContext()), context(parent.context), parent(&parent)
 {
 }
 
@@ -495,7 +371,7 @@ ParsingContext
 ParsingContext::
 enter(PathElement scope) const
 {
-    return ParsingContext(this->context, this);
+    return ParsingContext(*this);
 }
 
 const Value &
@@ -556,14 +432,14 @@ struct CompilationState {
 };
 
 CompilationContext::
-CompilationContext()
-    : state(new CompilationState())
+CompilationContext(Lisp::Context & lcontext)
+    : Lisp::CompilationScope(lcontext), state(new CompilationState())
 {
 }
 
 CompilationContext::
 CompilationContext(CompilationContext & parent)
-    : state(new CompilationState(parent.state))
+    : Lisp::CompilationScope(parent.getContext()), state(new CompilationState(parent.state))
 {
 }
 
@@ -660,8 +536,6 @@ ParserOutput parse_ ## identifier(ParsingContext & context)
 std::tuple<Parser, CompilationContext>
 compileMatcher(const Value & expr, CompilationContext & context);
 
-// in json_parsing.cc
-Utf8String expectJsonStringUtf8(ParseContext & context);
 DEFINE_MATCH_FUNCTION(jsonnstring, "@jsonstring")
 {
     ParseContext::Revert_Token token(context.context);
@@ -669,7 +543,7 @@ DEFINE_MATCH_FUNCTION(jsonnstring, "@jsonstring")
         MLDB_TRACE_EXCEPTIONS(false);
         auto res = expectJsonStringUtf8(context.context);
         token.ignore();
-        return Value::str(std::move(res));
+        return context.getContext().str(std::move(res));
     } MLDB_CATCH_ALL {
         return nullopt;
     }
@@ -680,7 +554,7 @@ DEFINE_MATCH_FUNCTION(i64, "@i64")
     int64_t val;
     if (!context.context.match_numeric(val))
         return nullopt;
-    return Value::i64(val);
+    return context.getContext().i64(val);
 }
 
 DEFINE_MATCH_FUNCTION(u64, "@u64")
@@ -688,7 +562,7 @@ DEFINE_MATCH_FUNCTION(u64, "@u64")
     uint64_t val;
     if (!context.context.match_numeric(val))
         return nullopt;
-    return Value::u64(val);
+    return context.getContext().u64(val);
 }
 
 DEFINE_MATCH_FUNCTION(f64, "@f64")
@@ -696,7 +570,7 @@ DEFINE_MATCH_FUNCTION(f64, "@f64")
     double val;
     if (!context.context.match_numeric(val))
         return nullopt;
-    return Value::f64(val);
+    return context.getContext().f64(val);
 }
 
 DEFINE_MATCH_FUNCTION_COMPILER(seq, "@seq")
@@ -704,7 +578,7 @@ DEFINE_MATCH_FUNCTION_COMPILER(seq, "@seq")
     // Compile each thing in the sequence
     std::vector<Parser> parsers;
     CompilationContext lastContext = context;
-    for (auto & s: expr.args) {
+    for (auto & s: expr.as<Lisp::List>()) {
         auto [parser, nextContext] = compileMatcher(s, lastContext);
         parsers.emplace_back(std::move(parser));
         lastContext = std::move(nextContext);
@@ -725,7 +599,7 @@ DEFINE_MATCH_FUNCTION_COMPILER(seq, "@seq")
 
         token.ignore();
 
-        return Value::list("@seq", std::move(output));
+        return context.getContext().call("@seq", std::move(output));
     };
 
     return { Parser{result}, context };
@@ -736,14 +610,14 @@ DEFINE_MATCH_FUNCTION_COMPILER(rep, "@rep")
     uint64_t minRep = 0;
     uint64_t maxRep = -1;
 
-    ExcAssertEqual(expr.args.size(), 3);
-    minRep = expr.args[0].atom.as<uint64_t>();
-    if (!expr.args[1].atom.is<Null>()) {
-        maxRep = expr.args[1].atom.as<uint64_t>();
+    ExcAssertEqual(expr.as<Lisp::List>().size(), 3);
+    minRep = expr.as<Lisp::List>()[0].as<uint64_t>();
+    if (!expr.as<Lisp::List>()[1].is<Lisp::Null>()) {
+        maxRep = expr.as<Lisp::List>()[1].as<uint64_t>();
     }
     ExcAssertLess(minRep, maxRep);
 
-    auto [parser, subContext] = compileMatcher(expr.args[2], context);
+    auto [parser, subContext] = compileMatcher(expr.as<Lisp::List>()[2], context);
 
     // Apply the rule repeatedly until max count is reached or we didn't match
     auto result = [parser=parser, minRep, maxRep] (ParsingContext & pcontext) -> ParserOutput
@@ -766,7 +640,7 @@ DEFINE_MATCH_FUNCTION_COMPILER(rep, "@rep")
 
         token.ignore();
 
-        return Value::list("@rep", std::move(output));
+        return pcontext.getContext().call("@rep", std::move(output));
     };
 
     // If there could be zero repetitions, we return the input context, otherwise the subContext
@@ -793,83 +667,93 @@ compileMatchVariable(const PathElement & varName, CompilationContext & context)
     MLDB_THROW_UNIMPLEMENTED();
 }
 
+static bool isRule(const Lisp::List & list)
+{
+    if (list.empty())
+        return false;
+    // Things that start with an uppercase character are rules
+    auto nm = list.functionName();
+    ExcAssertEqual(nm.size(), 1);
+    int firstLetter = *nm[0].toUtf8String().begin();
+    return isUpperUtf8(firstLetter);
+}
+
 std::tuple<Parser, CompilationContext>
 compileMatcher(const Value & expr, CompilationContext & contextIn)
 {
-    if (!expr.type.null()) {
-        // Things that start with an uppercase character are rules
-        ExcAssert(!expr.type.empty());
+    using namespace Lisp;
+    LambdaVisitor visitor {
+        [&] (const Value & val) -> std::tuple<Parser, CompilationContext>  // default case
+        { 
+            MLDB_THROW_UNIMPLEMENTED(("don't know how to compile matcher " + val.print()).c_str());
+        },
+        [&] (const Symbol & sym) -> std::tuple<Parser, CompilationContext>
+        {
+            return compileMatchVariable(sym.sym, contextIn);
+        },
+        [&] (const Utf8String & str) -> std::tuple<Parser, CompilationContext>
+        {
+            return compileMatchString(str, contextIn);
+        },
+        [&] (const List & list) -> std::tuple<Parser, CompilationContext>
+        {
 
-        Parser parser;
-        CompilationContext context = contextIn;
+            Parser parser;
+            CompilationContext context = contextIn;
 
-        int firstLetter = *expr.type.toUtf8String().begin();
-        if (isUpperUtf8(firstLetter)) {
-            auto rule = context.getCompiledRule(expr.type);
+            // Things that start with an uppercase character are rules
+            auto nm = list.functionName();
+            if (isRule(list)) {
+                auto rule = context.getCompiledRule(nm[0]);
+                auto result = [=] (ParsingContext & context) -> ParserOutput
+                {
+                    // We only instantiate the rule once called, as rules can be recursive
+                    // and so aren't necesssarily available at call time.
+                    static const Parser ruleParser = rule();
+                    return ruleParser.parse(context);
+                };
+
+                parser = Parser{std::move(result)};
+            }
+            else {
+                // It's a list... compile the matcher
+                auto & compiler = getMatchFunctionCompiler(nm[0]);
+                std::tie(parser, context) = compiler(expr, context);
+            }
+
+            // We unify the arguments
+            std::vector<Parser> argParsers;
+            for (auto & arg: expr.as<Lisp::List>()) {
+                CompilationContext argContext(context);
+                auto [argParser, nextContext] = compileMatcher(arg, argContext);
+                argParsers.emplace_back(argParser);
+            }
+
             auto result = [=] (ParsingContext & context) -> ParserOutput
             {
-                // We only instantiate the rule once called, as rules can be recursive
-                // and so aren't necesssarily available at call time.
-                static const Parser ruleParser = rule();
-                return ruleParser.parse(context);
+                auto output = parser.parse(context);
+                if (!output)
+                    return nullopt;  // no match
+                auto & list = output->as<Lisp::List>();
+#if 0
+                if (output->type != expr.type)
+                    return nullopt;  // didn't match the right type
+#endif
+                if (list.size() != argParsers.size())
+                    return nullopt;  // wrong length
+                ParsingContext argContext = context.enter("arg");
+                for (size_t i = 0;  i < argParsers.size();  ++i) {
+                    auto argOutput = argParsers[i].parse(argContext);
+                }
+
+                MLDB_THROW_UNIMPLEMENTED();
             };
 
-            parser = Parser{std::move(result)};
+            MLDB_THROW_UNIMPLEMENTED();
         }
-        else {
-            // It's a list... compile the matcher
-            auto & compiler = getMatchFunctionCompiler(expr.type);
-            std::tie(parser, context) = compiler(expr, context);
-        }
-
-#if 0
-        using Unifier = std::function<bool (Value val, ParsingContext & context)>;
-
-        auto compileUnifier = [] (const Value & expr, CompilationContext & context) -> Unifier
-        {
-            if (!expr.type.null()) {
-                MLDB_THROW_UNIMPLEMENTED("unification of lists");
-            }
-            else if (expr.atom.is<Variable>()) {
-                return compileMatchVariable(expr.atom.as<Variable>().name, context);
-            }
-        };
-#endif
-
-        // We unify the arguments
-        std::vector<Parser> argParsers;
-        for (auto & arg: expr.args) {
-            CompilationContext argContext(context);
-            auto [argParser, nextContext] = compileMatcher(arg, argContext);
-            argParsers.emplace_back(argParser);
-        }
-
-        auto result = [=] (ParsingContext & context) -> ParserOutput
-        {
-            auto output = parser.parse(context);
-            if (!output)
-                return nullopt;  // no match
-            if (output->type != expr.type)
-                return nullopt;  // didn't match the right type
-            if (output->args.size() != argParsers.size())
-                return nullopt;  // wrong length
-            ParsingContext argContext = context.enter("arg");
-            for (size_t i = 0;  i < argParsers.size();  ++i) {
-                auto argOutput = argParsers[i].parse(argContext);
-            }
-        };
-    }
-    else {
-        if (expr.atom.is<Utf8String>()) {
-            return compileMatchString(expr.atom.as<Utf8String>(), context);
-        }
-        else if (expr.atom.is<Variable>()) {
-            return compileMatchVariable(expr.atom.as<Variable>().name, context);
-        }
-        else {
-            context.exception("don't know how to match literal " + expr.atom.asJsonStr() + " of type " + demangle(expr.atom.type()));
-        }
-    }
+    };
+    
+    return visit(visitor, expr);
 }
 
 namespace {
@@ -948,40 +832,44 @@ compileProduceLiteral(const Value & val, const CompilationContext & ccontext)
 ProduceFunction
 compileProducer(const Value & expr, CompilationContext & ccontext)
 {
-    if (!expr.type.null()) {
-        // Things that start with an uppercase character are rules
-        // We can't produce them
-        ExcAssert(!expr.type.empty());
-        int firstLetter = *expr.type.toUtf8String().begin();
-        if (isUpperUtf8(firstLetter)) {
-            // This is a literal
-            std::vector<ProduceFunction> argProducers;
-            for (auto & arg: expr.args) {
-                argProducers.emplace_back(compileProducer(arg, ccontext));
-            }
-            auto result = [expr, argProducers] (const ParsingContext & pcontext) -> Value
-            {
-                std::vector<Value> args;
-                for (auto & producer: argProducers) {
-                    args.emplace_back(producer(pcontext));
+    using namespace Lisp;
+    LambdaVisitor visitor {
+        [&] (const Value & val) -> ProduceFunction  // default case
+        { 
+            return compileProduceLiteral(val, ccontext);  // return atom as-is
+        },
+        [&] (const Symbol & sym) -> ProduceFunction
+        {
+            return compileProduceVariable(sym.sym, ccontext);
+        },
+        [&] (const List & list) -> ProduceFunction
+        {
+            // Things that start with an uppercase character are rules
+            // We can't produce them
+            if (!isRule(list)) {
+                // This is a list literal
+                std::vector<ProduceFunction> argProducers;
+                for (auto & arg: list) {
+                    argProducers.emplace_back(compileProducer(arg, ccontext));
                 }
-                return Value::list(expr.type, std::move(args));
-            };
-            return std::move(result);
-        }
+                auto result = [expr, argProducers] (const ParsingContext & pcontext) -> Value
+                {
+                    std::vector<Value> args;
+                    for (auto & producer: argProducers) {
+                        args.emplace_back(producer(pcontext));
+                    }
+                    return pcontext.getContext().list(std::move(args));
+                };
+                return std::move(result);
+            }
 
-        // It's a list... what we do depends on the type
-        auto & compiler = getProduceFunctionCompiler(expr.type);
-        return compiler(expr, ccontext);
-    }
-    else {
-        if (expr.atom.is<Variable>()) {
-            return compileProduceVariable(expr.atom.as<Variable>().name, ccontext);
-        }
-        else {
-            return compileProduceLiteral(expr, ccontext);  // return atom as-is
-        }
-    }
+            // It's a list... what we do depends on the type
+            auto & compiler = getProduceFunctionCompiler(list.simpleFunctionName());
+            return compiler(expr, ccontext);
+        },
+    };
+
+    return visit(visitor, expr);
 }
 
 Parser
@@ -1040,19 +928,19 @@ compile(CompilationContext & context) const
 
 ParserOutput
 Parser::
-parse(ParseContext & gcontext) const
+parse(Lisp::Context & lcontext, ParseContext & gcontext) const
 {
-    ParsingContext pcontext(gcontext);
+    ParsingContext pcontext(lcontext, gcontext);
     return parse(pcontext);
 }
 
 ParserOutput
 Parser::
-parse(const std::string & toParse) const
+parse(Lisp::Context & lcontext, const std::string & toParse) const
 {
     ParseContext context(toParse, toParse.data(), toParse.length());
-    return parse(context);
+    return parse(lcontext, context);
 }
 
-
+} // namespace Grammar
 } // namespace MLDB

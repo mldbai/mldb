@@ -17,23 +17,26 @@
 
 using namespace std;
 using namespace MLDB;
+using namespace MLDB::Grammar;
 
 
 TEST_CASE("test-grammar-parsing", "[none]")
 {
+    Lisp::Context lcontext;
+
     std::string filename = "utils/jq.grammar";
-    ParseContext context(filename);
+    ParseContext pcontext(filename);
 
-    auto grammar = parseGrammar(context);
+    auto grammar = parseGrammar(lcontext, pcontext);
 
-    context.skip_whitespace();
-    context.expect_eof("extra junk at end of grammar");
+    pcontext.skip_whitespace();
+    pcontext.expect_eof("extra junk at end of grammar");
 
-    CompilationContext ccontext;
+    CompilationContext ccontext(lcontext);
     auto parser = grammar.compile(ccontext);
 
     ParseContext context2("test", "true", 4);
-    auto res = parser.parse(context2);
+    auto res = parser.parse(lcontext, context2);
     ExcAssert(res);
 
     CHECK(res->print() == "true");

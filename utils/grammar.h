@@ -16,56 +16,26 @@
 #include "mldb/types/string.h"
 #include "mldb/types/path.h"
 #include "mldb/types/any.h"
+#include "lisp.h"
+#include "lisp_predicate.h"
 
 
 namespace MLDB {
+namespace Grammar {
 
 struct Parser;
+struct CompilationState;
 struct ParsingContext;
 struct CompilationContext;
 struct ExecutionContext;
-struct Value;
+using Lisp::Value;
 
 using ParserOutput = std::optional<Value>;
 
-struct Variable {
-    PathElement name;
-};
 
-struct Null {
-};
 
-DECLARE_STRUCTURE_DESCRIPTION(Variable);
-DECLARE_STRUCTURE_DESCRIPTION(Null);
-
-struct Value {
-    PathElement type;
-    std::vector<Value> args;
-    Any atom;
-
-    static Value list(PathElement type, std::vector<Value> args);
-    static Value var(PathElement name);
-    static Value path(PathElement path);
-    static Value str(Utf8String str);
-    static Value boolean(bool val);
-    static Value i64(int64_t val);
-    static Value u64(uint64_t val);
-    static Value f64(double val);
-    static Value null();
-
-    Utf8String print() const;
-
-    bool operator == (const Value & other) const;
-    bool operator != (const Value & other) const = default;
-};
-
-DECLARE_STRUCTURE_DESCRIPTION(Value);
-
-struct CompilationState;
-struct ParsingContext;
-
-struct CompilationContext {
-    CompilationContext();
+struct CompilationContext: public Lisp::CompilationScope {
+    CompilationContext(Lisp::Context & lcontext);
     CompilationContext(CompilationContext & parent);
 
     void exception(const Utf8String & reason) const MLDB_NORETURN;
@@ -102,10 +72,11 @@ struct GrammarRule {
 
 DECLARE_STRUCTURE_DESCRIPTION(GrammarRule);
 
-GrammarRule parseGrammar(ParseContext & context);
+GrammarRule parseGrammar(Lisp::Context & lcontext, ParseContext & context);
 
-struct ParsingContext {
-    ParsingContext(ParseContext & context, const ParsingContext * parent = nullptr);
+struct ParsingContext: Lisp::ExecutionScope {
+    ParsingContext(Lisp::Context & lcontext, ParseContext & context);
+    ParsingContext(const ParsingContext & parent);
 
     ParsingContext enter(PathElement scope) const;
     const Value & getVariable(PathElement name) const;
@@ -121,8 +92,8 @@ private:
 };
 
 struct Parser {
-    ParserOutput parse(ParseContext & pcontext) const;
-    ParserOutput parse(const std::string & toParse) const;
+    ParserOutput parse(Lisp::Context & lcontext, ParseContext & pcontext) const;
+    ParserOutput parse(Lisp::Context & lcontext, const std::string & toParse) const;
 
     inline ParserOutput parse(ParsingContext & context) const
     {
@@ -131,4 +102,5 @@ struct Parser {
     std::function<ParserOutput (ParsingContext & context)> parse_;
 };
 
+} // namespace Grammar
 } // namespace MLDB

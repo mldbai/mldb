@@ -35,8 +35,32 @@ $(eval $(call set_compile_option,hash.cc,-fpermissive))
 $(eval $(call set_compile_option,confidence_intervals.cc,-O3))
 
 $(eval $(call library,progress,progress.cc,types value_description arch base types))
-$(eval $(call library,lisp,lisp.cc lisp_value.cc lisp_parsing.cc lisp_lib.cc lisp_predicate.cc,arch base value_description types utils highwayhash any))
-$(eval $(call library,json_diff,json_diff.cc json_utils.cc json_stream.cc grammar.cc,arch base value_description types utils highwayhash any))
+
+# LISP and grammars
+
+LISP_SOURCES := \
+	lisp.cc \
+	lisp_value.cc \
+	lisp_parsing.cc \
+	lisp_lib.cc \
+	lisp_predicate.cc \
+	lisp_jit.cc \
+
+LISP_LIBS := \
+	arch \
+	base \
+	value_description \
+	types \
+	utils \
+	highwayhash \
+	any \
+	$(LLVM_LIB_NAME) \
+
+$(eval $(call library,lisp,$(LISP_SOURCES),$(LISP_LIBS)))
+
+$(eval $(call library,json_diff,json_diff.cc json_utils.cc json_stream.cc grammar.cc,arch base value_description types utils highwayhash any lisp))
+
+$(eval $(call set_compile_option,$(LISP_SOURCES),-I$(LLVM_INCLUDE_PATH)))
 
 # Runner Common
 

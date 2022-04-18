@@ -45,4 +45,4 @@ $(eval $(call test,newline_splitter_test,arch utils,catch2))
 
 $(eval $(call test,json_stream_test,utils log arch json_diff types value_description,catch2))
 $(eval $(call test,lisp_test,utils log arch base lisp types value_description,catch2))
-$(eval $(call test,grammar_test,utils log arch base json_diff types value_description,catch2))
+$(eval $(call test,grammar_test,utils log arch base json_diff types value_description lisp,catch2))
