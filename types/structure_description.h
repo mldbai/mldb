@@ -733,10 +733,6 @@ addParent(ValueDescriptionT<V> * description_)
     std::shared_ptr<StructureDescription<V> > description(desc2);
     parents.push_back(description);
 
-    constexpr size_t BASE = 0x1000;  // can't use a null pointer
-    Struct * p = reinterpret_cast<Struct *>(BASE);
-    V * p2 = static_cast<V *>(p);
-
     size_t ofs = getParentOffset<Struct, V>();
 
     //using namespace std;
