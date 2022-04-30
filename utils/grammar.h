@@ -44,6 +44,8 @@ struct CompilationContext: public Lisp::CompilationScope {
     std::function<void (ParsingContext & context, Value val)> getVariableSetter(PathElement name);
     std::function<Value (const ParsingContext & context)> getVariableReference(PathElement name) const;
 
+    std::shared_ptr<CompilationContext> enter(PathElement where);
+
 private:
     std::shared_ptr<CompilationState> state;
 };
@@ -56,7 +58,7 @@ struct ExecutionContext {
 struct GrammarProduction {
     Value match;
     Value produce;
-    Parser compile(CompilationContext & context) const;
+    Parser compile(std::shared_ptr<CompilationContext> context) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(GrammarProduction);
@@ -67,7 +69,7 @@ struct GrammarRule {
     PathElement name;
     std::map<PathElement, GrammarRule> rules;
     std::vector<GrammarProduction> productions;
-    Parser compile(CompilationContext & context) const;
+    Parser compile(std::shared_ptr<CompilationContext> context) const;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(GrammarRule);

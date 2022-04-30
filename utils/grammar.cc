@@ -443,6 +443,13 @@ CompilationContext(CompilationContext & parent)
 {
 }
 
+std::shared_ptr<CompilationContext>
+CompilationContext::
+enter(PathElement where)
+{
+    return std::make_shared<CompilationContext>(*this);
+}
+
 void CompilationContext::exception(const Utf8String & reason) const
 {
     throw MLDB::Exception(("compiling parser: " + reason).rawString());
@@ -490,7 +497,7 @@ getVariableReference(PathElement name) const
 
 namespace {
 
-using MatchFunctionCompiler = std::function<std::tuple<Parser, CompilationContext> (const Value & expr, CompilationContext & context)>;
+using MatchFunctionCompiler = std::function<std::tuple<Parser, std::shared_ptr<CompilationContext>> (const Value & expr, std::shared_ptr<CompilationContext> context)>;
 
 std::shared_mutex matchFunctionCompilersMutex;
 std::map<PathElement, MatchFunctionCompiler> matchFunctionCompilers;
@@ -522,19 +529,19 @@ struct RegisterMatchFunctionCompiler {
 };
 
 #define DEFINE_MATCH_FUNCTION_COMPILER(identifier, name) \
-static inline std::tuple<Parser, CompilationContext> compile_ ## identifier(const Value & expr, CompilationContext & context); \
+static inline std::tuple<Parser, std::shared_ptr<CompilationContext>> compile_ ## identifier(const Value & expr, std::shared_ptr<CompilationContext> context); \
 static const RegisterMatchFunctionCompiler register ## identifier(name, &compile_ ## identifier); \
-std::tuple<Parser, CompilationContext> compile_ ## identifier(const Value & expr, CompilationContext & context)
+std::tuple<Parser, std::shared_ptr<CompilationContext>> compile_ ## identifier(const Value & expr, std::shared_ptr<CompilationContext> context)
 
 #define DEFINE_MATCH_FUNCTION(identifier, name) \
 ParserOutput parse_ ## identifier(ParsingContext & context); \
-DEFINE_MATCH_FUNCTION_COMPILER(identifier, name) { return { Parser{parse_ ## identifier}, context }; } \
+DEFINE_MATCH_FUNCTION_COMPILER(identifier, name) { return { Parser{parse_ ## identifier}, nullptr }; } \
 ParserOutput parse_ ## identifier(ParsingContext & context)
 
 } // file scope
 
-std::tuple<Parser, CompilationContext>
-compileMatcher(const Value & expr, CompilationContext & context);
+std::tuple<Parser, std::shared_ptr<CompilationContext>>
+compileMatcher(const Value & expr, std::shared_ptr<CompilationContext> context);
 
 DEFINE_MATCH_FUNCTION(jsonnstring, "@jsonstring")
 {
@@ -577,11 +584,12 @@ DEFINE_MATCH_FUNCTION_COMPILER(seq, "@seq")
 {
     // Compile each thing in the sequence
     std::vector<Parser> parsers;
-    CompilationContext lastContext = context;
+    std::shared_ptr<CompilationContext> currentContext(context);
+
     for (auto & s: expr.as<Lisp::List>()) {
-        auto [parser, nextContext] = compileMatcher(s, lastContext);
+        auto [parser, nextContext] = compileMatcher(s, currentContext);
         parsers.emplace_back(std::move(parser));
-        lastContext = std::move(nextContext);
+        if (nextContext) currentContext = std::move(nextContext);
     }
 
     // Apply the sequence
@@ -602,7 +610,7 @@ DEFINE_MATCH_FUNCTION_COMPILER(seq, "@seq")
         return context.getContext().call("@seq", std::move(output));
     };
 
-    return { Parser{result}, context };
+    return { Parser{result}, currentContext == context ? nullptr : std::move(currentContext) };
 }
 
 DEFINE_MATCH_FUNCTION_COMPILER(rep, "@rep")
@@ -644,11 +652,11 @@ DEFINE_MATCH_FUNCTION_COMPILER(rep, "@rep")
     };
 
     // If there could be zero repetitions, we return the input context, otherwise the subContext
-    return { Parser{result}, minRep == 0 ? context : subContext };
+    return { Parser{result}, minRep == 0 ? nullptr : std::move(subContext) };
 }
 
-std::tuple<Parser, CompilationContext>
-compileMatchString(const Utf8String & expr, CompilationContext & context)
+std::tuple<Parser, std::shared_ptr<CompilationContext>>
+compileMatchString(const Utf8String & expr, std::shared_ptr<CompilationContext> context)
 {
     auto parse = [=] (ParsingContext & pcontext) -> std::optional<Value>
     {
@@ -658,11 +666,11 @@ compileMatchString(const Utf8String & expr, CompilationContext & context)
         return Value();
     };
 
-    return { Parser{std::move(parse)}, context };
+    return { Parser{std::move(parse)}, std::move(context)};
 }
 
-std::tuple<Parser, CompilationContext>
-compileMatchVariable(const PathElement & varName, CompilationContext & context)
+std::tuple<Parser, std::shared_ptr<CompilationContext>>
+compileMatchVariable(const PathElement & varName, std::shared_ptr<CompilationContext> context)
 {
     MLDB_THROW_UNIMPLEMENTED();
 }
@@ -678,33 +686,33 @@ static bool isRule(const Lisp::List & list)
     return isUpperUtf8(firstLetter);
 }
 
-std::tuple<Parser, CompilationContext>
-compileMatcher(const Value & expr, CompilationContext & contextIn)
+std::tuple<Parser, std::shared_ptr<CompilationContext>>
+compileMatcher(const Value & expr, std::shared_ptr<CompilationContext> contextIn)
 {
     using namespace Lisp;
     LambdaVisitor visitor {
-        [&] (const Value & val) -> std::tuple<Parser, CompilationContext>  // default case
+        [&] (const Value & val) -> std::tuple<Parser, std::shared_ptr<CompilationContext>>  // default case
         { 
             MLDB_THROW_UNIMPLEMENTED(("don't know how to compile matcher " + val.print()).c_str());
         },
-        [&] (const Symbol & sym) -> std::tuple<Parser, CompilationContext>
+        [&] (const Symbol & sym) -> std::tuple<Parser, std::shared_ptr<CompilationContext>>
         {
             return compileMatchVariable(sym.sym, contextIn);
         },
-        [&] (const Utf8String & str) -> std::tuple<Parser, CompilationContext>
+        [&] (const Utf8String & str) -> std::tuple<Parser, std::shared_ptr<CompilationContext>>
         {
             return compileMatchString(str, contextIn);
         },
-        [&] (const List & list) -> std::tuple<Parser, CompilationContext>
+        [&] (const List & list) -> std::tuple<Parser, std::shared_ptr<CompilationContext>>
         {
 
             Parser parser;
-            CompilationContext context = contextIn;
+            std::shared_ptr<CompilationContext> currentContext = contextIn;
 
             // Things that start with an uppercase character are rules
             auto nm = list.functionName();
             if (isRule(list)) {
-                auto rule = context.getCompiledRule(nm[0]);
+                auto rule = currentContext->getCompiledRule(nm[0]);
                 auto result = [=] (ParsingContext & context) -> ParserOutput
                 {
                     // We only instantiate the rule once called, as rules can be recursive
@@ -718,14 +726,18 @@ compileMatcher(const Value & expr, CompilationContext & contextIn)
             else {
                 // It's a list... compile the matcher
                 auto & compiler = getMatchFunctionCompiler(nm[0]);
-                std::tie(parser, context) = compiler(expr, context);
+                std::shared_ptr<CompilationContext> nextContext;
+                std::tie(parser, nextContext) = compiler(expr, currentContext);
+                if (nextContext)
+                    currentContext = nextContext;
             }
 
             // We unify the arguments
             std::vector<Parser> argParsers;
             for (auto & arg: expr.as<Lisp::List>()) {
-                CompilationContext argContext(context);
-                auto [argParser, nextContext] = compileMatcher(arg, argContext);
+                auto [argParser, nextContext] = compileMatcher(arg, currentContext);
+                if (nextContext)
+                    currentContext = nextContext;
                 argParsers.emplace_back(argParser);
             }
 
@@ -759,7 +771,7 @@ compileMatcher(const Value & expr, CompilationContext & contextIn)
 namespace {
 
 using ProduceFunction = std::function<Value (const ParsingContext & context)>;
-using ProduceFunctionCompiler = std::function<ProduceFunction (const Value & expr, CompilationContext & context)>;
+using ProduceFunctionCompiler = std::function<ProduceFunction (const Value & expr, std::shared_ptr<CompilationContext> context)>;
 
 std::shared_mutex produceFunctionCompilersMutex;
 std::map<PathElement, ProduceFunctionCompiler> produceFunctionCompilers;
@@ -791,9 +803,9 @@ struct RegisterProduceFunctionCompiler {
 };
 
 #define DEFINE_PRODUCE_FUNCTION_COMPILER(identifier, name) \
-static inline ProduceFunction compile_ ## identifier(const Value & expr, CompilationContext & context); \
+static inline ProduceFunction compile_ ## identifier(const Value & expr, std::shared_ptr<CompilationContext> context); \
 static const RegisterProduceFunctionCompiler register ## identifier(name, &compile_ ## identifier); \
-ProduceFunction compile_ ## identifier(const Value & expr, CompilationContext & context)
+ProduceFunction compile_ ## identifier(const Value & expr, std::shared_ptr<CompilationContext> context)
 
 #define DEFINE_PRODUCE_FUNCTION(identifier, name) \
 Value produce_ ## identifier(const ParsingContext & context); \
@@ -808,9 +820,9 @@ DEFINE_PRODUCE_FUNCTION(deref, "@deref")
 }
 
 ProduceFunction
-compileProduceVariable(const PathElement & name, const CompilationContext & ccontext)
+compileProduceVariable(const PathElement & name, const std::shared_ptr<CompilationContext> ccontext)
 {
-    auto ref = ccontext.getVariableReference(name);
+    auto ref = ccontext->getVariableReference(name);
 
     auto result = [ref] (const ParsingContext & context) -> Value
     {
@@ -820,7 +832,7 @@ compileProduceVariable(const PathElement & name, const CompilationContext & ccon
 }
 
 ProduceFunction
-compileProduceLiteral(const Value & val, const CompilationContext & ccontext)
+compileProduceLiteral(const Value & val, std::shared_ptr<CompilationContext> ccontext)
 {
     auto result = [val] (const auto & context) -> Value
     {
@@ -830,7 +842,7 @@ compileProduceLiteral(const Value & val, const CompilationContext & ccontext)
 }
 
 ProduceFunction
-compileProducer(const Value & expr, CompilationContext & ccontext)
+compileProducer(const Value & expr, std::shared_ptr<CompilationContext> ccontext)
 {
     using namespace Lisp;
     LambdaVisitor visitor {
@@ -874,7 +886,7 @@ compileProducer(const Value & expr, CompilationContext & ccontext)
 
 Parser
 GrammarProduction::
-compile(CompilationContext & ccontext) const
+compile(std::shared_ptr<CompilationContext> ccontext) const
 {
     cerr << "compiling " << match.print() << " --> " << produce.print() << endl;
     auto [matcher, mcontext] = compileMatcher(match, ccontext);
@@ -898,11 +910,11 @@ compile(CompilationContext & ccontext) const
 
 Parser
 GrammarRule::
-compile(CompilationContext & context) const
+compile(std::shared_ptr<CompilationContext> context) const
 {
-    CompilationContext subContext(context);
+    auto subContext = context->enter("GrammarRule::compile");
     for (auto & [name, rule]: rules) {
-        subContext.setCompiledRule(name, rule.compile(subContext));
+        subContext->setCompiledRule(name, rule.compile(subContext));
     }
 
     std::vector<Parser> productionParsers;
