@@ -118,7 +118,7 @@ void testExpectStringUtf8(ParseContext * context)
 
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(*context);
+            c = context->expect_utf8_code_point();
 
             char * p1 = buffer + pos;
             char * p2 = p1;
@@ -172,4 +172,12 @@ BOOST_AUTO_TEST_CASE(test_utf8_parsing)
     Utf8StringJsonParsingContext context(s);
 
     BOOST_CHECK_EQUAL(context.expectStringUtf8(), "hellô");
+}
+
+BOOST_AUTO_TEST_CASE(test_match_number)
+{
+    std::string s = "e";
+    ParseContext context(s, s.c_str(), s.c_str() + s.length());
+    JsonNumber num;
+    BOOST_CHECK(!matchJsonNumber(context, num));
 }

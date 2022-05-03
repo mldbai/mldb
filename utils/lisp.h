@@ -62,6 +62,7 @@ struct CompiledExpression {
     Executor execute_;
     CreateExecutionScope createScope_;
     Context * context_ = nullptr;
+    Utf8String info_;  // for debug
     //LispValue source_;
     //LispValue type_;
 
@@ -182,6 +183,7 @@ struct Context {
     Value u64(uint64_t i);
     Value i64(int64_t i);
     Value f64(double d);
+    Value boolean(bool b);
 
     template<typename T>
     void addArg(List & l, T&&arg)

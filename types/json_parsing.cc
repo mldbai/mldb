@@ -833,7 +833,7 @@ bool matchJsonNumber(ParseContext & context, JsonNumber & result)
     char sci = context ? *context : '\0';
     if (sci == 'e' || sci == 'E') {
         if (number.empty() || (number.size() == 1 && number[0] == '.')) {
-            context.exception("Expected number before exponential");
+            return false;
         }
         doublePrecision = true;
         if (!context)
