@@ -32,6 +32,7 @@ CompiledExpression constantGenerator(Value constant)
     {
         return constant.toContext(scope.getContext());
     };
+    result.info_ = "CONSTANT " + constant.print();
     return result;
 }
 
@@ -170,15 +171,15 @@ compile(const Value & program) const
         return constantGenerator(program.unquoted());
 
     // When we enter the scope, we need to run the initializers for all of our locals
-    CreateExecutionScope createExecutionScope = [variables = variables_] (ExecutionScope & scope, const List & args) -> std::shared_ptr<ExecutionScope>
+    CreateExecutionScope createExecutionScope = [variables = variables_] (std::shared_ptr<ExecutionScope> scope, const List & args) -> std::shared_ptr<ExecutionScope>
     {
         std::map<PathElement, Value> locals;
 
         for (auto & [name, initializer]: variables) {
-            locals[name] = initializer(scope);
+            locals[name] = initializer(*scope);
         }
 
-        return locals.empty() ? nullptr : std::make_shared<ExecutionScope>(scope, std::move(locals));
+        return locals.empty() ? scope : std::make_shared<ExecutionScope>(*scope, std::move(locals));
     };
 
     LambdaVisitor visitor {
@@ -189,7 +190,7 @@ compile(const Value & program) const
                 return val;
             };
 
-            return { getUniqueName(), std::move(result), createExecutionScope, context_ };
+            return { getUniqueName(), std::move(result), createExecutionScope, context_, "LITERAL" };
         },
         [&] (const Symbol & sym) -> CompiledExpression
         {
@@ -204,38 +205,35 @@ compile(const Value & program) const
                 return result;
             };
 
-            return { sym.sym, std::move(result), createExecutionScope, context_ };
+            return { sym.sym, std::move(result), createExecutionScope, context_, "VARIABLE" };
         },
         [&] (const Value & val, const List & list) -> CompiledExpression
         {
-            if (!list.empty()) {
-                if (!list.empty() && list.front().is<Symbol>()) {
-                    const Symbol & sym = list.front().as<Symbol>();
-                    auto compiler = this->getFunctionCompiler(sym.sym);
-                    cerr << "Getting function compiler for " << sym.sym << endl;
-                    return compiler(list, *this);
-                }
-                else {
-                    // Just a list, execute each element of it and return the result
-                    // as a list
-                    std::vector<CompiledExpression> exprs;
-                    for (auto & expr: list) {
-                        exprs.emplace_back(compile(expr));
-                    }
-
-                    Executor exec = [exprs] (ExecutionScope & scope) -> Value
-                    {
-                        List result;
-                        for (auto & e: exprs) {
-                            result.emplace_back(e(scope));
-                        }
-                        return { scope.getContext(), std::move(result) };
-                    };
-
-                    return { getUniqueName(), std::move(exec), createExecutionScope, context_ };
-                }
+            if (!list.empty() && list.front().is<Symbol>()) {
+                const Symbol & sym = list.front().as<Symbol>();
+                auto compiler = this->getFunctionCompiler(sym.sym);
+                cerr << "Getting function compiler for " << sym.sym << endl;
+                return compiler(list, *this);
             }
-            MLDB_THROW_UNIMPLEMENTED("can't execute empty list");
+            else {
+                // Just a list, execute each element of it and return the result
+                // as a list
+                std::vector<CompiledExpression> exprs;
+                for (auto & expr: list) {
+                    exprs.emplace_back(compile(expr));
+                }
+
+                Executor exec = [exprs] (ExecutionScope & scope) -> Value
+                {
+                    List result;
+                    for (auto & e: exprs) {
+                        result.emplace_back(e(scope));
+                    }
+                    return { scope.getContext(), std::move(result) };
+                };
+
+                return { getUniqueName(), std::move(exec), createExecutionScope, context_, "LITERAL LIST" };
+            }
         }
     };
 
@@ -443,19 +441,17 @@ consult(const Value & program)
                         CompiledExpression result;
                         result.context_ = &outerScope.getContext();
                         result.name_ = functionName;
-                        result.createScope_ = [compiledArgs] (ExecutionScope & scope, List args) -> std::shared_ptr<ExecutionScope>
+                        result.createScope_ = [compiledArgs] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
                         {
                             std::map<PathElement, Value> locals;
-
-                            // TODO: we're not using args... this is surely a problem!!!
 
                             // Execute each argument, and inject them as locals
                             for (size_t i = 0;  i < compiledArgs.size();  ++i) {
                                 auto & [name, expr] = compiledArgs[i];
-                                locals.emplace(name, expr(scope));
+                                locals.emplace(name, expr(*scope));
                             }
 
-                            return std::make_shared<ExecutionScope>(scope, std::move(locals));
+                            return std::make_shared<ExecutionScope>(*scope, std::move(locals));
                         };
 
                         if (forms.size() == 1) {
@@ -473,6 +469,8 @@ consult(const Value & program)
                                 return result;
                             };
                         }
+
+                        result.info_ = "DEFUN " + functionName.toUtf8String();
 
                         return result;
                     };
@@ -500,10 +498,10 @@ CompilationScope::
 eval(const Value & program) const
 {
     cerr << "eval of " << program << endl;
-    auto [name, executor, createXScope, context] = compile(program);
+    auto [name, executor, createXScope, context, info] = compile(program);
     auto outer = std::make_shared<ExecutionScope>(getContext());
     List args;  // no arguments
-    std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(*outer, args) : outer;
+    std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(outer, args) : outer;
     auto result = executor(*xscope);
     cerr << "  eval of " << program << " returned " << result << endl;
     return result;
@@ -608,21 +606,21 @@ enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression
         result.variables_.emplace_back(name, expr);
     }
     CreateExecutionScope scopeConstructor
-        = [symbols=locals] (ExecutionScope & scope, List args) -> std::shared_ptr<ExecutionScope>
+        = [symbols=locals] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
     {
         if (!args.empty()) {
-            scope.exception("Locals scope doesn't take arguments");
+            scope->exception("Locals scope doesn't take arguments");
         }
         ExcAssert(args.empty());
         std::map<PathElement, Value> newLocals;
         // Do it...
         for (auto & [name, constructor]: symbols) {
-            auto val = constructor(scope);
+            auto val = constructor(*scope);
             cerr << "constructing " << name << " = " << val << endl;
             newLocals[name] = val;
         }
 
-        return std::make_shared<ExecutionScope>(scope, std::move(newLocals));
+        return std::make_shared<ExecutionScope>(*scope, std::move(newLocals));
     };
 
     return { std::move(result), std::move(scopeConstructor) };
@@ -666,6 +664,11 @@ Value Context::i64(int64_t i)
 Value Context::f64(double d)
 {
     return Value{*this, d};
+}
+
+Value Context::boolean(bool b)
+{
+    return Value(*this, b);
 }
 
 } // namespace Lisp

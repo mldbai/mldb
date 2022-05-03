@@ -48,7 +48,7 @@ DECLARE_STRUCTURE_DESCRIPTION(Type);
 DECLARE_STRUCTURE_DESCRIPTION(Function);
 
 using Executor = std::function<Value (ExecutionScope & scope)>;
-using CreateExecutionScope = std::function<std::shared_ptr<ExecutionScope>(ExecutionScope &, List args)>;
+using CreateExecutionScope = std::function<std::shared_ptr<ExecutionScope>(std::shared_ptr<ExecutionScope>, List args)>;
 using FunctionCompiler = std::function<CompiledExpression(const List & expr, const CompilationScope & scope)>;
 using VariableReader = std::function<Value (ExecutionScope & scope)>;
 using VariableWriter = std::function<void (ExecutionScope & scope, Value newVal)>;

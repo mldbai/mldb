@@ -63,15 +63,17 @@ TEST_CASE("test-lisp-parsing", "[none]")
         }
     };
 
-    CHECK(jsonEncodeStr(Value()) == "null");
+    SECTION("empty") {
+        CHECK(jsonEncodeStr(Value()) == "{\"uninitialized\":null}");
+    };
 
     runTest("true", "{\"atom\":true}");
     runTest("false", "{\"atom\":false}");
-    runTest("null", "{\"atom\":null}");
+    runTest("nil", "{\"atom\":null}");
     runTest("()", "{\"list\":[]}");
     runTest("(true)", "{\"list\":[{\"atom\":true}]}");
     runTest("(false)", "{\"list\":[{\"atom\":false}]}");
-    runTest("(null)", "{\"list\":[{\"atom\":null}]}");
+    runTest("(nil)", "{\"list\":[{\"atom\":null}]}");
     runTest("x", "{\"sym\":\"x\"}");
     runTest("'x", "{\"sym\":\"x\",\"q\":1}");
     runTest("''x", "{\"sym\":\"x\",\"q\":2}");
@@ -90,11 +92,11 @@ TEST_CASE("test-lisp-compilation", "[none]")
             auto x = Value::parse(lcontext, expectedOut);
 
             CompilationScope cscope(lcontext);
-            auto [name, executor, createXScope, xcontext] = cscope.compile(e);
+            auto [name, executor, createXScope, xcontext, info] = cscope.compile(e);
 
             auto outer = std::make_shared<ExecutionScope>(lcontext);
             std::shared_ptr<ExecutionScope> xscope
-                = createXScope ? createXScope(*outer, List()) : outer;
+                = createXScope ? createXScope(outer, List()) : outer;
             auto out = executor(*xscope);
 
             CHECK(out == x);
@@ -130,11 +132,13 @@ TEST_CASE("test-lisp-evaluation", "[none]")
 
             cerr << "compiling " << i << endl;
 
-            auto [name, executor, createXScope, xcontext] = cscope.compile(i);
+            auto [name, executor, createXScope, xcontext, info] = cscope.compile(i);
+
+            cerr << "name = " << name << " info = " << info << endl;
 
             auto outer = std::make_shared<ExecutionScope>(lcontext);
             cerr << "creating scope; createXScope = " << (bool)createXScope << endl;
-            std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(*outer, List()) : outer;
+            std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(outer, List()) : outer;
             cerr << "executing" << endl;
             auto out = executor(*xscope);
 
@@ -146,10 +150,81 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     };
 
     runTest("", "(+ 1 1)", "2");
+    runTest("", "(+ 1 1.5)", "2.5");
+    runTest("", "(+)", "0");
+    runTest("", "(+ 1)", "1");
+    runTest("", "(+ \"hello\")", "\"hello\"");
+    runTest("", "(+ \"hello\" \" \" \"world\")", "\"hello world\"");
+    runTest("", "(-)", "0");
+    runTest("", "(- 1)", "-1");
+    runTest("", "(- 10 1 2 3 4)", "0");
+    runTest("", "(*)", "1");
+    runTest("", "(* 1)", "1");
+    runTest("", "(* 1.5 1.5)", "2.25");
+    runTest("", "(* \"x\" 5 2)", "\"xxxxxxxxxx\"");
+    runTest("", "(/)", "1");
+    runTest("", "(/ 10)", "10");
+    runTest("", "(/ 10 5)", "2");
+    runTest("", "(/ 10 5 2)", "1");
+    runTest("", "(/ 10 5 4.0)", "0.5");
+
     runTest("", "(let ((a 3)) (+ a a a))", "9");
     runTest("(defun dbl (x) (+ x x))", "(dbl 2)", "4");
     runTest("(set 'z 1)", "z", "1");
     runTest("(set 'z 1)(defun next () (setq z (+ z 1)) z)", "((next) (next) (next))", "(2 3 4)");
+
+    // p151
+    runTest("", "3.1416", "3.1416");
+    runTest("", "100", "100");
+    runTest("", "'hyphenated-name", "hyphenated-name");
+    runTest("", "'*some-global*", "*some-global*");
+    runTest("", "'nil", "()");
+
+    runTest("", "'(a (b c) (d (e f)))", "(a (b c) (d (e f)))");
+    runTest("", "'(1 2 3 4)", "(1 2 3 4)");
+    runTest("", "'(george kate james joyce)", "(george kate james joyce)");
+
+    // p152
+    runTest("","'(on block-1 table)", "(on block-1 table)");
+    runTest("","'(likes bill X)", "(likes bill X)");
+    runTest("","'(and (likes george kate) (likes bill merry))", "(and (likes george kate) (likes bill merry))");
+    runTest("","'((2467 (lovelace ada) programmer)"
+               " (3592 (babbage charles) computer-designer))",
+               "((2467 (lovelace ada) programmer)"
+               " (3592 (babbage charles) computer-designer))");
+    runTest("","'((key-1 value-1) (key-2 value-2) (key-3 value-3))", "((key-1 value-1) (key-2 value-2) (key-3 value-3))");
+    runTest("", "(* 7 9)", "63");
+    runTest("", "(- (+ 3 4) 7)", "0");
+    runTest("", "(+ 14 5)", "19");
+    runTest("", "(+ 1 2 3 4)", "10");
+    runTest("", "(* (+ 2 5) (- 7 (/ 21 7)))", "28");
+    runTest("", "(= (+ 2 3) 5)", "t");
+    runTest("", "(> (* 5 6) (+ 4 5))", "t");
+    //CHECK_THROWS(runTest("", "(a b c)", ""));
+
+    // p154
+    runTest("", "(list 1 2 3 4 5)", "(1 2 3 4 5)");
+    runTest("", "(nth 0 '(a b c d))", "a");
+    runTest("", "(nth 2 (list 1 2 3 4 5))", "3");
+    runTest("", "(nth 2 '((a 1) (b 2) (c 3) (d 4)))", "(c 3)");
+    runTest("", "(length '(a b c d))", "4");
+    //runTest("", "(member 7 '(1 2 3 4 5))", "nil");
+    runTest("", "(null ( ))", "t");
+
+    // p155
+    runTest("", "(quote (a b c))", "(a b c)");
+    runTest("", "(quote (+ 1 3))", "(+ 1 3)");
+    runTest("", "'(a b c)", "(a b c)");
+    runTest("", "'(+ 1 3)", "(+ 1 3)");
+    runTest("", "(list (+ 1 2) (+ 3 4))", "(3 7)");
+    runTest("", "(list '(+ 1 2) '(+ 3 4))", "((+ 1 2) (+ 3 4))");
+    runTest("", "(quote (+ 2 3))", "(+ 2 3)");
+    runTest("", "(eval (quote (+ 2 3)))", "5");
+    runTest("", "(list '* 2 5)", "(* 2 5)");
+    runTest("", "(eval (list '* 2 5))", "10");
+
+    // p156
+
 }
 
 TEST_CASE("test-lisp-predicates-parsing", "[none]")

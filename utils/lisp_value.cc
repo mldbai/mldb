@@ -357,12 +357,15 @@ void
 Value::
 toJson(JsonPrintingContext & context) const
 {
+#define OBJ(x) context.startMember(x)
+
     if (!context_) {
+        context.startObject();
+        OBJ("uninitialized");
         context.writeNull();
+        context.endObject();
         return;
     }
-
-#define OBJ(x) context.startMember(x)
 
     context.startObject();
 
@@ -466,6 +469,10 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
             pcontext.forEachElement([&] () { list.emplace_back(fromJson(lcontext, pcontext)); });
             result = make(list);
         }
+        else if (pcontext.inField("uninitialized")) {
+            pcontext.expectNull();
+            result = Value();
+        }
         else {
             pcontext.exception("Unknown field in Lisp value: " + pcontext.fieldName());
         }
@@ -500,7 +507,7 @@ print() const
         [] (uint64_t i)           { return std::to_string(i); },
         [] (double d)             { return std::to_string(d); },
         [] (const Utf8String & s) { return jsonEncodeStr(s); },
-        [] (Null)                 { return "null"; },
+        [] (Null)                 { return "nil"; },
         [] (Wildcard)             { return "_"; },
         [] (Ellipsis)             { return "..."; },
         [] (const Symbol& s)      { return s.sym.toUtf8String(); },
@@ -533,7 +540,7 @@ asString() const
         [] (uint64_t i)           { return std::to_string(i); },
         [] (double d)             { return std::to_string(d); },
         [] (const Utf8String & s) { return s; },
-        [] (Null)                 { return "null"; },
+        [] (Null)                 { return "nil"; },
         [] (Wildcard)             { return "_"; },
         [] (Ellipsis)             { return "..."; },
         [] (const Symbol& s)      { return s.sym.toUtf8String(); },
@@ -613,7 +620,7 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
     else if (pcontext.match_literal("false")) {
         result = make(false);
     }
-    else if (pcontext.match_literal("null")) {
+    else if (pcontext.match_literal("nil")) {
         result = make(Null{});
     }
     else {
