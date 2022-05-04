@@ -45,6 +45,10 @@ LISP_SOURCES := \
 	lisp_lib.cc \
 	lisp_predicate.cc \
 	lisp_jit.cc \
+	lisp_lib_basics.cc \
+	lisp_lib_arith.cc \
+	lisp_lib_comparison.cc \
+	lisp_lib_numeric.cc \
 
 LISP_LIBS := \
 	arch \

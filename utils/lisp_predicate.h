@@ -84,5 +84,10 @@ struct Pattern {
     Substitution subst;
 };
 
+
+/// Recursively apply the list of patterns to the input until none can be applied
+/// any more
+Value recursePatterns(const std::vector<Pattern> & patterns, const Value & input);
+
 } // namespace Lisp
 } // namespace MLDB

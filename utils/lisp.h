@@ -48,14 +48,16 @@ private:
 
 struct CompiledExpression {
 
-    // Execute the function directly
+    // Execute the function directly, in the given execution context
     Value operator () (ExecutionScope & outer) const
     {
+        std::shared_ptr<ExecutionScope> scopePtr(&outer, [] (auto) {});
+        if (createScope_) {
+            scopePtr = createScope_(scopePtr, List{});
+        }
         if (!execute_)
             MLDB_THROW_LOGIC_ERROR();
-        using namespace std;
-        cerr << "executor call" << endl;
-        return execute_(outer);
+        return execute_(*scopePtr);
     }
 
     PathElement name_;
@@ -127,6 +129,7 @@ private:
     CompilationScope(const CompilationScope & parent);
     std::vector<PathElement> importedNamespaces = { "std" };
     Context * context_ = nullptr;
+    const CompilationScope * parent_ = nullptr;
     mutable uint64_t uniqueNumber_ = 0;
 
     // List of variables defined in this scope, along with the expression

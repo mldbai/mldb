@@ -148,7 +148,7 @@ CompilationScope()
 
 CompilationScope::
 CompilationScope(const CompilationScope & parent)
-    : context_(parent.context_)
+    : context_(parent.context_), parent_(&parent)
 {
 }
 
@@ -240,83 +240,6 @@ compile(const Value & program) const
     return visit(visitor, program);
 }
 
-#if 0
-CompiledExpression
-CompilationScope::
-call(const Value & program, const Value & parameterSpec) const
-{
-    ExcAssert(context_);
-    program.verifyContext(context_);
-
-    std::set<PathElement> parameterSet;
-    std::vector<PathElement> parameterNames;
-    for (auto & param: parameterSpec.as<List>()) {
-        if (!parameterSet.insert(param.getSymbolName()).second)
-            exception("compiling " + programName.toUtf8String() + " : duplicate parameter name " + param.getSymbolName().toUtf8String());
-        parameterNames.emplace_back(param.getSymbolName());
-    }
-
-    auto createScope = [parameterNames, programName] (ExecutionScope & scope, List params) -> std::shared_ptr<ExecutionScope>
-    {
-        if (params.size() != parameterNames.size()) {
-            scope.exception("attempt to call function " + programName.toUtf8String() + " with wrong number of parameters");
-        }
-        std::map<PathElement, Value> locals;
-        for (size_t i = 0;  i < params.size();  ++i) {
-            locals[parameterNames[i]] = params[i];
-        }
-
-        return std::make_shared<ExecutionScope>(scope, std::move(locals));
-    };
-
-    LambdaVisitor visitor {
-        [&] (Value val) -> CompiledExpression // first is for unmatched values
-        {
-            Executor result = [val = std::move(val)] (ExecutionScope & scope) -> Value
-            {
-                return val;
-            };
-
-            return { getUniqueName(), std::move(result), nullptr, context_ };
-        },
-        [&] (const Symbol & sym) -> CompiledExpression
-        {
-            PathElement name = sym.sym;
-            auto accessor = this->getSymbolAccessor(sym.sym);
-
-            Executor result = [accessor, name] (ExecutionScope & scope) -> Value
-            {
-                Value result = accessor(scope);
-                if (result.isUninitialized())
-                    scope.exception("Couldn't find value of symbol " + name.toUtf8String());
-                return result;
-            };
-
-            return { sym.sym, std::move(result), nullptr, context_ };
-        },
-        [&] (const List & list) -> CompiledExpression
-        {
-            if (!list.empty()) {
-                if (!list.empty() && list.front().is<Symbol>()) {
-                    const Symbol & sym = list.front().as<Symbol>();
-                    auto compiler = this->getFunctionCompiler(sym.sym);
-                    cerr << "Getting function compiler for " << sym.sym << endl;
-                    return compiler(list, *this);
-                }
-                else {
-                    // Just a list, keep it as it was
-                    // ...
-                    MLDB_THROW_UNIMPLEMENTED();
-                }
-            }
-            MLDB_THROW_UNIMPLEMENTED("can't execute empty list");
-        }
-    };
-
-    return visit(visitor, program);
-}
-#endif
-
 std::optional<PathElement> evaluateAsSymbol(const Value & val)
 {
     if (!val.is<Symbol>()) {
@@ -402,6 +325,7 @@ consult(const Value & program)
                         = [functionName, parameterNames, forms = std::move(forms)]
                             (const List & args, const CompilationScope & outerScope) -> CompiledExpression
                     {
+                        cerr << "compiling call to function " << functionName << " with " << args.size() << " args" << endl;
                         // This is called when we compile a call to the function.
                         //
                         // It's passed the full list that invokes the function, ie the name of the
@@ -441,8 +365,9 @@ consult(const Value & program)
                         CompiledExpression result;
                         result.context_ = &outerScope.getContext();
                         result.name_ = functionName;
-                        result.createScope_ = [compiledArgs] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
+                        result.createScope_ = [compiledArgs, functionName] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
                         {
+                            cerr << "creating scope for call to " << functionName << endl;
                             std::map<PathElement, Value> locals;
 
                             // Execute each argument, and inject them as locals
@@ -553,16 +478,18 @@ getFunctionCompiler(const Path & fn) const
     if (fn.size() != 1)
         MLDB_THROW_UNIMPLEMENTED("paths with size() != 1");
 
-    // First look at what's defined
-
-    // TODO: go backwards
+    // First look at what's defined locally
     for (auto & [name, compiler]: functions_) {
-        cerr << "trying compiler " << name << endl;
         if (name == fn.front()) {
             return compiler;
         }
     }
-    return lookupFunction(fn.front(), importedNamespaces);
+
+    // If not found, try the parent, or if not, try our imported namespaces
+    if (parent_)
+        return parent_->getFunctionCompiler(fn);
+    else
+        return lookupFunction(fn.front(), importedNamespaces);
 }
 
 VariableReader
@@ -600,7 +527,10 @@ std::tuple<CompilationScope, CreateExecutionScope>
 CompilationScope::
 enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression>> & locals) const
 {
-    cerr << "enterScopeWithLocals: " << locals.size() << " locals" << endl;
+    cerr << "enterScopeWithLocals: " << locals.size() << " locals:";
+    for (auto & [name, val]: locals)
+        cerr << " " << name;
+    cerr << endl;
     CompilationScope result(*this);
     for (auto & [name, expr]: locals) {
         result.variables_.emplace_back(name, expr);

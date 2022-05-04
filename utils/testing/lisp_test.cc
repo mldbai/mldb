@@ -224,7 +224,9 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     runTest("", "(eval (list '* 2 5))", "10");
 
     // p156
-
+    runTest("(defun square (x) (* x x))", "(square 5)", "25");
+    runTest("(defun square (a) (* a a)) (defun hypotenuse (x y) (sqrt (+ (square x) (square y))))", "(hypotenuse 3 4)", "5");
+    runTest("(defun square (x) (* x x)) (defun hypotenuse (x y) (sqrt (+ (square x) (square y))))", "(hypotenuse 3 4)", "5");
 }
 
 TEST_CASE("test-lisp-predicates-parsing", "[none]")

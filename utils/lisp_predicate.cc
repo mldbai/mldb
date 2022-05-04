@@ -656,5 +656,33 @@ apply(Value input) const
     return std::move(output);
 }
 
+Value
+recursePatterns(const std::vector<Pattern> & patterns,
+                const Value & input)
+{
+    auto applyPatterns = [&] (const Value & input) -> Value
+    {
+        Value current = input;
+
+        for (bool matched = true; matched; matched = false) {
+            for (auto & p: patterns) {
+                auto res = p.apply(current);
+                if (res) {
+                    //cerr << "matched: " << current << " : " << p.toLisp() << " -> " << *res << endl;
+                    current = *res;
+                    matched = true;
+                    break;
+                }
+            }
+        }
+ 
+        return current;
+    };
+
+    RecursiveLambdaVisitor visitor { applyPatterns };
+
+    return recurse(visitor, applyPatterns(input));
+}
+
 } // namespace Lisp
 } // namespace MLDB
