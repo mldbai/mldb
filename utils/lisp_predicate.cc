@@ -106,7 +106,7 @@ parse(Context & lcontext, const Utf8String & pred)
 {
     ParseContext pcontext("<<<internal string>>>", pred.rawData(), pred.rawLength());
     auto res = parse(lcontext, pcontext);
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     pcontext.expect_eof();
     return res;
 }
@@ -496,7 +496,7 @@ parse(Context & lcontext, const Utf8String & pred)
 {
     ParseContext pcontext("<<<internal string>>>", pred.rawData(), pred.rawLength());
     auto res = parse(lcontext, pcontext);
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     pcontext.expect_eof();
     return res;
 }
@@ -599,7 +599,7 @@ match(Context & lcontext, ParseContext & pcontext)
     if (auto val = Predicate::match(lcontext, pcontext))
         result.pred = std::move(*val);
     else return nullopt;
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     pcontext.match_literal("->");
 
     if (auto val = Substitution::match(lcontext, pcontext))
@@ -616,7 +616,7 @@ parse(Context & lcontext, ParseContext & pcontext)
 {
     Pattern result;
     result.pred = Predicate::parse(lcontext, pcontext);
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     pcontext.expect_literal("->");
     result.subst = Substitution::parse(lcontext, pcontext);
     return result;
@@ -628,7 +628,7 @@ parse(Context & lcontext, const Utf8String & pred)
 {
     ParseContext pcontext("<<<internal string>>>", pred.rawData(), pred.rawLength());
     auto res = parse(lcontext, pcontext);
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     pcontext.expect_eof();
     return res;
 }

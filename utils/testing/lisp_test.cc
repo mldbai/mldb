@@ -9,6 +9,7 @@
 #include "catch2/catch_all.hpp"
 #include "mldb/types/value_description.h"
 #include "mldb/utils/lisp.h"
+#include "mldb/utils/lisp_parsing.h"
 #include "mldb/utils/lisp_predicate.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/types/any_impl.h"
@@ -53,7 +54,7 @@ TEST_CASE("test-lisp-parsing", "[none]")
             Context lcontext;
             ParseContext pcontext(expr, expr.data(), expr.length());
             auto val = Value::parse(lcontext, pcontext);
-            pcontext.skip_whitespace();
+            skipLispWhitespace(pcontext);
             pcontext.expect_eof();
 
             auto jsonEncoded = jsonEncodeStr(val);
@@ -178,7 +179,7 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     runTest("", "100", "100");
     runTest("", "'hyphenated-name", "hyphenated-name");
     runTest("", "'*some-global*", "*some-global*");
-    runTest("", "'nil", "()");
+    runTest("", "'nil", "nil");
 
     runTest("", "'(a (b c) (d (e f)))", "(a (b c) (d (e f)))");
     runTest("", "'(1 2 3 4)", "(1 2 3 4)");
@@ -227,6 +228,34 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     runTest("(defun square (x) (* x x))", "(square 5)", "25");
     runTest("(defun square (a) (* a a)) (defun hypotenuse (x y) (sqrt (+ (square x) (square y))))", "(hypotenuse 3 4)", "5");
     runTest("(defun square (x) (* x x)) (defun hypotenuse (x y) (sqrt (+ (square x) (square y))))", "(hypotenuse 3 4)", "5");
+
+    // p157
+    runTest("", "(< -1 0)", "t");
+    runTest("(defun neg (x) (- x))", "(neg -1)", "1");
+
+    runTest(R"((defun absolute-value (x)
+                (cond((< x 0) (- x))     ;if x<0, return -x
+                     ((>= x 0) x)))      ;else return x)",
+            "((absolute-value -1) (absolute-value 1))",
+            "(1 1)");
+
+    // p158
+    runTest(R"((defun absolute-value (x)
+                (cond((< x 0) (- x))     ;if x<0, return -x
+                     (t x)))             ;else return x)",
+            "((absolute-value -1) (absolute-value 1))",
+            "(1 1)");
+
+    runTest("", "(= 9 (+ 4 5))",  "t");
+    runTest("", "(>= 17 4)",      "t");
+    runTest("", "(< 8 (+ 4 2))",  "nil");
+    runTest("", "(oddp 3)",       "t");
+    runTest("", "(minusp 6)",     "nil");
+    runTest("", "(numberp 17)",   "t");
+    runTest("", "(numberp nil)",  "nil");
+    runTest("", "(zerop 0)",      "t");
+    runTest("", "(plusp 10)",     "t");
+    runTest("", "(plusp -2)",     "nil");
 }
 
 TEST_CASE("test-lisp-predicates-parsing", "[none]")
@@ -264,13 +293,13 @@ TEST_CASE("test-lisp-predicates", "[none]")
     };
 
     runTest("(+ $x)", "(+ 1)", "(matched $x 1)");
-    runTest("(+ $x)", "(- 1)", "()");
-    runTest("(+ '$x)", "(+ 1)", "()");
+    runTest("(+ $x)", "(- 1)", "nil");
+    runTest("(+ '$x)", "(+ 1)", "nil");
     runTest("(+ '$x)", "(+ $x)", "(matched)");
     runTest("(+ $x $x)", "(+ 1 1)", "(matched $x 1)");
     runTest("(+ 0 $x)", "(+ 0 1)", "(matched $x 1)");
     runTest("(* (- $x $y) (+ $x $y))", "(* (- 1 3) (+ 1 3))", "(matched $x 1 $y 3)");
-    runTest("(* (- $x $y) (+ $x $y))", "(* (- 1 3) (+ 1 2))", "()");
+    runTest("(* (- $x $y) (+ $x $y))", "(* (- 1 3) (+ 1 2))", "nil");
     runTest("(* _ _)", "(* (- 1 3) (+ 1 2))", "(matched)");
     runTest("(+ $x $rest...)", "(+ 1)", "(matched $rest () $x 1)");
     runTest("(+ $x $rest...)", "(+ 1 2)", "(matched $rest (2) $x 1)");

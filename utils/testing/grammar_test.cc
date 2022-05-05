@@ -29,7 +29,7 @@ TEST_CASE("test-grammar-parsing", "[none]")
 
     auto grammar = parseGrammar(lcontext, pcontext);
 
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     pcontext.expect_eof("extra junk at end of grammar");
 
     auto ccontext = std::make_shared<CompilationContext>(lcontext);
