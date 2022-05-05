@@ -24,6 +24,11 @@ std::optional<PathElement> match_symbol_name(ParseContext & context);
 std::optional<PathElement> match_operator_name(ParseContext & context);
 std::optional<Utf8String> match_delimited_string(ParseContext & context, char delim);
 
+// Skip over comments, whitespace, eof... returns true if something was matched
+bool skipLispWhitespace(ParseContext & context);
+
+// Expect some kind of whitespace, throws if not found
+void expectLispWhitespace(ParseContext & context);
 
 template<typename Matcher, typename Error, typename... Args>
 auto parse_from_matcher(Matcher && matcher,
@@ -46,22 +51,22 @@ match_recursive(Context & lcontext, ParseContext & pcontext,
     ParseContext::Revert_Token token(pcontext);
     Value result;
     
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     int quotes = 0;
     while (pcontext.match_literal('\''))
         ++quotes;
     
     if (pcontext.match_literal('(')) {
-        pcontext.match_whitespace();
+        skipLispWhitespace(pcontext);
         std::optional<Value> arg;
         List list;
         while ((arg = recurse(lcontext, pcontext))) {
             list.emplace_back(std::move(*arg));
-            if (!pcontext.match_whitespace())
+            if (!skipLispWhitespace(pcontext))
                 break;
         }
         result = Value(lcontext, std::move(list));
-        pcontext.skip_whitespace();
+        skipLispWhitespace(pcontext);
         pcontext.expect_literal(')', "expected ')' to close list");
     }
     else if (auto atom = matchAtom(lcontext, pcontext)) {
@@ -94,19 +99,19 @@ Value parse_recursive(Context & lcontext, ParseContext & pcontext,
                       ParseAtomFn&&parseAtom, ParseMetadataFn&& parseMetadata, RecurseFn&&recurse)
 {
     Value result;
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
 
     int quotes = 0;
     while (pcontext.match_literal('\''))
         ++quotes;
 
     if (pcontext.match_literal('(')) {
-        pcontext.match_whitespace();
+        skipLispWhitespace(pcontext);
         List list;
         bool first = true;
         while (!pcontext.match_literal(')')) {
-            if (first) pcontext.match_whitespace();
-            else       pcontext.expect_whitespace();
+            if (first) skipLispWhitespace(pcontext);
+            else       expectLispWhitespace(pcontext);
 
             if (pcontext.match_literal(')'))
                 break;

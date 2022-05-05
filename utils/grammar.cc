@@ -35,7 +35,7 @@ match_rule_name(ParseContext & context)
 {
     std::string segment;
     segment.reserve(18);
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     if (!context) {
         return nullopt;
     }
@@ -63,7 +63,7 @@ match_variable_name(ParseContext & context)
 {
     std::string segment;
     segment.reserve(18);
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     if (!context) {
         return nullopt;
     }
@@ -90,7 +90,7 @@ optional<Utf8String> match_delimited_string(ParseContext & context, char delim)
 {
     ParseContext::Revert_Token token(context);
 
-    context.skip_whitespace();
+    skipLispWhitespace(context);
 
     if (!context.match_literal(delim))
         return nullopt;
@@ -167,7 +167,7 @@ struct IndentedParseContext: public ParseContext {
         while (*this) {
             Rewind_Token token(*this);
             auto before = get_col();
-            skip_whitespace();
+            skipLispWhitespace(*this);
             if (match_eol()) {
                 // blank line
                 continue;
@@ -228,7 +228,7 @@ matchLispExpression(Lisp::Context & lcontext, IndentedParseContext & context)
 
     Value result;
 
-    context.skip_whitespace();
+    skipLispWhitespace(context);
 
     if (context.match_literal('*')) {
         auto next = matchLispExpression(lcontext, context);
@@ -243,7 +243,7 @@ matchLispExpression(Lisp::Context & lcontext, IndentedParseContext & context)
         return nullopt;
     }
 
-    context.skip_whitespace();
+    skipLispWhitespace(context);
 
     while (context) {
         //cerr << "got " << result.print() << " *context = " << *context << endl;
@@ -290,10 +290,10 @@ matchGrammarRule(Lisp::Context & lcontext, IndentedParseContext & context)
     if (!name)
         return nullopt;
     result.name = *name;
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     if (!context.match_literal(':'))
         return nullopt;
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     context.expect_eol();
     int blockIndent = -1;
 
@@ -323,7 +323,7 @@ matchGrammarRule(Lisp::Context & lcontext, IndentedParseContext & context)
         else {
             production.match = lcontext.call("@seq", std::move(*match));
         }
-        context.skip_whitespace();
+        skipLispWhitespace(context);
         context.expect_literal("->");
         auto produce = matchLispExpressionSequence(lcontext, context);
         if (!produce)
@@ -331,7 +331,7 @@ matchGrammarRule(Lisp::Context & lcontext, IndentedParseContext & context)
         production.produce = lcontext.call(result.name, std::move(*produce));
 
         cerr << "got " << production.match.print() << " -> " << production.produce.print() << endl;
-        context.skip_whitespace();
+        skipLispWhitespace(context);
         context.expect_eol();
         result.productions.emplace_back(std::move(production));
     }
@@ -349,7 +349,7 @@ GrammarRule parseGrammar(Lisp::Context & lcontext, ParseContext & contextIn)
     auto result = matchGrammarRule(lcontext, context);
     if (!result)
         context.exception("expected main rule");
-    while (context && (context.match_whitespace() || context.match_eol())) ;
+    while (context && (skipLispWhitespace(context) || context.match_eol())) ;
     context.expect_eof();
 
     return std::move(*result);

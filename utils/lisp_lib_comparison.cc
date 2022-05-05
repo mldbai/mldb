@@ -30,7 +30,8 @@ CompiledExpression compileComparison(Compare && compare, PathElement name, const
     Executor exec = [args = std::move(args), compare = std::move(compare)]
           (ExecutionScope & scope) -> Value
     {
-        return scope.getContext().boolean(compare(args[0](scope), args[1](scope)));
+        bool res = compare(args[0](scope), args[1](scope));
+        return res ? scope.getContext().boolean(true) : scope.getContext().null();
     };
 
     return { name, std::move(exec), nullptr, &context, "COMPARISON " + name.toUtf8String() };
@@ -41,17 +42,21 @@ CompiledExpression compileComparison(Compare && compare, PathElement name, const
 template<template<typename> typename Cmp>
 bool compareImpl(const Value & v1, const Value & v2)
 {
-    //cerr << "calculating " << result.print() << " / " << v2.print() << endl;
+    cerr << "comparing " << v1.print() << " and " << v2.print() << endl;
 
     if (v1.is<double>() || v2.is<double>()) {
         // TODO: inexactness
+        cerr << "comparing as double" << endl;
         return Cmp<double>()(asDouble(v1),asDouble(v2));
     }
     else if (v1.is<int64_t>() || v2.is<int64_t>()) {
-        return Cmp<uint64_t>()(asInt(v1),asInt(v2));
+        cerr << "comparing as int64" << endl;
+        cerr << "comparing " << asInt(v1) << " and " << asInt(v2) << endl;
+        return Cmp<int64_t>()(asInt(v1),asInt(v2));
     }
     else if (v1.is<uint64_t>() || v2.is<uint64_t>()) {
-        return Cmp<int64_t>()(asUInt(v1),asUInt(v2));
+        cerr << "comparing as uint64" << endl;
+        return Cmp<uint64_t>()(asUInt(v1),asUInt(v2));
     }
     else {
         MLDB_THROW_RUNTIME_ERROR("incompatible types for multiplication");
@@ -63,14 +68,29 @@ DEFINE_LISP_FUNCTION_COMPILER(less, std, "<")
     return compileComparison(compareImpl<std::less>, "less", scope, std::move(expr));
 }
 
+DEFINE_LISP_FUNCTION_COMPILER(less_equal, std, "<=")
+{
+    return compileComparison(compareImpl<std::less_equal>, "less_equal", scope, std::move(expr));
+}
+
 DEFINE_LISP_FUNCTION_COMPILER(greater, std, ">")
 {
     return compileComparison(compareImpl<std::greater>, "greater", scope, std::move(expr));
 }
 
+DEFINE_LISP_FUNCTION_COMPILER(greater_equal, std, ">=")
+{
+    return compileComparison(compareImpl<std::greater_equal>, "greater_equal", scope, std::move(expr));
+}
+
 DEFINE_LISP_FUNCTION_COMPILER(equal, std, "=")
 {
     return compileComparison(compareImpl<std::equal_to>, "equal", scope, std::move(expr));
+}
+
+DEFINE_LISP_FUNCTION_COMPILER(not_equal, std, "/=")
+{
+    return compileComparison(compareImpl<std::not_equal_to>, "not_equal", scope, std::move(expr));
 }
 
 } // namespace Lisp

@@ -129,6 +129,7 @@ DEFINE_LISP_FUNCTION_COMPILER(minus, std, "-")
         {
             Value result = scope.getContext().i64(0);
             updateMinus(result, argExecutor(scope));
+            cerr << "negation returned " << result << endl;
             return result;
         };
 

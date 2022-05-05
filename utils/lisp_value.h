@@ -167,6 +167,10 @@ struct Value {
     /// Asserts that the value is a symbol with a single element in its name; returns the name
     PathElement getSymbolName() const;
 
+    /// Convert to a boolean for a conditional, according to the rules (basically, an
+    /// empty list is false, everything else is true)
+    bool truth() const;
+
 private:
     Context * context_ = nullptr;
     int quotes_ = 0;   ///< Level to which the value is quoted

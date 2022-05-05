@@ -599,7 +599,7 @@ Value::
 matchAtom(Context & lcontext, ParseContext & pcontext)
 {
     ParseContext::Revert_Token token(pcontext);
-    pcontext.skip_whitespace();
+    skipLispWhitespace(pcontext);
     Value result;
 
     auto make = [&] (auto && val) -> Value
@@ -614,10 +614,10 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
     else if (auto str = match_delimited_string(pcontext, '\"')) {
         result = make(std::move(*str));
     }
-    else if (pcontext.match_literal("true")) {
+    else if (pcontext.match_literal("true") || pcontext.match_literal("t")) {
         result = make(true);
     }
-    else if (pcontext.match_literal("false")) {
+    else if (pcontext.match_literal("false") || pcontext.match_literal("f")) {
         result = make(false);
     }
     else if (pcontext.match_literal("nil")) {
@@ -724,6 +724,27 @@ Value::
 getSymbolName() const
 {
     return as<Symbol>().sym;
+}
+
+bool
+Value::
+truth() const
+{
+    if (!context_)
+        MLDB_THROW_UNIMPLEMENTED();
+
+    LambdaVisitor visitor {
+        [] (const Value & val) -> bool
+        {
+            return true;
+        },
+        [] (bool b)               { return b; },
+        [] (Null)                 { return false; },
+        [] (const List & l)       { return !l.empty(); }
+    };
+
+    return visit(visitor, *this);
+
 }
 
 } // namespace Lisp

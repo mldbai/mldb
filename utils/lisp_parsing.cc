@@ -17,12 +17,39 @@ int getEscapedJsonCharacterPointUtf8(ParseContext & context);
 
 namespace Lisp {
 
+// Skip over comments, whitespace, eof... returns true if something was matched
+bool skipLispWhitespace(ParseContext & context)
+{
+    bool result = false;
+    while (!context.eof() && isspace(*context)) {
+        result = true;
+        ++context;
+    }
+    
+    if (context.eof())
+        return result;
+
+    if (*context == ';') {
+        // comment means we skip to EOL
+        context.skip_line();
+    }
+
+    return true;
+}
+
+// Expect some kind of whitespace, throws if not found
+void expectLispWhitespace(ParseContext & context)
+{
+    if (!skipLispWhitespace(context))
+        context.exception("expected LISP whitespace or comment or EOL to separate terms");
+}
+
 std::optional<PathElement>
 match_rule_name(ParseContext & context)
 {
     std::string segment;
     segment.reserve(18);
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     if (!context) {
         return nullopt;
     }
@@ -84,7 +111,7 @@ std::optional<PathElement>
 match_variable_name(ParseContext & context)
 {
     ParseContext::Revert_Token token(context);
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     if (!context) {
         return nullopt;
     }
@@ -100,7 +127,7 @@ std::optional<PathElement>
 match_symbol_name(ParseContext & context)
 {
     ParseContext::Revert_Token token(context);
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     if (!context)
         return nullopt;
     char c = *context;
@@ -115,7 +142,7 @@ std::optional<PathElement>
 match_operator_name(ParseContext & context)
 {
     ParseContext::Revert_Token token(context);
-    context.skip_whitespace();
+    skipLispWhitespace(context);
     for (char op: operators) {
         if (context.match_literal(op)) {
             token.ignore();
@@ -129,7 +156,7 @@ optional<Utf8String> match_delimited_string(ParseContext & context, char delim)
 {
     ParseContext::Revert_Token token(context);
 
-    context.skip_whitespace();
+    skipLispWhitespace(context);
 
     if (!context.match_literal(delim))
         return nullopt;

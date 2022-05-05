@@ -254,5 +254,41 @@ DEFINE_LISP_FUNCTION_COMPILER(null, std, "null")
     return { "null", std::move(exec), nullptr /* createScope */, &context, "NULL (...)" };
 }
 
+// (cond (pred1 val1) (pred2 val2)... )
+DEFINE_LISP_FUNCTION_COMPILER(cond, std, "cond")
+{
+    // Decompose into the list of predicates and the resulting values
+    std::vector<std::tuple<CompiledExpression, CompiledExpression>> clauses;
+    for (size_t i = 1;  i < expr.size();  ++i) {
+        const Value & clause = expr[i];
+        if (!clause.is<List>()) {
+            scope.exception("cond argument " + std::to_string(i - 1) + " should be list of (pred result) but is not a list: " + clause.print());
+        }
+        const List & l = clause.as<List>();
+        if (l.size() != 2) {
+            scope.exception("cond argument " + std::to_string(i - 1) + " should be two element list of (pred result) but doesn't have two elements: " + clause.print());
+        }
+
+        clauses.emplace_back(scope.compile(l[0]), scope.compile(l[1]));
+    }
+
+    auto & context = scope.getContext();
+
+    Executor exec = [clauses = std::move(clauses)] (ExecutionScope & scope) -> Value
+    {
+        for (auto & [c, v]: clauses) {
+            if (c(scope).truth()) {
+                Value result = v(scope);
+                cerr << "cond: returning " << result << endl;
+                return result;
+            }
+        }
+
+        return scope.getContext().null();
+    };
+
+    return { "cond", std::move(exec), nullptr /* createScope */, &context, "COND (...)" };
+}
+
 } // namespace Lisp
 } // namespace MLDB

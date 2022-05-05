@@ -231,7 +231,8 @@ bool operator==(const Any & lhs, const Any & rhs)
         // we have no way to interpret the value - the best we can do is compare pointers
         return lhs.obj_ == rhs.obj_;
     }
-    else if (typeid(lhs.desc_) != typeid(rhs.desc_)) {
+    else if (lhs.desc_->type != rhs.desc_->type) {
+        // Cannot compare values if value descriptions are different
         return false;
     }
     else if (lhs.desc_->hasEqualityComparison()) {

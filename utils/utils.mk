@@ -48,6 +48,7 @@ LISP_SOURCES := \
 	lisp_lib_arith.cc \
 	lisp_lib_comparison.cc \
 	lisp_lib_numeric.cc \
+	lisp_lib_predicate.cc \
 
 LISP_LIBS := \
 	arch \
