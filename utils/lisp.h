@@ -124,6 +124,11 @@ struct CompilationScope {
     std::tuple<CompilationScope, CreateExecutionScope>
     enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression>> & locals) const;
 
+    // Return a scope creator which will enter a new scope with the given variables bound to
+    // the passed arguments.
+    std::tuple<CompilationScope, CreateExecutionScope>
+    enterScopeWithArgs(const std::vector<PathElement> & varNames) const;
+
 private:
     CompilationScope();
     CompilationScope(const CompilationScope & parent);
@@ -132,9 +137,10 @@ private:
     const CompilationScope * parent_ = nullptr;
     mutable uint64_t uniqueNumber_ = 0;
 
-    // List of variables defined in this scope, along with the expression
-    // that constructs their initial value.
-    std::vector<std::pair<PathElement, CompiledExpression>> variables_;
+    // List of variables defined in this scope, along with the static initial
+    // value (if it's in invalid Value, that means this scope will be constructed)
+    // by a scope constructor).
+    std::vector<std::pair<PathElement, Value>> variables_;
 
     // List of functions defined in this scope.  Note that functions and variables
     // live in distinct namespaces, so it's not possible to confuse them.
@@ -182,6 +188,7 @@ struct Context {
     Value call(PathElement head);
     Value call(PathElement head, std::vector<Value> args);
     Value path(PathElement path);
+    Value sym(PathElement sym);
     Value str(Utf8String str);
     Value u64(uint64_t i);
     Value i64(int64_t i);
@@ -189,36 +196,36 @@ struct Context {
     Value boolean(bool b);
 
     template<typename T>
-    void addArg(List & l, T&&arg)
+    void addArg(ListBuilder & l, T&&arg)
     {
         l.emplace_back(*this, std::forward<T>(arg));
     }
 
     template<typename T>
-    void addArg(List & l, std::vector<T> arg)
+    void addArg(ListBuilder & l, std::vector<T> arg)
     {
         l.insert(l.end(), std::make_move_iterator(arg.begin()), std::make_move_iterator(arg.end()));
     }
 
-    void addArg(List & l, Value val)
+    void addArg(ListBuilder & l, Value val)
     {
         val.verifyContext(this);
         l.emplace_back(std::move(val));
     }
 
     template<typename First, typename... Rest>
-    void addArgs(List & l, First&&first, Rest&&... rest)
+    void addArgs(ListBuilder & l, First&&first, Rest&&... rest)
     {
         addArg(l, std::forward<First>(first));
         addArgs(l, std::forward<Rest>(rest)...);
     }
 
-    void addArgs(List & l) {}
+    void addArgs(ListBuilder & l) {}
 
     template<typename... Args>
     Value list(Args&&... args)
     {
-        List l;
+        ListBuilder l;
         l.reserve(sizeof...(Args));
         addArgs(l, std::forward<Args>(args)...);
         return Value{*this, std::move(l)};

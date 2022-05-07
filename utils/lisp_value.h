@@ -12,6 +12,8 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <iterator>
+#include <compare>
 #include "mldb/types/string.h"
 #include "mldb/types/path.h"
 #include "mldb/types/any.h"
@@ -22,44 +24,6 @@ namespace Lisp {
 /*******************************************************************************/
 /* LISP VALUE                                                                  */
 /*******************************************************************************/
-
-struct Symbol {
-    PathElement sym;
-};
-
-struct Null {
-};
-
-struct Wildcard {
-};
-
-struct Ellipsis {
-};
-
-struct List: public std::vector<Value> {
-    using std::vector<Value>::vector;
-    Path functionName() const;
-    PathElement simpleFunctionName() const;
-
-    template<typename T, typename UpdateFn, typename FoldFn>
-    T fold(UpdateFn && updater, FoldFn && folder, T before = T(), T between = T(), T after = T()) const
-    {
-        T result = before;
-        for (size_t i = 0, n = size();  i < n;  ++i) {
-            if (i != 0) updater(result, between);
-            updater(result, folder(at(i)));
-        }
-        updater(result, after);
-        return result;
-    }
-};
-
-struct Function: public Symbol {
-    Function() = default;
-    Function(PathElement name, CompiledExpression expr);
-    Function(PathElement name, std::shared_ptr<const CompiledExpression> compiled);
-    std::shared_ptr<const CompiledExpression> compiled;
-};
 
 struct Value {
     Value();
@@ -183,6 +147,108 @@ inline std::ostream & operator << (std::ostream & stream, Value val)
 {
     return stream << val.print();
 }
+
+struct Symbol {
+    PathElement sym;
+};
+
+struct Null {
+};
+
+struct Wildcard {
+};
+
+struct Ellipsis {
+};
+
+using ListBuilder = std::vector<Value>;
+
+struct ListHead {
+    std::shared_ptr<std::vector<Value>> vals;
+    uint32_t start = 0;
+    uint32_t end = 0;
+
+    inline size_t nToI(size_t n) const
+    {
+        ssize_t i = n - start;
+        ExcAssertLessEqual(i, end);
+        return i;
+    }
+    
+    size_t size() const { return end - start; }
+    bool empty() const { return start == end; }
+};
+
+// This is a STL-compatible Random Access iterator over a string table.  It enables us
+// to use std::lower_bound on StringTable implementations when the strings are sorted.
+struct ListIterator {
+    const Value * pos = nullptr;
+
+    using iterator_category = std::random_access_iterator_tag;
+    using value_type = Value;
+    using difference_type = ssize_t;
+    using pointer = const Value *;
+    using reference = const Value &;
+
+    auto operator <=> (const ListIterator & other) const = default;
+
+    ListIterator & operator++() { pos += 1; return *this; }
+    ListIterator & operator += (int n) { pos += n;  return *this; }
+    ListIterator & operator -= (int n) { pos -= n;  return *this; }
+    ListIterator & operator +  (ssize_t n) { pos += n;  return *this; }
+    ListIterator & operator -  (ssize_t n) { pos -= n;  return *this; }
+
+    value_type operator * () const { return *pos; }
+    difference_type operator - (const ListIterator & other) const { return pos - other.pos; }
+};
+
+struct List { 
+    List(ListBuilder vals = {});
+    //using std::vector<Value>::vector;
+    Path functionName() const;
+    PathElement simpleFunctionName() const;
+
+    template<typename T, typename UpdateFn, typename FoldFn>
+    T fold(UpdateFn && updater, FoldFn && folder, T before = T(), T between = T(), T after = T()) const
+    {
+        T result = before;
+        for (size_t i = 0, n = size();  i < n;  ++i) {
+            if (i != 0) updater(result, between);
+            updater(result, folder(at(i)));
+        }
+        updater(result, after);
+        return result;
+    }
+
+    ListBuilder steal();
+    ListBuilder steal() const;
+
+    const Value & front() const;
+    const Value & back() const;
+    const Value & at(size_t n) const;
+    const Value & operator [] (size_t n) const;
+    size_t size() const;
+    bool empty() const;
+
+    using const_iterator = ListIterator;
+    
+    const_iterator begin() const;
+    const_iterator end() const;
+
+    // Return the list with the elements from n *inclusive*
+    List tail(size_t n) const;
+
+private:
+    ListHead items;  // later... list of these
+};
+
+struct Function: public Symbol {
+    Function() = default;
+    Function(PathElement name, CompiledExpression expr);
+    Function(PathElement name, std::shared_ptr<const CompiledExpression> compiled);
+    std::shared_ptr<const CompiledExpression> compiled;
+};
+
 
 } // namespace Lisp
 } // namespace MLDB

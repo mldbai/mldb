@@ -24,6 +24,14 @@ namespace Lisp {
 /* LISP VALUE                                                                  */
 /*******************************************************************************/
 
+List::List(ListBuilder builder)
+{
+    size_t n = builder.size();
+    items.vals = std::make_shared<std::vector<Value>>(std::move(builder));
+    items.start = 0;
+    items.end = n;
+}
+
 Path
 List::
 functionName() const
@@ -41,6 +49,89 @@ simpleFunctionName() const
 {
     return functionName().toSimpleName();
 }
+
+ListBuilder List::steal()
+{
+    // Create a moveable view of the values, stealing them if we're the only reference
+    // or copying them otherwise
+    ListBuilder result;
+    if (items.vals.unique()) {
+        // Only reference?  We can have mutable access
+        if (items.start == 0 && items.end == items.vals->size()) {
+            result = std::move(*items.vals);
+            items.start = items.end = 0;
+        }
+        else {
+            result = ListBuilder{std::make_move_iterator(items.vals->begin() + items.start),
+                                 std::make_move_iterator(items.vals->end() + items.end)};
+        }
+    }
+    else {
+        result = ListBuilder{items.vals->begin() + items.start,
+                             items.vals->end() + items.end};
+    }
+
+    return result;
+}
+
+ListBuilder List::steal() const
+{
+    ListBuilder result(begin(), end());
+    return result;
+}
+
+const Value & List::front() const
+{
+    return items.vals->at(0);
+}
+
+const Value & List::back() const
+{
+    return items.vals->at(items.end - 1);
+}
+
+const Value & List::at(size_t n) const
+{
+    size_t i = items.nToI(n);
+    return items.vals->at(i);
+}
+
+const Value & List::operator [] (size_t n) const
+{
+    return at(n);
+}
+
+size_t List::size() const
+{
+    return items.size();
+}
+
+bool List::empty() const
+{
+    return items.empty();
+}
+
+ListIterator List::begin() const
+{
+    return { items.vals->data() + items.start };
+}
+
+ListIterator List::end() const
+{
+    return { items.vals->data() + items.end };
+}
+
+List List::tail(size_t n) const
+{
+    if (n >= size()) {
+        return List();
+    }
+
+    List result = *this;
+    result.items.start += n;
+    return result;
+}
+
 
 Function::
 Function(PathElement name, CompiledExpression expr)
@@ -324,10 +415,132 @@ struct LispEllipsisDescription: public ValueDescriptionT<Ellipsis> {
 
 DEFINE_VALUE_DESCRIPTION_NS(Ellipsis, LispEllipsisDescription);
 
-DEFINE_STRUCTURE_DESCRIPTION_INLINE(List)
-{
-    addParentAsField<std::vector<Value>>("list", "");
-}
+struct ListDescription
+    : public ValueDescriptionI<List, ValueKind::ARRAY, ListDescription> {
+
+    std::shared_ptr<const ValueDescriptionT<Value> > inner;
+
+    ListDescription(ValueDescriptionT<Value> * inner)
+        : inner(inner)
+    {
+    }
+
+    ListDescription(std::shared_ptr<const ValueDescriptionT<Value> > inner
+                       = MLDB::getDefaultDescriptionShared((Value *)0))
+        : inner(std::move(inner))
+    {
+    }
+
+    // Constructor to create a partially-evaluated span description.
+    ListDescription(ConstructOnly)
+    {
+    }
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
+    {
+        List * val2 = reinterpret_cast<List *>(val);
+        return parseJsonTyped(val2, context);
+    }
+
+    virtual void parseJsonTyped(List * val, JsonParsingContext & context) const override
+    {
+        ListBuilder list;
+        auto onElement = [&] ()
+        {
+            Value val;
+            inner->parseJsonTyped(&val, context);
+            list.emplace_back(val);
+        };
+
+        context.forEachElement(onElement);
+
+        *val = std::move(list);
+    }
+
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
+    {
+        const List * val2 = reinterpret_cast<const List *>(val);
+        return printJsonTyped(val2, context);
+    }
+
+    virtual void printJsonTyped(const List * val, JsonPrintingContext & context) const override
+    {
+        size_t sz = val->size();
+        context.startArray(sz);
+
+        auto it = val->begin();
+        for (size_t i = 0;  i < sz;  ++i, ++it) {
+            ExcAssert(it != val->end());
+            context.newArrayElement();
+            Value v(*it);
+            inner->printJsonTyped(&v, context);
+        }
+        
+        context.endArray();
+    }
+
+    virtual bool isDefault(const void * val) const override
+    {
+        const List * val2 = reinterpret_cast<const List *>(val);
+        return isDefaultTyped(val2);
+    }
+
+    virtual bool isDefaultTyped(const List * val) const override
+    {
+        return val->empty();
+    }
+
+    virtual size_t getArrayLength(void * val) const override
+    {
+        List * val2 = reinterpret_cast<List *>(val);
+        return val2->size();
+    }
+
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::VARIABLE;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::UNIQUE;
+    }
+    
+    virtual void * getArrayElement(void * val, uint32_t element) const override
+    {
+        const List * val2 = reinterpret_cast<const List *>(val);
+        return (void *)&val2->at(element);
+    }
+
+    virtual const void * getArrayElement(const void * val, uint32_t element) const override
+    {
+        const List * val2 = reinterpret_cast<const List *>(val);
+        ExcAssertLess(element, val2->size());
+        return &val2[element];
+    }
+
+    virtual void setArrayLength(void * val, size_t newLength) const override
+    {
+    }
+    
+    virtual const ValueDescription & contained() const override
+    {
+        return *this->inner;
+    }
+
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    {
+        return this->inner;
+    }
+
+    virtual void initialize() override
+    {
+        this->inner = getDefaultDescriptionSharedT<Value>();
+    }
+};
+
+DEFINE_VALUE_DESCRIPTION_NS(List, ListDescription);
+
 
 struct LispValueDescription: public ValueDescriptionT<Value> {
     virtual void parseJsonTyped(Value * val,
@@ -390,7 +603,7 @@ toJson(JsonPrintingContext & context) const
         {
             OBJ("list");
             context.startArray();
-            for (auto & i: l) {
+            for (const auto & i: l) {
                 context.newArrayElement();
                 i.toJson(context);
             }
@@ -465,7 +678,7 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
             result = make(Symbol{std::move(name)});
         }
         else if (pcontext.inField("list")) {
-            List list;
+            ListBuilder list;
             pcontext.forEachElement([&] () { list.emplace_back(fromJson(lcontext, pcontext)); });
             result = make(list);
         }

@@ -130,7 +130,7 @@ match(const Value & input) const
         return context.null();
     }
 
-    List list;
+    ListBuilder list;
 
     list.reserve(2 * vars.size());
     for (auto & [k,v]: vars) {
@@ -235,7 +235,7 @@ bool unifyEllipsisNoMatches(Context & lcontext,
             // List: unify elements
             bool ell = isEllipsis(val);
             UndoList myUndos;
-            for (auto & child: list) {
+            for (const auto & child: list) {
                 if (!unifyEllipsisNoMatches(lcontext, vars, myUndos, child, ellipsisLevel + ell)) {
                     applyUndoList(vars, myUndos);
                     return false;
@@ -246,7 +246,7 @@ bool unifyEllipsisNoMatches(Context & lcontext,
         },
         [&] (const Value & val, const Symbol & sym) -> bool
         {
-            cerr << "ellipsis unify: sym " << val << endl;
+            //cerr << "ellipsis unify: sym " << val << endl;
             if (!isVariable(source))
                 return true;
             auto var = sym.sym;
@@ -413,7 +413,8 @@ matchImpl(UnifiedValues & vars,
                     return nomatch();
                 else {
                     // TODO mutate in place
-                    List l = it->second.as<List>();
+                    ListBuilder l;
+                    l.insert(l.end(), it->second.as<List>().begin(), it->second.as<List>().end());
                     l.emplace_back(input);
                     it->second = { context, std::move(l) };
                     return match();
@@ -555,12 +556,12 @@ substImpl(Context & context, const Value & source, const UnifiedValues & vals)
                 return val.unquoted();
             
             //cerr << "handling " << Value{context, list}.print() << endl;
-            List listOut;
-            for (auto & val: list) {
+            ListBuilder listOut;
+            for (const auto & val: list) {
                 if (val.is<List>() && isEllipsis(val)) {
                     auto & l = val.as<List>();
                     for (size_t i = 1;  i < l.size();  ++i) {
-                        auto & li = l[i].as<List>();
+                        auto li = l[i].as<List>().steal();
                         //cerr << "i = " << i << " li = " << l[i] << endl;
                         listOut.insert(listOut.end(),
                                        make_move_iterator(li.begin()),

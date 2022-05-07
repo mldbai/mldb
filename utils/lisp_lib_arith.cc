@@ -46,7 +46,7 @@ CompiledExpression compileArithmetic(Update && update, PathElement name, int ide
 {
     Context & context = scope.getContext();
     std::vector<CompiledExpression> args;
-    for (auto & item: expr)
+    for (const auto & item: expr)
         args.emplace_back(scope.compile(item));
 
     Executor exec = getArithmeticExecutor(std::move(update), Value(context, identity), std::move(args));
@@ -77,6 +77,7 @@ void updatePlus(Value & result, Value newValue)
 
 DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
 {
+#if 0
     auto & context = scope.getContext();
     std::vector<Pattern> patterns {
         Pattern::parse(context, "(+ $x:i64) -> $x:i64"),
@@ -96,6 +97,7 @@ DEFINE_LISP_FUNCTION_COMPILER(plus, std, "+")
     auto source = Value{ context, expr };
     auto current = recursePatterns(patterns, source);
     cerr << "compiled " << source << " to " << current << endl;
+#endif
 
     return compileArithmetic(updatePlus, "plus", 0, scope, std::move(expr));
 }
@@ -129,7 +131,7 @@ DEFINE_LISP_FUNCTION_COMPILER(minus, std, "-")
         {
             Value result = scope.getContext().i64(0);
             updateMinus(result, argExecutor(scope));
-            cerr << "negation returned " << result << endl;
+            //cerr << "negation returned " << result << endl;
             return result;
         };
 

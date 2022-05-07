@@ -75,10 +75,10 @@ ExecutionScope::
 ExecutionScope(ExecutionScope & parent, std::map<PathElement, Value> locals)
     : parent_(&parent), context_(parent.context_), locals_(std::move(locals))
 {
-    cerr << "Creating scope with locals" << endl;
-    for (auto & [n,v]: locals_) {
-        cerr << n << " = " << v << endl;
-    }
+    //cerr << "Creating scope with locals" << endl;
+    //for (auto & [n,v]: locals_) {
+    //    cerr << n << " = " << v << endl;
+    //}
 }
 
 Value
@@ -99,7 +99,7 @@ void
 ExecutionScope::
 setVariableValue(const PathElement & sym, Value newValue)
 {
-    cerr << "setting " << sym << " to " << newValue << endl;
+    //cerr << "setting " << sym << " to " << newValue << endl;
     auto it = locals_.find(sym);
     if (it != locals_.end())
         it->second = std::move(newValue);
@@ -170,17 +170,27 @@ compile(const Value & program) const
     if (program.isQuoted())
         return constantGenerator(program.unquoted());
 
-    // When we enter the scope, we need to run the initializers for all of our locals
-    CreateExecutionScope createExecutionScope = [variables = variables_] (std::shared_ptr<ExecutionScope> scope, const List & args) -> std::shared_ptr<ExecutionScope>
-    {
-        std::map<PathElement, Value> locals;
+    CreateExecutionScope createExecutionScope;
 
-        for (auto & [name, initializer]: variables) {
-            locals[name] = initializer(*scope);
-        }
+    // If we have any variable with an initial value, we initialize our scope with it
+    for (auto & v: variables_) {
+        if (v.second.isUninitialized())
+            continue;
+        
+        createExecutionScope = [variables = variables_] (std::shared_ptr<ExecutionScope> scope, const List & args) -> std::shared_ptr<ExecutionScope>
+            {
+                std::map<PathElement, Value> locals;
 
-        return locals.empty() ? scope : std::make_shared<ExecutionScope>(*scope, std::move(locals));
-    };
+                for (auto & [name, value]: variables) {
+                    if (value.isUninitialized())
+                        continue;
+                    locals[name] = value;
+                }
+
+                return locals.empty() ? scope : std::make_shared<ExecutionScope>(*scope, std::move(locals));
+            };
+        break;
+    }
 
     LambdaVisitor visitor {
         [&] (Value val) -> CompiledExpression // this is for unmatched values
@@ -212,20 +222,20 @@ compile(const Value & program) const
             if (!list.empty() && list.front().is<Symbol>()) {
                 const Symbol & sym = list.front().as<Symbol>();
                 auto compiler = this->getFunctionCompiler(sym.sym);
-                cerr << "Getting function compiler for " << sym.sym << endl;
+                //cerr << "Getting function compiler for " << sym.sym << endl;
                 return compiler(list, *this);
             }
             else {
                 // Just a list, execute each element of it and return the result
                 // as a list
                 std::vector<CompiledExpression> exprs;
-                for (auto & expr: list) {
+                for (const auto & expr: list) {
                     exprs.emplace_back(compile(expr));
                 }
 
                 Executor exec = [exprs] (ExecutionScope & scope) -> Value
                 {
-                    List result;
+                    ListBuilder result;
                     for (auto & e: exprs) {
                         result.emplace_back(e(scope));
                     }
@@ -262,17 +272,17 @@ consult(const Value & program)
         },
         [&] (const Value & val, const List & l) -> Value
         {
-            cerr << "consult: got " << val << endl;
+            //cerr << "consult: got " << val << endl;
             if (l.empty())
                 return val;
             auto & head = l.front();
             if (auto sym = evaluateAsSymbol(head)) {
-                cerr << "got sym " << *sym << endl;
+                //cerr << "got sym " << *sym << endl;
                 // It's a fixed symbol... we can implement it directly
                 if (sym->stringEqual("set")) {
-                    cerr << "set" << endl;
+                    //cerr << "set" << endl;
                     for (size_t i = 1;  i < l.size();  i += 2) {
-                        cerr << i << " of " << l.size() << endl;
+                        //cerr << i << " of " << l.size() << endl;
                         bindVariable(eval(l[i]), l.at(i + 1));
                     }
                     return l.back();
@@ -294,7 +304,7 @@ consult(const Value & program)
 
                     std::set<PathElement> parameterSet;
                     std::vector<PathElement> parameterNames;
-                    for (auto & param: l[2].as<List>()) {
+                    for (const auto & param: l[2].as<List>()) {
                         if (!parameterSet.insert(param.getSymbolName()).second)
                             exception("compiling " + functionName.toUtf8String() + " : duplicate parameter name " + param.getSymbolName().toUtf8String());
                         parameterNames.emplace_back(param.getSymbolName());
@@ -325,7 +335,7 @@ consult(const Value & program)
                         = [functionName, parameterNames, forms = std::move(forms)]
                             (const List & args, const CompilationScope & outerScope) -> CompiledExpression
                     {
-                        cerr << "compiling call to function " << functionName << " with " << args.size() << " args" << endl;
+                        //cerr << "compiling call to function " << functionName << " with " << args.size() << " args" << endl;
                         // This is called when we compile a call to the function.
                         //
                         // It's passed the full list that invokes the function, ie the name of the
@@ -367,7 +377,7 @@ consult(const Value & program)
                         result.name_ = functionName;
                         result.createScope_ = [compiledArgs, functionName] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
                         {
-                            cerr << "creating scope for call to " << functionName << endl;
+                            //cerr << "creating scope for call to " << functionName << endl;
                             std::map<PathElement, Value> locals;
 
                             // Execute each argument, and inject them as locals
@@ -422,13 +432,13 @@ Value
 CompilationScope::
 eval(const Value & program) const
 {
-    cerr << "eval of " << program << endl;
+    //cerr << "eval of " << program << endl;
     auto [name, executor, createXScope, context, info] = compile(program);
     auto outer = std::make_shared<ExecutionScope>(getContext());
     List args;  // no arguments
     std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(outer, args) : outer;
     auto result = executor(*xscope);
-    cerr << "  eval of " << program << " returned " << result << endl;
+    //cerr << "  eval of " << program << " returned " << result << endl;
     return result;
 }
 
@@ -436,7 +446,7 @@ Value
 CompilationScope::
 bindVariable(const Value & name, const Value & value)
 {
-    cerr << "binding symbol named " << name << " to value " << value << endl;
+    //cerr << "binding symbol named " << name << " to value " << value << endl;
 
     LambdaVisitor nameVisitor {
         ExceptionOnUnknownReturning<PathElement>("Not implemented: evaluate symbol name"),
@@ -446,9 +456,7 @@ bindVariable(const Value & name, const Value & value)
 
     PathElement nameVal = visit(nameVisitor, name);
 
-    CompiledExpression compiled = constantGenerator(value);
-
-    variables_.emplace_back(std::move(nameVal), std::move(compiled));
+    variables_.emplace_back(std::move(nameVal), value);
 
     return value;
 }
@@ -527,13 +535,14 @@ std::tuple<CompilationScope, CreateExecutionScope>
 CompilationScope::
 enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression>> & locals) const
 {
-    cerr << "enterScopeWithLocals: " << locals.size() << " locals:";
-    for (auto & [name, val]: locals)
-        cerr << " " << name;
-    cerr << endl;
+    //cerr << "enterScopeWithLocals: " << locals.size() << " locals:";
+    //for (auto & [name, val]: locals)
+    //    cerr << " " << name;
+    //cerr << endl;
+    // Record its name but not its value... it gets initialized in the scope constructor below
     CompilationScope result(*this);
     for (auto & [name, expr]: locals) {
-        result.variables_.emplace_back(name, expr);
+        result.variables_.emplace_back(name, Value());
     }
     CreateExecutionScope scopeConstructor
         = [symbols=locals] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
@@ -546,8 +555,36 @@ enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression
         // Do it...
         for (auto & [name, constructor]: symbols) {
             auto val = constructor(*scope);
-            cerr << "constructing " << name << " = " << val << endl;
+            //cerr << "constructing " << name << " = " << val << endl;
             newLocals[name] = val;
+        }
+
+        return std::make_shared<ExecutionScope>(*scope, std::move(newLocals));
+    };
+
+    return { std::move(result), std::move(scopeConstructor) };
+}
+
+std::tuple<CompilationScope, CreateExecutionScope>
+CompilationScope::
+enterScopeWithArgs(const std::vector<PathElement> & argNames) const
+{
+    CompilationScope result(*this);
+    for (auto & name: argNames) {
+        // Record its name, but don't initialize the value
+        result.variables_.emplace_back(name, Value());
+    }
+
+    CreateExecutionScope scopeConstructor
+        = [argNames=argNames] (std::shared_ptr<ExecutionScope> scope, List args) -> std::shared_ptr<ExecutionScope>
+    {
+        if (args.size() != argNames.size()) {
+            scope->exception("Wrong number of arguments in scope creation");
+        }
+
+        std::map<PathElement, Value> newLocals;
+        for (size_t i = 0;  i < argNames.size();  ++i) {
+            newLocals[argNames[i]] = std::move(args[i]);
         }
 
         return std::make_shared<ExecutionScope>(*scope, std::move(newLocals));
@@ -563,17 +600,22 @@ enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression
 
 Value Context::call(PathElement head)
 {
-    List l;
+    ListBuilder l;
     l.emplace_back(*this, Symbol{std::move(head)});
     return { *this, std::move(l) };
 }
 
 Value Context::call(PathElement head, std::vector<Value> vals)
 {
-    List l;
+    ListBuilder l;
     l.emplace_back(*this, Symbol{std::move(head)});
     l.insert(l.end(), std::make_move_iterator(vals.begin()), std::make_move_iterator(vals.end()));
     return { *this, std::move(l) };
+}
+
+Value Context::sym(PathElement sym)
+{
+    return Value(*this, Symbol{std::move(sym)});
 }
 
 Value Context::str(Utf8String str)

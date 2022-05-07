@@ -59,7 +59,7 @@ match_recursive(Context & lcontext, ParseContext & pcontext,
     if (pcontext.match_literal('(')) {
         skipLispWhitespace(pcontext);
         std::optional<Value> arg;
-        List list;
+        ListBuilder list;
         while ((arg = recurse(lcontext, pcontext))) {
             list.emplace_back(std::move(*arg));
             if (!skipLispWhitespace(pcontext))
@@ -107,7 +107,7 @@ Value parse_recursive(Context & lcontext, ParseContext & pcontext,
 
     if (pcontext.match_literal('(')) {
         skipLispWhitespace(pcontext);
-        List list;
+        ListBuilder list;
         bool first = true;
         while (!pcontext.match_literal(')')) {
             if (first) skipLispWhitespace(pcontext);
