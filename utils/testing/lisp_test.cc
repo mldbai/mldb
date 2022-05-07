@@ -119,7 +119,7 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     auto runTest = [] (const std::string & expr, const std::string & input, const std::string & expectedOut)
     {
         SECTION(expr + " " + input + " --> " + expectedOut) {
-            cerr << "running test " << expr << endl;
+            //cerr << "running test " << expr << endl;
             Context lcontext;
             ParseContext pcontext(expr, expr.data(), expr.size());
             CompilationScope cscope(lcontext);
@@ -131,16 +131,16 @@ TEST_CASE("test-lisp-evaluation", "[none]")
             auto i = Value::parse(lcontext, input);
             auto x = Value::parse(lcontext, expectedOut);
 
-            cerr << "compiling " << i << endl;
+            //cerr << "compiling " << i << endl;
 
             auto [name, executor, createXScope, xcontext, info] = cscope.compile(i);
 
-            cerr << "name = " << name << " info = " << info << endl;
+            //cerr << "name = " << name << " info = " << info << endl;
 
             auto outer = std::make_shared<ExecutionScope>(lcontext);
-            cerr << "creating scope; createXScope = " << (bool)createXScope << endl;
+            //cerr << "creating scope; createXScope = " << (bool)createXScope << endl;
             std::shared_ptr<ExecutionScope> xscope = createXScope ? createXScope(outer, List()) : outer;
-            cerr << "executing" << endl;
+            //cerr << "executing" << endl;
             auto out = executor(*xscope);
 
             CHECK(out == x);
@@ -209,7 +209,7 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     runTest("", "(nth 2 (list 1 2 3 4 5))", "3");
     runTest("", "(nth 2 '((a 1) (b 2) (c 3) (d 4)))", "(c 3)");
     runTest("", "(length '(a b c d))", "4");
-    //runTest("", "(member 7 '(1 2 3 4 5))", "nil");
+    runTest("", "(member 7 '(1 2 3 4 5))", "nil");
     runTest("", "(null ( ))", "t");
 
     // p155
@@ -256,6 +256,9 @@ TEST_CASE("test-lisp-evaluation", "[none]")
     runTest("", "(zerop 0)",      "t");
     runTest("", "(plusp 10)",     "t");
     runTest("", "(plusp -2)",     "nil");
+
+    // p159
+    runTest("", "(member 3 '(1 2 3 4 5))", "(3 4 5)");
 }
 
 TEST_CASE("test-lisp-predicates-parsing", "[none]")

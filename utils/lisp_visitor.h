@@ -143,7 +143,7 @@ Value recurse(Visitor && visitor, ValueIn && value)
 
     if (value.template is<List>()) {
         auto && list = value.template as<List>();
-        List recursed;
+        ListBuilder recursed;
         recursed.reserve(list.size());
         for (auto && val: list) {
             recursed.emplace_back(recurse(visitor, val));

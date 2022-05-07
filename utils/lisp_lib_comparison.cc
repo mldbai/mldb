@@ -42,20 +42,20 @@ CompiledExpression compileComparison(Compare && compare, PathElement name, const
 template<template<typename> typename Cmp>
 bool compareImpl(const Value & v1, const Value & v2)
 {
-    cerr << "comparing " << v1.print() << " and " << v2.print() << endl;
+    //cerr << "comparing " << v1.print() << " and " << v2.print() << endl;
 
     if (v1.is<double>() || v2.is<double>()) {
         // TODO: inexactness
-        cerr << "comparing as double" << endl;
+        //cerr << "comparing as double" << endl;
         return Cmp<double>()(asDouble(v1),asDouble(v2));
     }
     else if (v1.is<int64_t>() || v2.is<int64_t>()) {
-        cerr << "comparing as int64" << endl;
-        cerr << "comparing " << asInt(v1) << " and " << asInt(v2) << endl;
+        //cerr << "comparing as int64" << endl;
+        //cerr << "comparing " << asInt(v1) << " and " << asInt(v2) << endl;
         return Cmp<int64_t>()(asInt(v1),asInt(v2));
     }
     else if (v1.is<uint64_t>() || v2.is<uint64_t>()) {
-        cerr << "comparing as uint64" << endl;
+        //cerr << "comparing as uint64" << endl;
         return Cmp<uint64_t>()(asUInt(v1),asUInt(v2));
     }
     else {

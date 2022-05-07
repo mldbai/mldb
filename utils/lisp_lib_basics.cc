@@ -50,7 +50,7 @@ DEFINE_LISP_FUNCTION_COMPILER(let, std, "let")
         locals.emplace_back(std::move(name), std::move(value));
     };
 
-    for (auto & b: expr[1].expect<List>("Expected list of bindings for second argument to let"))
+    for (const auto & b: expr[1].expect<List>("Expected list of bindings for second argument to let"))
         visitBind(b);
 
     //cerr << "locals.size() = " << locals.size() << endl;
@@ -128,7 +128,7 @@ DEFINE_LISP_FUNCTION_COMPILER(list, std, "list")
 
     Executor exec = [todos] (ExecutionScope & scope) -> Value
     {
-        List result;
+        ListBuilder result;
         result.reserve(todos.size());
         for (auto & t: todos) {
             result.emplace_back(t(scope));
@@ -212,6 +212,49 @@ DEFINE_LISP_FUNCTION_COMPILER(nth, std, "nth")
     return { "nth", std::move(exec), nullptr /* createScope */, &context, "NTH (...)" };
 }
 
+// (member val list)
+DEFINE_LISP_FUNCTION_COMPILER(member, std, "member")
+{
+    auto & context = scope.getContext();
+
+    if (expr.size() != 3) {
+        scope.exception("member function takes two arguments");
+    }
+
+    // Evaluate all arguments?  Currently we do for side effects; this could be simplified
+    CompiledExpression vexp = scope.compile(expr[1]);
+    CompiledExpression lexp = scope.compile(expr[2]);
+
+    // Compile a predicate "(= <val> __x)" which will be applied to search for the element
+    auto [innerScope, createInnerScope] = scope.enterScopeWithArgs({{PathElement{"__x"}}});
+    Value equalsExpr = context.list(context.sym("="), expr[1], context.sym("__x"));
+    CompiledExpression eexp = innerScope.compile(equalsExpr);
+
+    Executor exec = [eexp, lexp, createInnerScope = createInnerScope] (ExecutionScope & scope) -> Value
+    {
+        std::shared_ptr<ExecutionScope> scopePtr(&scope, [] (...) {});
+        Value l = lexp(scope);
+
+        if (!l.is<List>()) {
+            scope.exception("length function applied to non-list " + l.print());
+        }
+
+        const List & ll = l.as<List>();
+
+        for (size_t i = 0;  i < ll.size();  ++i) {
+            auto equalScope = createInnerScope(scopePtr, ListBuilder{ll[i]});
+            ExcAssert(equalScope);
+            if (eexp(*equalScope).truth()) {
+                return { scope.getContext(), ll.tail(i) };
+            }
+        }
+
+        return scope.getContext().null();
+    };
+
+    return { "nth", std::move(exec), nullptr /* createScope */, &context, "NTH (...)" };
+}
+
 // (eval expr)
 DEFINE_LISP_FUNCTION_COMPILER(eval, std, "eval")
 {
@@ -279,7 +322,7 @@ DEFINE_LISP_FUNCTION_COMPILER(cond, std, "cond")
         for (auto & [c, v]: clauses) {
             if (c(scope).truth()) {
                 Value result = v(scope);
-                cerr << "cond: returning " << result << endl;
+                //cerr << "cond: returning " << result << endl;
                 return result;
             }
         }

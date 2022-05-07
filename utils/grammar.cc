@@ -11,6 +11,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/types/any_impl.h"
 #include "lisp_visitor.h"
+#include "lisp_parsing.h"
 #include <shared_mutex>
 
 using namespace std;
@@ -586,7 +587,7 @@ DEFINE_MATCH_FUNCTION_COMPILER(seq, "@seq")
     std::vector<Parser> parsers;
     std::shared_ptr<CompilationContext> currentContext(context);
 
-    for (auto & s: expr.as<Lisp::List>()) {
+    for (const auto & s: expr.as<Lisp::List>()) {
         auto [parser, nextContext] = compileMatcher(s, currentContext);
         parsers.emplace_back(std::move(parser));
         if (nextContext) currentContext = std::move(nextContext);
@@ -734,7 +735,7 @@ compileMatcher(const Value & expr, std::shared_ptr<CompilationContext> contextIn
 
             // We unify the arguments
             std::vector<Parser> argParsers;
-            for (auto & arg: expr.as<Lisp::List>()) {
+            for (const auto & arg: expr.as<Lisp::List>()) {
                 auto [argParser, nextContext] = compileMatcher(arg, currentContext);
                 if (nextContext)
                     currentContext = nextContext;
@@ -861,7 +862,7 @@ compileProducer(const Value & expr, std::shared_ptr<CompilationContext> ccontext
             if (!isRule(list)) {
                 // This is a list literal
                 std::vector<ProduceFunction> argProducers;
-                for (auto & arg: list) {
+                for (const auto & arg: list) {
                     argProducers.emplace_back(compileProducer(arg, ccontext));
                 }
                 auto result = [expr, argProducers] (const ParsingContext & pcontext) -> Value
