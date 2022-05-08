@@ -300,6 +300,8 @@ consult(const Value & program)
                                   + std::to_string(l.size() - 1) + ": " + val.print());
                     }
 
+                    //cerr << "doing defun " << l[1].print() << " " << l[2].print() << " " << l[3].print() << endl;
+
                     auto functionName = l[1].getSymbolName();
 
                     std::set<PathElement> parameterSet;
