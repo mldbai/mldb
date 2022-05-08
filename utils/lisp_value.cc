@@ -82,7 +82,7 @@ ListBuilder List::steal() const
 
 const Value & List::front() const
 {
-    return items.vals->at(0);
+    return items.vals->at(items.start);
 }
 
 const Value & List::back() const
@@ -827,15 +827,6 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
     else if (auto str = match_delimited_string(pcontext, '\"')) {
         result = make(std::move(*str));
     }
-    else if (pcontext.match_literal("true") || pcontext.match_literal("t")) {
-        result = make(true);
-    }
-    else if (pcontext.match_literal("false") || pcontext.match_literal("f")) {
-        result = make(false);
-    }
-    else if (pcontext.match_literal("nil")) {
-        result = make(Null{});
-    }
     else {
         JsonNumber num;
         if (matchJsonNumber(pcontext, num)) {
@@ -846,15 +837,26 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
             default:                            MLDB_THROW_LOGIC_ERROR();
             }
         }
-        else if (pcontext.match_literal('_')) {
-            result = make(Wildcard{});
-        }
         else if (pcontext.match_literal("...")) {
             result = make(Ellipsis{});
         }
         // Has to go after number & wildcard
         else if (auto symName = match_symbol_name(pcontext)) {
-            result = make(Symbol{std::move(*symName)});
+            if (symName->stringEqual("true") || symName->stringEqual("t")) {
+                result = make(true);
+            }
+            else if (symName->stringEqual("false") || symName->stringEqual("f")) {
+                result = make(false);
+            }
+            else if (symName->stringEqual("nil")) {
+                result = make(Null{});
+            }
+            else if (symName->stringEqual("_")) {
+                result = make(Wildcard{});
+            }
+            else {
+                result = make(Symbol{std::move(*symName)});
+            }
         }
         else {
             return nullopt;
@@ -889,7 +891,10 @@ Value::
 parse(Context & lcontext, const Utf8String & val)
 {
     ParseContext pcontext("<<<internal string>>>", val.rawData(), val.rawLength());
-    return parse(lcontext, pcontext);
+    Value result = parse(lcontext, pcontext);
+    skipLispWhitespace(pcontext);
+    pcontext.expect_eof();
+    return result;
 }
 
 bool

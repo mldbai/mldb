@@ -259,7 +259,62 @@ TEST_CASE("test-lisp-evaluation", "[none]")
 
     // p159
     runTest("", "(member 3 '(1 2 3 4 5))", "(3 4 5)");
-}
+
+    runTest("(defun absolute-value (x) (if (< x 0) (- x) x))", "(absolute-value -42)", "42");
+
+    runTest("", "(and)", "t");
+    runTest("", "(or)", "nil");
+    runTest("", "(and t)", "t");
+    runTest("", "(and nil)", "nil");
+    runTest("", "(and 3)", "3");
+    runTest("", "(or 3)", "3");
+    runTest("", "(and t t t)", "t");
+    runTest("", "(and t t 3)", "3");
+    runTest("", "(and nil t t 3)", "nil");
+    runTest("", "(and t t 3 nil)", "nil");
+    runTest("", "(oddp 2)", "nil");
+    runTest("", "(and (oddp 2) (print \"eval second statement\"))", "nil");
+    runTest("", "(and (oddp 3) (print \"eval second statement\"))", "nil");
+    runTest("", "(or (oddp 3) (print \"eval second statement\"))", "t");
+    runTest("", "(or (oddp 2) (print \"eval second statement\"))", "nil");
+
+    // p161
+    runTest("", "'((Ada Lovelace) 45000.00 38519)", "((Ada Lovelace) 45000.00 38519)");
+    runTest("(defun name-field (record) (nth 0 record))", "(name-field '((Ada Lovelace) 45000.00 38519))", "(Ada Lovelace)");
+
+    // p162
+    runTest("(defun name-field (record) (nth 0 record))\n(defun first-name (name) (nth 0 name))", "(first-name (name-field '((Ada Lovelace) 45000.00 38519)))", "Ada");
+    runTest("", "(list 1 2 3 4)", "(1 2 3 4)");
+    runTest("", "(list '(Ada Lovelace) 45000.00 338519)", "((Ada Lovelace) 45000.00 338519)");
+    runTest("(defun build-record (name salary emp-number) (list name salary emp-number))", "(build-record '(Alan Turing) 50000.00 135772)", "((Alan Turing) 50000.00 135772)");
+    runTest(R"(
+            (defun build-record (name salary emp-number) (list name salary emp-number))
+            (defun name-field (record) (nth 0 record))
+            (defun salary-field (record) (nth 1 record))
+            (defun number-field (record) (nth 2 record))
+            (defun replace-salary-field (record new-salary) (build-record (name-field record) new-salary (number-field record)))
+        )",
+        R"(
+            (replace-salary-field '((Ada Lovelace) 45000.00 338519) 50000.00)
+        )",
+        "((Ada Lovelace) 50000.00 338519)");
+    
+    // p163
+    runTest("", "(car '(a b c))", "a");
+    runTest("", "(cdr '(a b c))", "(b c)");
+    runTest("", "(car '((a b) (c d)))", "(a b)");
+    runTest("", "(cdr '((a b) (c d)))", "((c d))");
+    runTest("", "(car (cdr '(a b c d)))", "b");
+
+    // p164
+    runTest(R"(
+                (defun my-member (element my-list) (cond ((null my-list) nil)
+                ((equal element (car my-list)) my-list)
+                (t (my-member element (cdr my-list)))))
+            )",
+            "((my-member 4 '(1 2 3 4 5 6)) (my-member 5 '(a b c d)))",
+            "((4 5 6) nil)");
+}   
 
 TEST_CASE("test-lisp-predicates-parsing", "[none]")
 {
@@ -309,7 +364,7 @@ TEST_CASE("test-lisp-predicates", "[none]")
     runTest("(+ $x $rest...)", "(+ 1 (* 2 3))", "(matched $rest ((* 2 3)) $x 1)");
     runTest("(+ (- $x $y)...)", "(+)", "(matched $x () $y ())");
     runTest("(+ (- $x $y)...)", "(+ (- 1 2))", "(matched $x (1) $y (2))");
-    runTest("(+ (- $x $y)...)", "(+ (- 1 2) (- 3 4)))", "(matched $x (1 3) $y (2 4))");
+    runTest("(+ (- $x $y)...)", "(+ (- 1 2) (- 3 4))", "(matched $x (1 3) $y (2 4))");
     // TODO
     //runTest("(($x...)...)", "((0 1 2) (3 4 5) (6 7) (8) ())", "(matched $x ((0 1 2) (3 4 5) (6 7) (8) ()))");
 }

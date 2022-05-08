@@ -128,10 +128,12 @@ DEFINE_LISP_FUNCTION_COMPILER(list, std, "list")
 
     Executor exec = [todos] (ExecutionScope & scope) -> Value
     {
+        //cerr << "exec list: todos.size() = " << todos.size() << endl;
         ListBuilder result;
         result.reserve(todos.size());
         for (auto & t: todos) {
             result.emplace_back(t(scope));
+            //cerr << "  added " << result.back().print() << endl;
         }
         return { scope.getContext(), result };
     };
@@ -203,13 +205,65 @@ DEFINE_LISP_FUNCTION_COMPILER(nth, std, "nth")
         Value l = lexp(scope);
 
         if (!l.is<List>()) {
-            scope.exception("length function applied to non-list " + l.print());
+            scope.exception("nth function applied to non-list " + l.print());
         }
 
         return l.as<List>()[asUInt(n)];
     };
 
     return { "nth", std::move(exec), nullptr /* createScope */, &context, "NTH (...)" };
+}
+
+// (car list)
+DEFINE_LISP_FUNCTION_COMPILER(car, std, "car")
+{
+    auto & context = scope.getContext();
+
+    if (expr.size() != 2) {
+        scope.exception("car function takes one arguments");
+    }
+
+    CompiledExpression lexp = scope.compile(expr[1]);
+
+    Executor exec = [lexp] (ExecutionScope & scope) -> Value
+    {
+        Value l = lexp(scope);
+
+        if (!l.is<List>()) {
+            scope.exception("car function applied to non-list " + l.print());
+        }
+
+        return l.as<List>().front();
+    };
+
+    return { "car", std::move(exec), nullptr /* createScope */, &context, "CAR (...)" };
+}
+
+// (cdr list)
+DEFINE_LISP_FUNCTION_COMPILER(cdr, std, "cdr")
+{
+    auto & context = scope.getContext();
+
+    if (expr.size() != 2) {
+        scope.exception("cdr function takes one argument");
+    }
+
+    // Evaluate all arguments?  Currently we do for side effects; this could be simplified
+    CompiledExpression lexp = scope.compile(expr[1]);
+
+    Executor exec = [lexp] (ExecutionScope & scope) -> Value
+    {
+        Value l = lexp(scope);
+
+        if (!l.is<List>()) {
+            scope.exception("cdr function applied to non-list " + l.print());
+        }
+
+        const List & ll = l.as<List>();
+        return { scope.getContext(), ll.tail(1) };
+    };
+
+    return { "cdr", std::move(exec), nullptr /* createScope */, &context, "CDR (...)" };
 }
 
 // (member val list)
@@ -252,7 +306,7 @@ DEFINE_LISP_FUNCTION_COMPILER(member, std, "member")
         return scope.getContext().null();
     };
 
-    return { "nth", std::move(exec), nullptr /* createScope */, &context, "NTH (...)" };
+    return { "member", std::move(exec), nullptr /* createScope */, &context, "MEMBER (...)" };
 }
 
 // (eval expr)
@@ -331,6 +385,113 @@ DEFINE_LISP_FUNCTION_COMPILER(cond, std, "cond")
     };
 
     return { "cond", std::move(exec), nullptr /* createScope */, &context, "COND (...)" };
+}
+
+// (if predc then else)
+DEFINE_LISP_FUNCTION_COMPILER(if, std, "if")
+{
+    if (expr.size() < 3 || expr.size() > 4) {
+        scope.exception("if function takes two (if cond then) or three (if cond then else) arguments");
+    }
+
+    auto & context = scope.getContext();
+
+    // Decompose into the list of predicates and the resulting values
+    CompiledExpression predc = scope.compile(expr[1]);
+    CompiledExpression thenc = scope.compile(expr[2]);
+    CompiledExpression elsec = scope.compile(expr.size() == 3 ? context.null() : expr[3]);
+
+    Executor exec = [predc, thenc, elsec] (ExecutionScope & scope) -> Value
+    {
+        if (predc(scope).truth())
+            return thenc(scope);
+        else
+            return elsec(scope);
+    };
+
+    return { "if", std::move(exec), nullptr /* createScope */, &context, "IF (...)" };
+}
+
+// (print str)
+DEFINE_LISP_FUNCTION_COMPILER(print, std, "print")
+{
+    if (expr.size() != 2) {
+        scope.exception("print function takes one argument");
+    }
+
+    auto & context = scope.getContext();
+
+    // Decompose into the list of predicates and the resulting values
+    CompiledExpression strc = scope.compile(expr[1]);
+
+    Executor exec = [strc] (ExecutionScope & scope) -> Value
+    {
+        Value v = strc(scope);
+        if (v.is<Utf8String>()) {
+            cerr << v.as<Utf8String>() << endl;
+        }
+        else {
+            cerr << v.print() << endl;
+        }
+
+        return scope.getContext().null();
+    };
+
+    return { "print", std::move(exec), nullptr /* createScope */, &context, "PRINT (...)" };
+}
+
+// (and pred1 pred2...)
+DEFINE_LISP_FUNCTION_COMPILER(and, std, "and")
+{
+    // Decompose into the list of predicates
+    std::vector<CompiledExpression> clauses;
+    for (size_t i = 1;  i < expr.size();  ++i) {
+        const Value & clause = expr[i];
+        clauses.emplace_back(scope.compile(clause));
+    }
+
+    auto & context = scope.getContext();
+
+    Executor exec = [clauses = std::move(clauses)] (ExecutionScope & scope) -> Value
+    {
+        Value result = scope.getContext().boolean(true);
+
+        for (auto & c: clauses) {
+            result = c(scope);
+            if (!result.truth())
+                return result;
+        }
+
+        return result;
+    };
+
+    return { "and", std::move(exec), nullptr /* createScope */, &context, "AND (...)" };
+}
+
+// (or pred1 pred2...)
+DEFINE_LISP_FUNCTION_COMPILER(or, std, "or")
+{
+    // Decompose into the list of predicates
+    std::vector<CompiledExpression> clauses;
+    for (size_t i = 1;  i < expr.size();  ++i) {
+        const Value & clause = expr[i];
+        clauses.emplace_back(scope.compile(clause));
+    }
+
+    auto & context = scope.getContext();
+
+    Executor exec = [clauses = std::move(clauses)] (ExecutionScope & scope) -> Value
+    {
+        for (auto & c: clauses) {
+            Value v = c(scope);
+            if (v.truth())
+                return v;
+        }
+
+        return scope.getContext().null();
+    };
+
+    return { "or", std::move(exec), nullptr /* createScope */, &context, "OR (...)" };
 }
 
 } // namespace Lisp
