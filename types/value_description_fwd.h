@@ -278,7 +278,7 @@ auto getDefaultDescriptionUninitialized(T *)
     
 #define DECLARE_VALUE_DESCRIPTION(T)                                    \
     PREDECLARE_VALUE_DESCRIPTION(T)                                     \
-    extern template struct ValueDescriptionT<T>;                        \
+    extern template struct MLDB::ValueDescriptionT<T>;                        \
 
 #define DEFINE_VALUE_DESCRIPTION_NS(T, Desc)                            \
     MLDB::ValueDescriptionT<T> *                                        \
@@ -315,14 +315,14 @@ auto getDefaultDescriptionUninitialized(T *)
 
 #define DECLARE_TEMPLATE_VALUE_DESCRIPTION_N(Impl, Type, ParamList, ArgList, Enable) \
     template<ParamList>                                                 \
-    ValueDescriptionT<Type<ArgList> > *                                 \
+    MLDB::ValueDescriptionT<Type<ArgList> > *                                 \
     getDefaultDescription(Type<ArgList> * = 0, std::enable_if_t<Enable> * = 0) \
     {                                                                   \
         return new Impl<ArgList>();                                     \
     }                                                                   \
                                                                         \
     template<ParamList>                                                 \
-    struct ValueDescriptionInit<Type<ArgList> >: public ValueDescriptionInitBase { \
+    struct ValueDescriptionInit<Type<ArgList> >: public MLDB::ValueDescriptionInitBase { \
         static MLDB::ValueDescription * create()                        \
         {                                                               \
             return new Impl<ArgList>(MLDB::ConstructOnly());            \
