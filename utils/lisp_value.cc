@@ -20,6 +20,45 @@ using namespace std;
 namespace MLDB {
 namespace Lisp {
 
+DEFINE_ENUM_DESCRIPTION_INLINE(MetadataType)
+{
+    addValue("SOURCE_LOCATION", MetadataType::SOURCE_LOCATION, "Location in source code where we're executing");
+    addValue("TYPE_INFO", MetadataType::TYPE_INFO, "Type information about the expression");
+}
+
+std::string metadataTypeToString(MetadataType tp)
+{
+    switch (tp) {
+        case MetadataType::SOURCE_LOCATION: return "loc";
+        case MetadataType::TYPE_INFO: return "type";
+        default:
+            MLDB_THROW_LOGIC_ERROR("unexpected value of MetadataType %d", tp);
+    }
+}
+
+MetadataType stringToMetadataType(std::string_view mdType)
+{
+    if (mdType == "loc")
+        return MetadataType::SOURCE_LOCATION;
+    else if (mdType == "type")
+        return MetadataType::TYPE_INFO;
+    else
+        MLDB_THROW_RUNTIME_ERROR("unknown MetadataType string encountered: '%s'", string(mdType).c_str());
+}
+
+Value metadataTypeToValue(Context & lcontext, MetadataType tp)
+{
+    return lcontext.sym(metadataTypeToString(tp));
+}
+
+MetadataType valueToMetadataType(const Value & mdType)
+{
+    if (!mdType.is<Symbol>())
+        MLDB_THROW_RUNTIME_ERROR("MetadataType type must be string; got %s", mdType.print().c_str());
+    return stringToMetadataType(mdType.as<Symbol>().sym.toUtf8String().rawString());
+}
+
+
 /*******************************************************************************/
 /* LISP VALUE                                                                  */
 /*******************************************************************************/
@@ -92,7 +131,9 @@ const Value & List::back() const
 
 const Value & List::at(size_t n) const
 {
+    //cerr << "at " << n << " size " << items.size() << " start " << items.start << " end " << items.end << endl;
     size_t i = items.nToI(n);
+    //cerr << " i = " << i << endl;
     return items.vals->at(i);
 }
 
@@ -103,12 +144,12 @@ const Value & List::operator [] (size_t n) const
 
 size_t List::size() const
 {
-    return items.size();
+    return items.end - items.start;
 }
 
 bool List::empty() const
 {
-    return items.empty();
+    return items.end == items.start;
 }
 
 ListIterator List::begin() const
@@ -129,6 +170,7 @@ List List::tail(size_t n) const
 
     List result = *this;
     result.items.start += n;
+    //cerr << "tail n=" << n << " start " << items.start << " end " << items.end << endl;
     return result;
 }
 
@@ -272,6 +314,12 @@ Value(Context & context, Function fn)
 {
 }
 
+Value::
+Value(Context & context, SourceLocation loc)
+    : context_(&context), value_(std::move(loc))
+{
+}
+
 #if 0
 Value::
 Value(Context & context, Type t)
@@ -284,41 +332,73 @@ bool
 Value::
 operator == (const Value & other) const
 {
-    if (is<uint64_t>()) {
-        uint64_t i1 = as<uint64_t>();
-        if (other.is<int64_t>()) {
-            int64_t i2 = other.as<int64_t>();
-            return i2 >= 0 && i1 == i2;
+    //cerr << "Value::operator=: " << *this << " vs " << other << endl;
+
+    if (isNumeric() && other.isNumeric()) {
+        //cerr << "  *** value numerical comparison" << endl;
+        if (is<uint64_t>()) {
+            uint64_t i1 = as<uint64_t>();
+            if (other.is<int64_t>()) {
+                int64_t i2 = other.as<int64_t>();
+                return i2 >= 0 && i1 == i2;
+            }
+            else if (other.is<double>()) {
+                double d2 = other.as<double>();
+                return (double)i1 == d2 && (uint64_t)d2 == i1;
+            }
         }
-        else if (other.is<double>()) {
-            double d2 = other.as<double>();
-            return (double)i1 == d2 && (uint64_t)d2 == i1;
+        else if (is<int64_t>()) {
+            int64_t i1 = as<int64_t>();
+            if (other.is<uint64_t>()) {
+                uint64_t i2 = other.as<uint64_t>();
+                return i1 >= 0 && i1 == i2;
+            }
+            else if (other.is<double>()) {
+                double d2 = other.as<double>();
+                return (double)i1 == d2 && (int64_t)d2 == i1;
+            }
         }
-    }
-    else if (is<int64_t>()) {
-        int64_t i1 = as<int64_t>();
-        if (other.is<uint64_t>()) {
-            uint64_t i2 = other.as<uint64_t>();
-            return i1 >= 0 && i1 == i2;
+        else if (is<double>()) {
+            int64_t d1 = as<double>();
+            if (other.is<uint64_t>()) {
+                uint64_t i2 = other.as<uint64_t>();
+                return (double)i2 == d1 && (int64_t)d1 == i2;
+            }
+            else if (other.is<int64_t>()) {
+                int64_t i2 = other.as<int64_t>();
+                return (double)i2 == d1 && (int64_t)d1 == i2;
+            }
         }
-        else if (other.is<double>()) {
-            double d2 = other.as<double>();
-            return (double)i1 == d2 && (int64_t)d2 == i1;
-        }
-    }
-    else if (is<double>()) {
-        int64_t d1 = as<double>();
-        if (other.is<uint64_t>()) {
-            uint64_t i2 = other.as<uint64_t>();
-            return (double)i2 == d1 && (int64_t)d1 == i2;
-        }
-        else if (other.is<int64_t>()) {
-            int64_t i2 = other.as<int64_t>();
-            return (double)i2 == d1 && (int64_t)d1 == i2;
+        else {
+            MLDB_THROW_LOGIC_ERROR("isNumeric should be exhaustively handled: comparing " + print() + " with " + other.print());
         }
     }
 
-    return value_ == other.value_;
+    if (type() != other.type()) {
+        //cerr << "  *** different types (false): " << endl;
+        return false;
+    }
+
+    //cerr << "comparing values of type " << demangle(type()) << " and " << demangle(other.type()) << endl;
+    LambdaVisitor visitor {
+        // Default case here handles everything that's equality comparable via the value description
+        [&] (const Value & val)    { return val.desc().compareEquality(val.getBytes().data(), other.getBytes().data()); },
+
+        // Exceptions go here
+        [&] (const List & l1)      { const List & l2 = other.as<List>();
+                                     if (l1.size() != l2.size()) return false;
+                                     for (size_t i = 0;  i < l1.size();  ++i) {
+                                        if (l1[i] != l2[i]) { return false; }
+                                     }
+                                     return true; },
+        [&] (Null)                 { return true; },
+        [&] (Ellipsis)             { return true; },
+        [&] (Wildcard)             { return true; },
+        [&] (const Symbol & s)     { return s.sym == other.as<Symbol>().sym; }
+        // ... TODO LOTS of others...
+    };
+
+    return visit(visitor, *this);
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(Symbol)
@@ -608,14 +688,20 @@ toJson(JsonPrintingContext & context) const
                 i.toJson(context);
             }
             context.endArray();
-        }
+        },
+        [&] (const SourceLocation & loc) { OBJ("loc");  context.writeStringUtf8(loc.print()); },
     };
 
     visit(visitor, *this);
 
-    if (hasMetadata()) {
+    if (!md_.empty()) {
         OBJ("md");
-        getMetadata().toJson(context);
+        context.startObject();
+        for (const auto & [mdType, mdValue]: md_) {
+            context.startMember(metadataTypeToString(mdType));
+            mdValue.toJson(context);
+        }
+        context.endObject();
     }
 
     if (quotes_) {
@@ -646,15 +732,24 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
     };
 
     Value result;
-    Value md;
+    std::map<MetadataType, Value> md;
+    bool mdDone = false;
     int quotes = 0;
 
     auto onMember = [&] ()
     {
         if (pcontext.inField("md")) {
-            if (md.isInitialized())
+            if (mdDone)
                 pcontext.exception("md field is repeated");
-            md = Value::fromJson(lcontext, pcontext);
+            auto onMember = [&] ()
+            {
+                MetadataType mdType = stringToMetadataType(pcontext.fieldNameView());
+                Value mdValue = Value::fromJson(lcontext, pcontext);
+                if (!md.emplace(mdType, std::move(mdValue)).second)
+                    pcontext.exception("duplicate metadata field");
+            };
+            pcontext.forEachMember(onMember);
+            mdDone = true;
             return;
         }
         else if (pcontext.inField("q")) {
@@ -677,6 +772,10 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
             auto name = pcontext.expectStringUtf8();
             result = make(Symbol{std::move(name)});
         }
+        else if (pcontext.inField("loc")) {
+            auto loc = pcontext.expectStringUtf8();
+            result = make(SourceLocation::parse(loc));
+        }
         else if (pcontext.inField("list")) {
             ListBuilder list;
             pcontext.forEachElement([&] () { list.emplace_back(fromJson(lcontext, pcontext)); });
@@ -694,8 +793,12 @@ fromJson(Context & lcontext, JsonParsingContext & pcontext)
 
     result.setQuotes(quotes);
 
-    if (md.isInitialized())
-        result.addMetadata(std::move(md));
+    if (!md.empty()) {
+        for (auto & [mdType, mdValue]: md) {
+            result.addMetadata(mdType, std::move(mdValue));
+        }
+    }
+
     return result;
 }
 
@@ -705,7 +808,7 @@ struct StrAdd {
 
 Utf8String
 Value::
-print() const
+print(const std::set<MetadataType> & mdToPrint) const
 {
     if (!context_)
         return {};
@@ -724,15 +827,30 @@ print() const
         [] (Wildcard)             { return "_"; },
         [] (Ellipsis)             { return "..."; },
         [] (const Symbol& s)      { return s.sym.toUtf8String(); },
-        [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::print), "(", " ", ")"); }
+        [=] (const List & l)      { return l.fold<Utf8String>(StrAdd(), [=] (const Value & v) { return v.print(mdToPrint); }, "(", " ", ")"); },
+        [] (const SourceLocation & l) { return l.print(); },
     };
 
     Utf8String result = string(quotes_, '\'');
     result += visit(visitor, *this);
 
-    if (hasMetadata()) {
-        result += ":" + getMetadata().print();
+    if (!mdToPrint.empty() && !md_.empty()) {
+        bool found = false;
+        int i = 0;
+        for (auto & [mdType, mdValue]: md_) {
+            if (!mdToPrint.count(mdType))
+                continue;
+            if (!found) {
+                result += ":(";
+                found = true;
+            }
+            if (i++ != 0) result += " ";
+            result += metadataTypeToString(mdType) + " " + mdValue.print();
+        }
+        if (found)
+            result += ")";
     }
+
     return result;
 }
 
@@ -758,7 +876,8 @@ asString() const
         [] (Ellipsis)             { return "..."; },
         [] (const Symbol& s)      { return s.sym.toUtf8String(); },
         [] (const Function& f)    { return f.sym; },
-        [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::asString), "(", " ", ")"); }
+        [] (const List & l)       { return l.fold<Utf8String>(StrAdd(), std::mem_fn(&Value::asString), "(", " ", ")"); },
+        [] (const SourceLocation & l) { return l.print(); },
     };
 
     return visit(visitor, *this);
@@ -814,11 +933,14 @@ matchAtom(Context & lcontext, ParseContext & pcontext)
     ParseContext::Revert_Token token(pcontext);
     skipLispWhitespace(pcontext);
     Value result;
+    SourceLocation loc = getSourceLocation(pcontext);
 
     auto make = [&] (auto && val) -> Value
     {
         token.ignore();
-        return Value(lcontext, std::move(val));
+        Value result(lcontext, std::move(val));
+        addSourceLocation(result, loc);
+        return result;
     };
 
     if (auto str = match_delimited_string(pcontext, '\'')) {
@@ -888,9 +1010,9 @@ parseRecursive(Context & lcontext, ParseContext & pcontext,
 
 Value
 Value::
-parse(Context & lcontext, const Utf8String & val)
+parse(Context & lcontext, const Utf8String & val, const SourceLocation & loc)
 {
-    ParseContext pcontext("<<<internal string>>>", val.rawData(), val.rawLength());
+    ParseContext pcontext(loc.file().c_str(), val.rawData(), val.rawLength(), loc.line(), loc.column());
     Value result = parse(lcontext, pcontext);
     skipLispWhitespace(pcontext);
     pcontext.expect_eof();
@@ -899,26 +1021,93 @@ parse(Context & lcontext, const Utf8String & val)
 
 bool
 Value::
-hasMetadata() const
+hasMetadata(MetadataType mdType) const
 {
-    return !md_.empty();
+    return md_.count(mdType);
 }
 
 void
 Value::
-addMetadata(Value md)
+addMetadata(MetadataType mdType, Value md)
 {
-    md_ = std::move(md);
+    if (!md_.emplace(mdType, md).second) {  // todo: std::move(md)
+        throw MLDB::Exception("attempt to add metadata that already exists on value: type "
+                              + metadataTypeToString(mdType) + " existing " + md_[mdType].print()
+                              + " added " + md.print());
+    }
 }
 
 Value
 Value::
-getMetadata() const
+getMetadata(MetadataType mdType) const
 {
-    if (md_.empty())
-        return getContext().null();
+    auto it = md_.find(mdType);
+    if (it != md_.end())
+        return it->second;
     else
-        return md_.as<Value>();
+        return getContext().null();
+}
+
+const Value &
+Value::
+getExistingMetadata(MetadataType mdType) const
+{
+    auto it = md_.find(mdType);
+    if (it != md_.end())
+        return it->second;
+    throw MLDB::Exception("expected metadata " + metadataTypeToString(mdType) + " not found on value " + print());
+}
+
+bool
+Value::
+removeMetadata(MetadataType tp)
+{
+    return md_.erase(tp);
+}
+
+bool
+Value::
+clearMetadata()
+{
+    bool result = !md_.empty();
+    md_.clear();
+    return result;
+}
+
+bool
+Value::
+removeMetadataRecursive(MetadataType tp)
+{
+    bool result = removeMetadata(tp);
+    if (is<List>()) {
+        ListBuilder newList;
+        const List & l = as<List>();
+        for (Value v: l) {
+            bool removed = v.removeMetadataRecursive(tp);
+            result = result || removed;
+            newList.emplace_back(std::move(v));
+        }
+        value_ = List{std::move(newList)};
+    }
+    return result;
+}
+
+bool
+Value::
+clearMetadataRecursive()
+{
+    bool result = clearMetadata();
+    if (is<List>()) {
+        ListBuilder newList;
+        const List & l = as<List>();
+        for (Value v: l) {
+            bool removed = v.clearMetadataRecursive();
+            result = result || removed;
+            newList.emplace_back(std::move(v));
+        }
+        value_ = List{std::move(newList)};
+    }
+    return result;
 }
 
 void
@@ -952,18 +1141,186 @@ truth() const
         MLDB_THROW_UNIMPLEMENTED();
 
     LambdaVisitor visitor {
-        [] (const Value & val) -> bool
-        {
-            return true;
-        },
-        [] (bool b)               { return b; },
-        [] (Null)                 { return false; },
-        [] (const List & l)       { return !l.empty(); }
+        [] (const Value & val) { return true; },
+        [] (bool b)            { return b; },
+        [] (Null)              { return false; },
+        [] (const List & l)    { return !l.empty(); }
     };
 
     return visit(visitor, *this);
-
 }
+
+bool
+Value::
+isNumeric() const
+{
+    LambdaVisitor visitor {
+        []  (const Value & val) { return false; },  // default: not numeric
+        [&] (double d)          { return !is<bool>(); },   // convertible to double: numeric unless bool
+    };
+
+    return visit(visitor, *this);
+}
+
+SourceLocation getSourceLocation(const Value & val)
+{
+    if (val.hasMetadata(MetadataType::SOURCE_LOCATION))
+        return val.getExistingMetadata(MetadataType::SOURCE_LOCATION).as<SourceLocation>();
+    else return {};
+}
+
+SourceLocation getSourceLocation(const ParseContext & pcontext)
+{
+    return getRawSourceLocation(pcontext.get_filename(), pcontext.get_line(), pcontext.get_col());
+}
+
+SourceLocation getRawSourceLocation(Utf8String file, int line, int column)
+{
+    SourceLocationEntry result;
+    result.file = file;
+    result.line = line;
+    result.column = column;
+
+    return { { result } };
+}
+
+SourceLocation getSourceLocation(const Value & val, Utf8String file, int line, int column, Utf8String function)
+{
+    SourceLocationEntry entry;
+    entry.file = file;
+    entry.line = line;
+    entry.column = column;
+    entry.name = std::move(function);
+
+    SourceLocation result = getSourceLocation(val);
+    result.locations.emplace_back(std::move(entry));
+    return result;
+}
+
+Utf8String SourceLocationEntry::print() const
+{
+    
+    Utf8String result = "[" + file + ":" + std::to_string(line) + ":" + std::to_string(column);
+    if (!name.empty())
+        result += "@" + name;
+    result += "]";
+    return result;
+}
+
+std::optional<SourceLocationEntry> SourceLocationEntry::parse(ParseContext & pcontext)
+{
+    ParseContext::Revert_Token token(pcontext);
+
+    SourceLocationEntry result;
+
+    auto success = [&] () -> std::optional<SourceLocationEntry> { token.ignore(); return std::move(result); };
+    auto failure = [&] () { return std::nullopt; };
+
+    if (!pcontext.match_literal('['))
+        return failure();
+    std::string s;
+    if (!pcontext.match_text(s, ':'))
+        return failure();
+    result.file = std::move(s);
+    if (!pcontext.match_literal(':') || !pcontext.match_numeric(result.line))
+        return failure();
+    if (pcontext.match_literal(':')) {
+        if (!pcontext.match_numeric(result.column))
+            return failure();
+    }
+    if (pcontext.match_literal('@')) {
+        if (!pcontext.match_text(s, ']'))
+            return failure();
+        result.name = std::move(s);
+    }
+    if (!pcontext.match_literal(']'))
+        return failure();
+    return success();
+}
+
+Utf8String SourceLocation::file() const
+{
+    return this->locations.at(0).file;
+}
+
+int SourceLocation::line() const
+{
+    return this->locations.at(0).line;
+}
+
+int SourceLocation::column() const
+{
+    return this->locations.at(0).column;
+}
+
+Utf8String SourceLocation::print() const
+{
+    Utf8String result;
+    if (locations.empty())
+        return result;
+    result = locations[0].print();
+    if (locations.size() > 1) {
+        result += " (";
+        for (size_t i = 1;  i < locations.size();  ++i)
+            result += " from " + locations[i].print();
+        result += ")";
+    }
+    return result;
+}
+
+SourceLocation SourceLocation::parse(const Utf8String & str)
+{
+    ParseContext pcontext("<<DATA>>", str.rawData(), str.rawLength());
+
+    SourceLocation loc;
+
+    while (pcontext) {
+        auto entry = SourceLocationEntry::parse(pcontext);
+        if (!entry)
+            break;
+        loc.locations.emplace_back(std::move(*entry));
+    }
+
+    pcontext.expect_eof("extra characters at end of source location");
+
+    return loc;
+}
+
+void addSourceLocation(Value & val, SourceLocation loc)
+{
+    val.addMetadata(MetadataType::SOURCE_LOCATION, val.getContext().loc(std::move(loc)));
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(SourceLocationKind)
+{
+    addValue("NONE", SourceLocationKind::NONE, "");
+    addValue("USER_PROVIDED", SourceLocationKind::USER_PROVIDED, "");
+    addValue("AUTO_GENERATED", SourceLocationKind::USER_PROVIDED, "");
+}
+
+DEFINE_ENUM_DESCRIPTION_INLINE(SourceLocationType)
+{
+    addValue("NONE", SourceLocationType::NONE, "");
+    addValue("FUNCTION", SourceLocationType::FUNCTION, "");
+    addValue("MACRO", SourceLocationType::MACRO, "");
+    addValue("DEFINITION", SourceLocationType::DEFINITION, "");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(SourceLocationEntry)
+{
+    addAuto("file", &SourceLocationEntry::file, "File in which it's defined");
+    addAuto("line", &SourceLocationEntry::line, "Line number in file");
+    addAuto("column", &SourceLocationEntry::column, "Column number in line");
+    addAuto("kind", &SourceLocationEntry::kind, "???");
+    addAuto("type", &SourceLocationEntry::type, "???");
+    addAuto("name", &SourceLocationEntry::name, "Name of function, macro, etc");
+}
+
+DEFINE_STRUCTURE_DESCRIPTION_INLINE(SourceLocation)
+{
+    addField("locations", &SourceLocation::locations, "Locations associated with this frame");
+}
+
 
 } // namespace Lisp
 } // namespace MLDB

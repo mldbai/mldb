@@ -34,6 +34,7 @@ struct Pattern;
 struct Ellipsis;
 struct Type;
 struct Function;
+struct SourceLocation;
 struct CompiledExpression;
 
 DECLARE_STRUCTURE_DESCRIPTION(Symbol);

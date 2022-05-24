@@ -28,7 +28,7 @@ typedef std::vector<std::tuple<UnifiedValues::iterator, std::optional<Value>>> U
 struct Predicate {
     static std::optional<Predicate> match(Context & lcontext, ParseContext & context);
     static Predicate parse(Context & lcontext, ParseContext & context);
-    static Predicate parse(Context & lcontext, const Utf8String & pred);
+    static Predicate parse(Context & lcontext, const Utf8String & pred, const SourceLocation & loc);
     Value match(const Value & input) const;
 
     Value toLisp() const;
@@ -53,7 +53,7 @@ private:
 struct Substitution {
     static std::optional<Substitution> match(Context & lcontext, ParseContext & context);
     static Substitution parse(Context & lcontext, ParseContext & context);
-    static Substitution parse(Context & lcontext, const Utf8String & subst);
+    static Substitution parse(Context & lcontext, const Utf8String & subst, const SourceLocation & loc);
     Value subst(Value matched) const;
     Value toLisp() const;
     Context & getContext() const { return source.getContext(); }
@@ -73,7 +73,8 @@ private:
 struct Pattern {
     static std::optional<Pattern> match(Context & lcontext, ParseContext & context);
     static Pattern parse(Context & lcontext, ParseContext & context);
-    static Pattern parse(Context & lcontext, const Utf8String & subst);
+    static Pattern parse(Context & lcontext, const Utf8String & subst,
+                         const SourceLocation & loc);
 
     std::optional<Value> apply(Value input) const;
 

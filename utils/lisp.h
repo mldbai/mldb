@@ -79,7 +79,7 @@ struct CompiledExpression {
 
 struct CompilationScope {
     // Create a new scope in which to compile a program
-    CompilationScope(Context & lcontext);
+    CompilationScope(Context & lcontext, SourceLocation loc, PathElement functionName);
     CompilationScope(CompilationScope &&) = default;
 
     void exception(const Utf8String & reason) const MLDB_NORETURN;
@@ -122,19 +122,29 @@ struct CompilationScope {
     // Return a scope creator which will enter a new scope with the given variables bound.
     // Each one has its name and the compiled expression used to construct its initial value.
     std::tuple<CompilationScope, CreateExecutionScope>
-    enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression>> & locals) const;
+    enterScopeWithLocals(const std::vector<std::pair<PathElement, CompiledExpression>> & locals,
+                         SourceLocation loc, PathElement fn) const;
 
     // Return a scope creator which will enter a new scope with the given variables bound to
     // the passed arguments.
     std::tuple<CompilationScope, CreateExecutionScope>
-    enterScopeWithArgs(const std::vector<PathElement> & varNames) const;
+    enterScopeWithArgs(const std::vector<PathElement> & varNames, SourceLocation loc, PathElement fn) const;
+
+    const CompilationScope * parentScope() const { return parent_; }
+    const SourceLocation & sourceLocation() const { return loc_; }
+    const PathElement & functionName() const { return fn_; }
+
+    // Returns whether we're in a recursive compilation of the given function or not
+    bool inScopeOfFunction(PathElement fn) const;
 
 private:
     CompilationScope();
-    CompilationScope(const CompilationScope & parent);
+    CompilationScope(const CompilationScope & parent, SourceLocation loc, PathElement functionName);
     std::vector<PathElement> importedNamespaces = { "std" };
     Context * context_ = nullptr;
     const CompilationScope * parent_ = nullptr;
+    SourceLocation loc_;
+    PathElement fn_;
     mutable uint64_t uniqueNumber_ = 0;
 
     // List of variables defined in this scope, along with the static initial
@@ -194,6 +204,7 @@ struct Context {
     Value i64(int64_t i);
     Value f64(double d);
     Value boolean(bool b);
+    Value loc(SourceLocation loc);
 
     template<typename T>
     void addArg(ListBuilder & l, T&&arg)

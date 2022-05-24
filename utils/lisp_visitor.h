@@ -130,6 +130,7 @@ auto visit(Visitor && visitor, Value && value) -> typename std::decay_t<Visitor>
     LISP_TRY_VISIT(bool);
     LISP_TRY_VISIT(Utf8String);
     LISP_TRY_VISIT(Function);
+    LISP_TRY_VISIT(SourceLocation);
 #undef LISP_TRY_VISIT
     return visitor.unknown(value);    
 }
