@@ -7,8 +7,6 @@
 RE2_FILES:=$(shell find $(CWD) -name "*.cc" | grep -v test | grep -v 'threadwin\|fuzz\|benchmark')
 RE2_SOURCES:=$(RE2_FILES:$(CWD)/%=%)
 
-RE2_WARNING_FLAGS := -Wno-unused-but-set-variable
-
 ifeq ($(toolchain),gcc6)
 RE2_WARNING_FLAGS := -Wno-misleading-indentation
 endif
@@ -27,6 +25,10 @@ endif
 
 ifeq ($(toolchain),gcc10)
 RE2_WARNING_FLAGS := -Wno-misleading-indentation -Wno-parentheses -Wno-class-memaccess
+endif
+
+ifeq ($(toolchain),clang)
+RE2_WARNING_FLAGS := -Wno-misleading-indentation -Wno-parentheses -Wno-unused-but-set-variable
 endif
 
 $(eval $(call set_compile_option,$(RE2_SOURCES),-I$(CWD) $(RE2_WARNING_FLAGS)))
