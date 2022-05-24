@@ -7,8 +7,6 @@
 RE2_FILES:=$(shell find $(CWD) -name "*.cc" | grep -v test | grep -v 'threadwin\|fuzz\|benchmark')
 RE2_SOURCES:=$(RE2_FILES:$(CWD)/%=%)
 
-RE2_WARNING_FLAGS := -Wno-unused-but-set-variable
-
 ifeq ($(toolchain),gcc6)
 RE2_WARNING_FLAGS := -Wno-misleading-indentation
 endif
