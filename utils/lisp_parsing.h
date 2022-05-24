@@ -52,6 +52,9 @@ match_recursive(Context & lcontext, ParseContext & pcontext,
     Value result;
     
     skipLispWhitespace(pcontext);
+
+    auto loc = getSourceLocation(pcontext);
+
     int quotes = 0;
     while (pcontext.match_literal('\''))
         ++quotes;
@@ -80,15 +83,24 @@ match_recursive(Context & lcontext, ParseContext & pcontext,
 
     if (matchMetadata && pcontext.match_literal(':')) {
         // metadata
-        auto mdo = matchMetadata(lcontext, pcontext);
-        if (!mdo)
-            pcontext.exception("expected metadata after a ':'");
-        else if (mdo->hasMetadata())
-            pcontext.exception("metadata can't have metadata");
-        else {
-            result.addMetadata(std::move(*mdo));
+        std::optional<Value> mdo = matchMetadata(lcontext, pcontext);
+        if (!mdo || !mdo->is<List>())
+            pcontext.exception("expected list for metadata after a ':'");
+        //cerr << "parsing metadata " << *mdo << endl;
+        const List & mdl = mdo->as<List>();
+        if (mdl.size() % 2 != 0) {
+            pcontext.exception("metadata list must have an even number of elements (type then value)");
+        }
+        for (size_t i = 0;  i < mdl.size();  i += 2) {
+            const Value & key = mdl[i + 0];
+            const Value & val = mdl[i + 1];
+            MetadataType tp = valueToMetadataType(key);
+            result.addMetadata(tp, val);
         }
     }
+
+    if (!result.hasMetadata(MetadataType::SOURCE_LOCATION))
+        addSourceLocation(result, loc);
 
     token.ignore();
     return std::move(result);
@@ -100,6 +112,8 @@ Value parse_recursive(Context & lcontext, ParseContext & pcontext,
 {
     Value result;
     skipLispWhitespace(pcontext);
+
+    auto loc = getSourceLocation(pcontext);
 
     int quotes = 0;
     while (pcontext.match_literal('\''))
@@ -128,11 +142,24 @@ Value parse_recursive(Context & lcontext, ParseContext & pcontext,
     result.setQuotes(quotes);
 
     if (parseMetadata && pcontext.match_literal(':')) {
-        auto md = parseMetadata(lcontext, pcontext);
-        if (md.hasMetadata())
-            pcontext.exception("Metadata can't have metadata");
-        result.addMetadata(std::move(md));
+        // metadata
+        Value md = parseMetadata(lcontext, pcontext);
+        if (!md.is<List>())
+            pcontext.exception("expected list for metadata after a ':'");
+        const List & mdl = md.as<List>();
+        if (mdl.size() % 2 != 0) {
+            pcontext.exception("metadata list must have an even number of elements (type then value)");
+        }
+        for (size_t i = 0;  i < mdl.size();  i += 2) {
+            const Value & key = mdl[i + 0];
+            const Value & val = mdl[1 + 1];
+            MetadataType tp = valueToMetadataType(key);
+            result.addMetadata(tp, val);
+        }
     }
+
+    if (!result.hasMetadata(MetadataType::SOURCE_LOCATION))
+        addSourceLocation(result, loc);
 
     return result;
 }

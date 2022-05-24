@@ -27,7 +27,7 @@ DEFINE_LISP_FUNCTION_COMPILER(let, std, "let")
 
     auto visitBind = [&] (const Value & val)
     {
-        //cerr << "doing binding " << val << endl;
+        cerr << "doing binding " << val << endl;
         PathElement name;
         CompiledExpression value;
 
@@ -53,7 +53,7 @@ DEFINE_LISP_FUNCTION_COMPILER(let, std, "let")
     for (const auto & b: expr[1].expect<List>("Expected list of bindings for second argument to let"))
         visitBind(b);
 
-    //cerr << "locals.size() = " << locals.size() << endl;
+    cerr << "locals.size() = " << locals.size() << endl;
 
     // The rest are the forms in which we evaluate it
     for (size_t i = 2;  i < expr.size();  ++i) {
@@ -61,7 +61,9 @@ DEFINE_LISP_FUNCTION_COMPILER(let, std, "let")
         args.emplace_back(scope.compile(item));
     }
 
-    auto [innerScope, innerScopeCreator] = scope.enterScopeWithLocals(std::move(locals));
+    auto loc = LISP_CREATE_SOURCE_LOCATION(expr[0]);
+
+    auto [innerScope, innerScopeCreator] = scope.enterScopeWithLocals(std::move(locals), loc, "let");
 
     CreateExecutionScope createScope
         = [innerScopeCreator=innerScopeCreator]
@@ -104,9 +106,11 @@ DEFINE_LISP_FUNCTION_COMPILER(setq, std, "setq")
 
     Executor exec = [todos] (ExecutionScope & scope) -> Value
     {
+        cerr << "executing setq" << endl;
         Value result = scope.getContext().list();
         for (auto & [writer, calcValue]: todos) {
             writer(scope, result = calcValue(scope));            
+            cerr << "  executed setq clause with result " << result << endl;
         }
 
         return result;
@@ -279,8 +283,10 @@ DEFINE_LISP_FUNCTION_COMPILER(member, std, "member")
     CompiledExpression vexp = scope.compile(expr[1]);
     CompiledExpression lexp = scope.compile(expr[2]);
 
+    auto loc = LISP_CREATE_SOURCE_LOCATION(expr[0]);
+
     // Compile a predicate "(= <val> __x)" which will be applied to search for the element
-    auto [innerScope, createInnerScope] = scope.enterScopeWithArgs({{PathElement{"__x"}}});
+    auto [innerScope, createInnerScope] = scope.enterScopeWithArgs({{PathElement{"__x"}}}, loc, "member pred");
     Value equalsExpr = context.list(context.sym("="), expr[1], context.sym("__x"));
     CompiledExpression eexp = innerScope.compile(equalsExpr);
 
@@ -319,10 +325,12 @@ DEFINE_LISP_FUNCTION_COMPILER(eval, std, "eval")
     auto & context = scope.getContext();
     CompiledExpression toEval = scope.compile(std::move(expr[1]));
 
-    Executor exec = [toEval] (ExecutionScope & scope) -> Value
+    auto loc = LISP_CREATE_SOURCE_LOCATION(expr[0]);        
+
+    Executor exec = [toEval, loc] (ExecutionScope & scope) -> Value
     {
         Value program = toEval(scope);
-        CompilationScope cscope(scope.getContext());
+        CompilationScope cscope(scope.getContext(), loc, "eval");
         Value result = cscope.eval(std::move(program));
 
         return result;
@@ -373,8 +381,13 @@ DEFINE_LISP_FUNCTION_COMPILER(cond, std, "cond")
 
     Executor exec = [clauses = std::move(clauses)] (ExecutionScope & scope) -> Value
     {
+        //cerr << "Starting cond with " << clauses.size() << " clauses" << endl;
+
         for (auto & [c, v]: clauses) {
-            if (c(scope).truth()) {
+            //cerr << "executing cond " << c.info_ << endl;
+            Value evaluatedCond = c(scope);
+            //cerr << "exec cond " << c.info_ << " returned " << evaluatedCond << endl;
+            if (evaluatedCond.truth()) {
                 Value result = v(scope);
                 //cerr << "cond: returning " << result << endl;
                 return result;

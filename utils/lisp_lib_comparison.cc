@@ -6,6 +6,8 @@
 */
 
 #include "lisp_lib_impl.h"
+#include "lisp_visitor.h"
+#include "mldb/types/value_description.h"
 
 using namespace std;
 
@@ -44,22 +46,43 @@ bool compareImpl(const Value & v1, const Value & v2)
 {
     //cerr << "comparing " << v1.print() << " and " << v2.print() << endl;
 
-    if (v1.is<double>() || v2.is<double>()) {
-        // TODO: inexactness
-        //cerr << "comparing as double" << endl;
-        return Cmp<double>()(asDouble(v1),asDouble(v2));
+    if (v1.isNumeric() && v2.isNumeric()) {
+        if (v1.is<double>() || v2.is<double>()) {
+            // TODO: inexactness
+            //cerr << "comparing as double" << endl;
+            return Cmp<double>()(asDouble(v1),asDouble(v2));
+        }
+        else if (v1.is<int64_t>() || v2.is<int64_t>()) {
+            //cerr << "comparing as int64" << endl;
+            //cerr << "comparing " << asInt(v1) << " and " << asInt(v2) << endl;
+            return Cmp<int64_t>()(asInt(v1),asInt(v2));
+        }
+        else if (v1.is<uint64_t>() || v2.is<uint64_t>()) {
+            //cerr << "comparing as uint64" << endl;
+            return Cmp<uint64_t>()(asUInt(v1),asUInt(v2));
+        }
+        else {
+            MLDB_THROW_RUNTIME_ERROR("incompatible types for numeric comparison");
+        }
     }
-    else if (v1.is<int64_t>() || v2.is<int64_t>()) {
-        //cerr << "comparing as int64" << endl;
-        //cerr << "comparing " << asInt(v1) << " and " << asInt(v2) << endl;
-        return Cmp<int64_t>()(asInt(v1),asInt(v2));
-    }
-    else if (v1.is<uint64_t>() || v2.is<uint64_t>()) {
-        //cerr << "comparing as uint64" << endl;
-        return Cmp<uint64_t>()(asUInt(v1),asUInt(v2));
+    else if (v1.type() == v2.type()) {
+        //cerr << "v1 = " << v1 << " v2 = " << v2 << endl;
+
+        LambdaVisitor visitor {
+            ExceptionOnUnknownReturning<bool>("NOT IMPLEMENTED: comparison of this type"),
+            [&] (double d)             { return d == v2.as<double>(); },
+            [&] (uint64_t i)           { return i == v2.as<uint64_t>(); },
+            [&] (int64_t i)            { return i == v2.as<int64_t>(); },
+            [&] (bool b)               { return b == v2.as<bool>(); },
+            [&] (Null)                 { return true; },
+            [&] (const Symbol & s)     { return s.sym == v2.as<Symbol>().sym; }
+            // ... LOTS of others...
+        };
+
+        return visit(visitor, v1);
     }
     else {
-        MLDB_THROW_RUNTIME_ERROR("incompatible types for multiplication");
+        return Cmp<std::string>()(string(v1.type().name()), string(v2.type().name()));
     }
 }
 
@@ -83,7 +106,7 @@ DEFINE_LISP_FUNCTION_COMPILER(greater_equal, std, ">=")
     return compileComparison(compareImpl<std::greater_equal>, "greater_equal", scope, std::move(expr));
 }
 
-DEFINE_LISP_FUNCTION_COMPILER(equal, std, "=")
+DEFINE_LISP_FUNCTION_COMPILER(equal, std, "=", "equal")
 {
     return compileComparison(compareImpl<std::equal_to>, "equal", scope, std::move(expr));
 }

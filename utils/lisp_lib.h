@@ -21,21 +21,23 @@ tryLookupFunction(const PathElement & fn, const std::vector<PathElement> & impor
 FunctionCompiler lookupFunction(const PathElement & fn, const std::vector<PathElement> & importedNamespaces);
 
 struct RegisterFunctionCompiler {
-    RegisterFunctionCompiler(const char * ns, const char * name, FunctionCompiler fn)
+    RegisterFunctionCompiler(const char * ns, std::vector<std::string> names, FunctionCompiler fn)
     {
-        addFunctionCompiler(ns, name, std::move(fn));
+        for (auto name: names) {
+            addFunctionCompiler(ns, name, fn);
+        }
     };
 };
 
 
-#define DEFINE_LISP_FUNCTION_COMPILER(identifier, ns, name) \
+#define DEFINE_LISP_FUNCTION_COMPILER(identifier, ns, name, ...) \
 static inline CompiledExpression compile_ ## ns ## _ ## identifier(const List & expr, const CompilationScope & scope); \
-static const RegisterFunctionCompiler register ## identifier(#ns, name, &compile_ ## ns ## _ ## identifier); \
+static const RegisterFunctionCompiler register ## identifier(#ns, {name, __VA_ARGS__}, &compile_ ## ns ## _ ## identifier); \
 CompiledExpression compile_ ## ns ## _ ## identifier(const List & expr, const CompilationScope & scope)
 
-#define DEFINE_LISP_FUNCTION(identifier, ns, name) \
+#define DEFINE_LISP_FUNCTION(identifier, ns, name, ...) \
 Value exec_ ## ns ## _ ## identifier(ParsingContext & context); \
-DEFINE_LISP_FUNCTION_COMPILER(identifier, ns, name) { return { exec_ ## ns ## identifier}, context }; } \
+DEFINE_LISP_FUNCTION_COMPILER(identifier, ns, name, __VA_ARGS__) { return { exec_ ## ns ## identifier}, context }; } \
 Value exec_ ## identifier(ParsingContext & context)
 
 } // namespace Lisp

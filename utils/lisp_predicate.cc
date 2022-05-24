@@ -102,9 +102,9 @@ parse(Context & lcontext, ParseContext & pcontext)
 
 Predicate
 Predicate::
-parse(Context & lcontext, const Utf8String & pred)
+parse(Context & lcontext, const Utf8String & pred, const SourceLocation & loc)
 {
-    ParseContext pcontext("<<<internal string>>>", pred.rawData(), pred.rawLength());
+    ParseContext pcontext(loc.file().c_str(), pred.rawData(), pred.rawLength(), loc.line(), loc.column());
     auto res = parse(lcontext, pcontext);
     skipLispWhitespace(pcontext);
     pcontext.expect_eof();
@@ -160,8 +160,8 @@ void mergeUndos(UndoList & allUndos, UndoList & undos)
 
 Value inferType(const Value & input)
 {
-    if (input.hasMetadata()) {
-        return input.getMetadata();
+    if (input.hasMetadata(MetadataType::TYPE_INFO)) {
+        return input.getMetadata(MetadataType::TYPE_INFO);
     }
 
     auto make = [&] (const char * tp) -> Value
@@ -189,7 +189,7 @@ Value inferType(const Value & input)
 
 bool matchesMd(const Value & input, const Value & source)
 {
-    if (!source.hasMetadata())
+    if (!source.hasMetadata(MetadataType::TYPE_INFO))
         return true;
 
     //const Value & md = source.getMetadata();
@@ -209,7 +209,7 @@ bool matchesMd(const Value & input, const Value & source)
         },
     };
 
-    return visit(visitor, source.getMetadata());
+    return visit(visitor, source.getMetadata(MetadataType::TYPE_INFO));
 }
 
 // Called when we have an ellipsis which matches zero values.  We need to put empty
@@ -493,9 +493,9 @@ parse(Context & lcontext, ParseContext & pcontext)
 
 Substitution
 Substitution::
-parse(Context & lcontext, const Utf8String & pred)
+parse(Context & lcontext, const Utf8String & pred, const SourceLocation & loc)
 {
-    ParseContext pcontext("<<<internal string>>>", pred.rawData(), pred.rawLength());
+    ParseContext pcontext(loc.file().c_str(), pred.rawData(), pred.rawLength(), loc.line(), loc.column());
     auto res = parse(lcontext, pcontext);
     skipLispWhitespace(pcontext);
     pcontext.expect_eof();
@@ -576,8 +576,8 @@ substImpl(Context & context, const Value & source, const UnifiedValues & vals)
             //cerr << "  returning " << Value{context, result}.print() << endl;
 
             Value result { context, std::move(listOut) };
-            if (source.hasMetadata())
-                result.addMetadata(source.getMetadata());
+            if (source.hasMetadata(MetadataType::TYPE_INFO))
+                result.addMetadata(MetadataType::TYPE_INFO, source.getMetadata(MetadataType::TYPE_INFO));
             return result;
         }
     };
@@ -625,9 +625,9 @@ parse(Context & lcontext, ParseContext & pcontext)
 
 Pattern
 Pattern::
-parse(Context & lcontext, const Utf8String & pred)
+parse(Context & lcontext, const Utf8String & pred, const SourceLocation & loc)
 {
-    ParseContext pcontext("<<<internal string>>>", pred.rawData(), pred.rawLength());
+    ParseContext pcontext(loc.file().c_str(), pred.rawData(), pred.rawLength(), loc.line(), loc.column());
     auto res = parse(lcontext, pcontext);
     skipLispWhitespace(pcontext);
     pcontext.expect_eof();

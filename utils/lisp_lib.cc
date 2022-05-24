@@ -77,7 +77,7 @@ lookupFunction(const PathElement & fn,
 {
     auto tried = tryLookupFunction(fn, importedNamespaces);
     if (!tried)
-        throw MLDB::Exception("Couldn't find " + fn.toUtf8String() + " in any namespace");
+        throw MLDB::Exception("Couldn't find function " + fn.toUtf8String() + " in any namespace");
     return *tried;
 }
 

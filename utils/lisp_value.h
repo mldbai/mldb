@@ -12,14 +12,34 @@
 #include <vector>
 #include <memory>
 #include <map>
+#include <set>
 #include <iterator>
 #include <compare>
+//#include <source_location>
 #include "mldb/types/string.h"
 #include "mldb/types/path.h"
 #include "mldb/types/any.h"
 
 namespace MLDB {
+struct ValueDescription;
 namespace Lisp {
+
+enum MetadataType {
+    SOURCE_LOCATION,    ///< Information on the source location
+    TYPE_INFO,          ///< Information on the type of a variable, argument or expression
+};
+
+DECLARE_ENUM_DESCRIPTION(MetadataType);
+
+std::string metadataTypeToString(MetadataType tp);
+MetadataType stringToMetadataType(std::string_view mdType);
+Value metadataTypeToValue(Context & lcontext, MetadataType tp);
+MetadataType valueToMetadataType(const Value & mdType);
+
+static const std::set<MetadataType> MD_NONE;
+static const std::set<MetadataType> MD_TYPE;
+static const std::set<MetadataType> MD_LOC;
+
 
 /*******************************************************************************/
 /* LISP VALUE                                                                  */
@@ -57,16 +77,26 @@ struct Value {
     Value(Context & context, Null);
     Value(Context & context, Type tp);
     Value(Context & context, Function fn);
+    Value(Context & context, SourceLocation loc);
 
     bool operator == (const Value & other) const;
     bool operator != (const Value & other) const = default;
+    bool operator <  (const Value & other) const;
+    bool operator <= (const Value & other) const;
+    bool operator >  (const Value & other) const;
+    bool operator >= (const Value & other) const;
 
     void toJson(JsonPrintingContext & context) const;
     static Value fromJson(Context & lcontext, JsonParsingContext & pcontext);
 
-    bool hasMetadata() const;
-    void addMetadata(Value md);
-    Value getMetadata() const;
+    bool hasMetadata(MetadataType tp) const;
+    void addMetadata(MetadataType tp, Value md);
+    Value getMetadata(MetadataType tp) const;
+    const Value & getExistingMetadata(MetadataType tp) const;
+    bool removeMetadata(MetadataType tp);
+    bool clearMetadata();
+    bool removeMetadataRecursive(MetadataType tp);
+    bool clearMetadataRecursive();
 
     int getQuotes() const { return quotes_; }
     void setQuotes(int q) { quotes_ = q; }
@@ -74,13 +104,13 @@ struct Value {
     void unquote() { if (quotes_) quotes_ -= 1; }
     Value unquoted() const { Value result(*this);  result.unquote(); return result; }
 
-    Utf8String print() const;
+    Utf8String print(const std::set<MetadataType> & md = MD_NONE) const;
     Utf8String asString() const;
     Utf8String getErrorMessageString(const char * msg) const;
 
     static std::optional<Value> match(Context & lcontext, ParseContext & pcontext);
     static Value parse(Context & lcontext, ParseContext & pcontext);
-    static Value parse(Context & lcontext, const Utf8String & str);
+    static Value parse(Context & lcontext, const Utf8String & str, const SourceLocation & loc);
 
     static Value parseAtom(Context & lcontext, ParseContext & pcontext);
     static std::optional<Value> matchAtom(Context & lcontext, ParseContext & pcontext);
@@ -125,7 +155,8 @@ struct Value {
         if (result) return *result;
         throwUnexpectedValueTypeException(msg, typeid(T));
     }
-    
+    const std::span<const std::byte> getBytes() const { return value_.asBytes(); }
+
     void throwUnexpectedValueTypeException(const char * msg, const std::type_info & found) const MLDB_NORETURN;
 
     /// Asserts that the value is a symbol with a single element in its name; returns the name
@@ -135,12 +166,17 @@ struct Value {
     /// empty list is false, everything else is true)
     bool truth() const;
 
+    bool isNumeric() const;
+
+    const std::type_info & type() const { return value_.type(); }
+    const MLDB::ValueDescription & desc() const { return value_.desc(); }
+
 private:
     Context * context_ = nullptr;
     int quotes_ = 0;   ///< Level to which the value is quoted
     Any value_;
-    Any md_;
-    friend class ValueDescription;
+    std::map<MetadataType, Value> md_;
+    friend class MLDB::ValueDescription;
 };
 
 inline std::ostream & operator << (std::ostream & stream, Value val)
@@ -170,7 +206,7 @@ struct ListHead {
 
     inline size_t nToI(size_t n) const
     {
-        ssize_t i = n - start;
+        ssize_t i = n + start;
         ExcAssertLessEqual(i, end);
         return i;
     }
@@ -249,6 +285,60 @@ struct Function: public Symbol {
     std::shared_ptr<const CompiledExpression> compiled;
 };
 
+enum class SourceLocationKind {
+    NONE,
+    USER_PROVIDED,
+    AUTO_GENERATED
+};
+
+DECLARE_ENUM_DESCRIPTION(SourceLocationKind);
+
+enum class SourceLocationType {
+    NONE,
+    FUNCTION,
+    MACRO,
+    DEFINITION
+};
+
+DECLARE_ENUM_DESCRIPTION(SourceLocationType);
+
+struct SourceLocationEntry {
+    Utf8String file;
+    int line = -1;
+    int column = -1;
+    SourceLocationKind kind = SourceLocationKind::NONE;
+    SourceLocationType type = SourceLocationType::NONE;
+    Utf8String name;
+
+    Utf8String print() const;
+    static std::optional<SourceLocationEntry> parse(ParseContext & pcontext);
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SourceLocationEntry);
+
+struct SourceLocation {
+    std::vector<SourceLocationEntry> locations;
+
+    Utf8String file() const;
+    int line() const;
+    int column() const;
+
+    Utf8String print() const;
+    static SourceLocation parse(const Utf8String & str);
+};
+
+DECLARE_STRUCTURE_DESCRIPTION(SourceLocation);
+
+SourceLocation getSourceLocation(const Value & val);
+SourceLocation getSourceLocation(const ParseContext & pcontext);
+SourceLocation getRawSourceLocation(Utf8String file, int line, int column);
+//SourceLocation getSourceLocation(const Value & val, std::source_location loc);
+SourceLocation getSourceLocation(const Value & val, Utf8String file, int line, int column, Utf8String function = {});
+
+void addSourceLocation(Value & val, SourceLocation loc);
+
+#define LISP_CREATE_SOURCE_LOCATION(val) \
+    getSourceLocation(val, __FILE__, __LINE__, __builtin_COLUMN(), __PRETTY_FUNCTION__);
 
 } // namespace Lisp
 } // namespace MLDB
