@@ -495,6 +495,7 @@ struct ParseContext {
 
     void exception_fmt(const char * message, ...) const MLDB_NORETURN;
     
+    const std::string & get_filename() const { return filename_; }
     size_t get_offset() const { return ofs_; }
     size_t get_line() const { return line_; }
     size_t get_col() const { return col_; }
