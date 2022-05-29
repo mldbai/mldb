@@ -220,6 +220,7 @@ parseFixedWidthCsvRow(const char * & line,
         --length;
     
     const char * lineEnd = line + length;
+    //cerr << "doing line " << string(line, lineEnd) << endl;
 
     const char * errorMsg = nullptr;
 
@@ -295,6 +296,8 @@ parseFixedWidthCsvRow(const char * & line,
         const char * start = line;
 
         const char c = *line++;
+
+        //cerr << "colNum " << colNum << " c = " << c << " pos " << line - lineEnd + length << endl;
 
         if (c == separator && !isTextLine) {
             // null field
@@ -435,6 +438,7 @@ parseFixedWidthCsvRow(const char * & line,
 
             values[colNum++] = finishString(start, len, eightBit);
         }
+        //cerr << "column " << colNum << " " << inputColumnNames.at(colNum-1) << " =  " << values[colNum - 1] << endl;
     }
 
     if (errorMsg)
