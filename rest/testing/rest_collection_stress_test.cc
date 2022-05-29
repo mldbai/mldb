@@ -45,7 +45,7 @@ struct FairRWLock
 {
     static constexpr uint64_t Mask = 0xFFFF;
 
-    FairRWLock() { d.all = 0; }
+    FairRWLock() : d { .all = 0 } {}
 
     void lock()
     {

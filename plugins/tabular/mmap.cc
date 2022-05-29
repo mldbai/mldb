@@ -18,6 +18,7 @@
 #include <regex>
 #include <map>
 #include <set>
+#include <bit>
 
 using namespace std;
 
