@@ -28,8 +28,9 @@ struct CSVSplitterState {
 struct CSVSplitter: public BlockSplitterT<CSVSplitterState> {
     CSVSplitter(char quoteChar,
                 bool allowMultiLine,
-                CsvLineEncoding encoding)
-        : quoteChar(quoteChar), allowMultiLine(allowMultiLine), encoding(encoding)
+                CsvLineEncoding encoding,
+                bool allowInvalidCharacters)
+        : quoteChar(quoteChar), allowMultiLine(allowMultiLine), encoding(encoding), allowInvalidCharacters(allowInvalidCharacters)
     {
     }
 
@@ -42,6 +43,7 @@ struct CSVSplitter: public BlockSplitterT<CSVSplitterState> {
     char quoteChar;
     bool allowMultiLine;
     CsvLineEncoding encoding;
+    bool allowInvalidCharacters;
 };
 
 

@@ -155,6 +155,13 @@ nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
                 //cerr << "doing " << (int)*p << " with " << (e - p) << " chars left" << endl;
                 if (char_8bit(c)) {
                     auto charlen = utf8::internal::sequence_length(p);
+                    if (charlen == 0) {
+                        if (allowInvalidCharacters)
+                            charlen = 1;
+                        else
+                            throw MLDB::Exception("Invalid UTF-8 character sequence");
+                    }
+                    ExcAssertGreater(charlen, 0);
                     if (!skip(charlen))
                         return 0;  // ends in middle of utf-8 character
                 }

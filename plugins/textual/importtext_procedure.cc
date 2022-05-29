@@ -842,7 +842,10 @@ struct ImportTextProcedureWorkInstance {
             return false;
         };
 
-        CSVSplitter csvSplitter { config.quoter[0], config.allowMultiLines, parseCsvLineEncoding(config.encoding) };
+        CSVSplitter csvSplitter {
+            config.quoter[0], config.allowMultiLines,
+            parseCsvLineEncoding(config.encoding), !config.replaceInvalidCharactersWith.empty() };
+
         NewlineSplitter newlineSplitter;
         const BlockSplitter & splitter
             = config.allowMultiLines
