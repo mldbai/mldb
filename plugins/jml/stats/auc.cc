@@ -36,7 +36,7 @@ double do_calc_auc(std::vector<AUC_Entry> & entries)
 
     float prevx = 0.0, prevy = 0.0;
 
-    double total_area = 0.0, total_weight MLDB_UNUSED = 0.0, current_weight MLDB_UNUSED = 0.0;
+    double total_area = 0.0, total_weight [[maybe_unused]] = 0.0, current_weight [[maybe_unused]] = 0.0;
 
     for (unsigned i = 0;  i < entries.size();  ++i) {
         if (entries[i].weight > 0.0) {

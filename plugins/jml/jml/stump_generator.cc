@@ -153,11 +153,10 @@ generate(Thread_Context & context,
 
         /* Work out the weights.  This depends upon the 1/Z score. */
         distribution<float> cl_weights(all_trained.size());
-        float total_z MLDB_UNUSED = 0.0;
         for (unsigned s = 0;  s < all_trained.size();  ++s) {
             float Z = all_trained[s].Z;
             if (Z < 1e-5) cl_weights[s] = 0.0;
-            else { cl_weights[s] = 1.0 / Z;  total_z += 1.0 / Z; }
+            else { cl_weights[s] = 1.0 / Z; }
         }
         if (cl_weights.total() == 0.0)
             throw Exception("Boosted_Stumps::train_iteration_fair: zero weight");
@@ -203,11 +202,10 @@ generate(Thread_Context & context,
 
         /* Work out the weights.  This depends upon the 1/Z score. */
         distribution<float> cl_weights(all_trained.size());
-        float total_z MLDB_UNUSED = 0.0;
         for (unsigned s = 0;  s < all_trained.size();  ++s) {
             float Z = all_trained[s].Z;
             if (Z < 1e-5) cl_weights[s] = 0.0;
-            else { cl_weights[s] = 1.0 / Z;  total_z += 1.0 / Z; }
+            else { cl_weights[s] = 1.0 / Z; }
         }
         if (cl_weights.total() == 0.0)
             throw Exception("Boosted_Stumps::train_iteration_fair: zero weight");
@@ -321,7 +319,7 @@ train_all(Thread_Context & context,
     double max_weight = ignore_highest / nx;
 
     distribution<float> example_weights(nx);
-    double kept MLDB_UNUSED = 0.0, left MLDB_UNUSED = 0.0;
+    double kept [[maybe_unused]] = 0.0, left [[maybe_unused]] = 0.0;  // debug
     for (unsigned i = 0;  i < nx;  ++i) {
         //if (i >= ignore_highest * nx) {
         if (reweighted[i].second <= max_weight || ignore_highest <= 1.0) {

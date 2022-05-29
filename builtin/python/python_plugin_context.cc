@@ -132,6 +132,9 @@ convertException(const EnterThreadToken & threadToken,
 {
     try {
 #if 0
+        // TODO: We should probably not have frame as unused here...
+        PyFrameObject* frame [[maybe_unused]] = PyEval_GetFrame();
+
         PyThreadState *tstate = PyThreadState_GET();
 
         PyFrameObject * frame = nullptr;

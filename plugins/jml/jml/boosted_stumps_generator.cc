@@ -499,19 +499,15 @@ train_iteration_fair(Thread_Context & context,
 
     /* Work out the weights.  This depends upon the 1/Z score. */
     distribution<float> cl_weights(all_trained.size());
-    float total_z MLDB_UNUSED = 0.0;
     for (unsigned s = 0;  s < all_trained.size();  ++s) {
         float Z = all_trained[s].Z;
         if (Z < 1e-5) cl_weights[s] = 0.0;
-        else { cl_weights[s] = 1.0 / Z;  total_z += 1.0 / Z; }
+        else { cl_weights[s] = 1.0 / Z;  }
     }
     if (cl_weights.total() == 0.0)
         throw Exception("Boosted_Stumps_Generator::train_iteration_fair: "
                         "zero weight");
     
-    /* Get the average Z score, which is needed by the logistic update. */
-    //float avg_z = total_z / cl_weights.total();
-
     cl_weights.normalize();
 
     /* Insert it */
