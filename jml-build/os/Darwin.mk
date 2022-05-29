@@ -1,3 +1,4 @@
+
 MD5SUM:=md5
 DEFAULT_TOOLCHAIN:=clang
 GNU_TIME:=gtime
@@ -10,6 +11,8 @@ MACHINE_NAME:=$(shell uname -n)
 READLINK:=readlink
 linker_rpath=
 SO_EXTENSION:=.dylib
+
+HAS_LOAD:=$(if $(findstring load,${.FEATURES}),1,0)
 
 VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
 PYTHON ?= $(VIRTUALENV)/bin/python
@@ -66,3 +69,23 @@ LLVM_LIB_PATH:=$(HOMEBREW_OPT)/llvm/lib/
 LLVM_LIB_NAME:=LLVM-13
 LIB_$(LLVM_LIB_NAME)_LINKER_OPTIONS+=-L$(LLVM_LIB_PATH)
 
+ifneq ($(DONE_LOAD),1)
+#$(warning HAS_LOAD=$(HAS_LOAD))
+ifeq ($(HAS_LOAD),1)
+$(BUILD)/$(HOSTARCH)-Darwin/make_extensions$(SO_EXTENSION): mldb/jml-build/make_extensions.cc mldb/jml-build/md5.cc mldb/jml-build/md5.h
+	$(CXX) -g -O3 -shared -fPIC -Wl,-undefined,dynamic_lookup -o $@ -I $(HOMEBREW_INCLUDE) -lstdc++ $< jml-build/md5.cc
+
+-load $(BUILD)/$(HOSTARCH)-Darwin/make_extensions$(SO_EXTENSION)(mldb_make_extensions_init)
+
+$(if $(md5sum hello),$(eval HAS_BUILTIN_MD5SUM:=1))
+
+ifdef HAS_BUILTIN_MD5SUM
+#$(warning has builtin MD5SUM)
+$(if $(findstring 5d41402abc4b2a76b9719d911017c592,$(md5sum hello)),,$(warning md5sum of hello is $(md5sum hello) but should be 5d41402abc4b2a76b9719d911017c592))
+hash_command_builtin=$(eval $(1)_hash:=$(md5sum $(1)))
+HASH_COMMAND:=hash_command_builtin
+DONE_LOAD:=1
+endif # HAS_BUILTIN_MD5SUM
+
+endif # HAS_LOAD
+endif # DONE_LOAD

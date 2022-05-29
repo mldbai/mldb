@@ -1,3 +1,7 @@
+BUILD   ?= build
+ifndef HOSTARCH
+HOSTARCH:=$(shell uname -m)
+endif
 include mldb/jml-build/os/os.mk
 
 toolchain ?= $(DEFAULT_TOOLCHAIN)
@@ -10,7 +14,6 @@ DOCKER_REGISTRY:=quay.io/
 DOCKER_USER:=mldb/
 
 V8_LIB:=v8
-HOSTARCH    ?= $(shell uname -m)
 
 
 -include local.mk
@@ -24,8 +27,9 @@ default: all
 include ports.mk
 
 PWD     := $(shell pwd)
-BUILD   ?= build
-ARCH    ?= $(HOSTARCH)
+ifndef ARCH
+ARCH    := $(HOSTARCH)
+endif
 OBJ     := $(BUILD)/$(ARCH)-$(OSNAME)/obj
 BIN     := $(BUILD)/$(ARCH)-$(OSNAME)/bin
 LIB		:= $(BUILD)/$(ARCH)-$(OSNAME)/lib
