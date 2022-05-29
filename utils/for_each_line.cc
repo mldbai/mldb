@@ -710,7 +710,9 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
                     //cerr << "newCurrent = " << (const void *)newCurrent << endl;
                     if (!newCurrent) {
-                        throw MLDB::Exception("File is truncated in the middle of a record");
+                        newCurrent = end1;
+                        // Pass on the partial record; the underlying logic can decide if it's valid or not
+                        //throw MLDB::Exception("File is truncated in the middle of a record at last line");
                     }
                     ExcAssertEqual((const void *)newCurrent, (const void *)end1);
                     lines.emplace_back(start1, end1 - start1);
