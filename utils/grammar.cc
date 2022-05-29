@@ -25,6 +25,8 @@ int getEscapedJsonCharacterPointUtf8(ParseContext & context);
 
 namespace Grammar {
 
+using namespace Lisp;
+
 bool isUpperUtf8(int c)
 {
     static const std::locale loc("en_US.UTF-8");
@@ -433,22 +435,24 @@ struct CompilationState {
 };
 
 CompilationContext::
-CompilationContext(Lisp::Context & lcontext)
-    : Lisp::CompilationScope(lcontext), state(new CompilationState())
+CompilationContext(Lisp::Context & lcontext, Lisp::SourceLocation loc, PathElement functionName)
+    : Lisp::CompilationScope(lcontext, std::move(loc), std::move(functionName)),
+      state(new CompilationState())
 {
 }
 
 CompilationContext::
-CompilationContext(CompilationContext & parent)
-    : Lisp::CompilationScope(parent.getContext()), state(new CompilationState(parent.state))
+CompilationContext(CompilationContext & parent, Lisp::SourceLocation loc, PathElement functionName)
+    : Lisp::CompilationScope(parent, std::move(loc), std::move(functionName)),
+      state(new CompilationState(parent.state))
 {
 }
 
 std::shared_ptr<CompilationContext>
 CompilationContext::
-enter(PathElement where)
+enter(SourceLocation loc, PathElement where)
 {
-    return std::make_shared<CompilationContext>(*this);
+    return std::make_shared<CompilationContext>(*this, std::move(loc), std::move(where));
 }
 
 void CompilationContext::exception(const Utf8String & reason) const
@@ -913,7 +917,8 @@ Parser
 GrammarRule::
 compile(std::shared_ptr<CompilationContext> context) const
 {
-    auto subContext = context->enter("GrammarRule::compile");
+    Lisp::SourceLocation loc;  // TODO... what
+    auto subContext = context->enter(std::move(loc), "GrammarRule::compile");
     for (auto & [name, rule]: rules) {
         subContext->setCompiledRule(name, rule.compile(subContext));
     }
