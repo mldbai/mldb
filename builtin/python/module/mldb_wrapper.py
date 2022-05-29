@@ -174,10 +174,10 @@ class mldb_wrapper(object):
         def delete_async(self, url):
             return self._perform('DELETE', url, [], {}, [['async', 'true']])
 
-        def query(self, query):
+        def query(self, query, format='table'):
             return self._perform('GET', '/v1/query', [], {
                 'q' : query,
-                'format' : 'table'
+                'format' : format
             }).json()
 
         def run_tests(self):
@@ -203,7 +203,7 @@ class mldb_wrapper(object):
 
             raise mldb_wrapper.TestSuiteFailureException(res)
             
-        def post_run_and_track_procedure(self, payload, refresh_rate_sec=10):
+        def post_run_and_track_procedure(self, payload, refresh_rate_sec=1):
             import threading
 
             if 'params' not in payload:
@@ -251,6 +251,54 @@ class mldb_wrapper(object):
                 event.set()
                 t.join()
 
+        def put_and_track_procedure(self, uri, payload, refresh_rate_sec=1):
+            import threading
+
+            res = self.put_async(uri, payload).json()
+            print('put result is', res)
+            proc_id = res['id']
+            print('proc id is ', proc_id)
+            event = threading.Event()
+
+            def monitor_progress():
+                # wrap everything in a try/except because exceptions are not passed to
+                # mldb.log by themselves.
+                try:
+                    # find run id
+                    run_id = None
+                    sl = mldb_wrapper.StepsLogger(self)
+                    while not event.wait(refresh_rate_sec):
+                        if run_id is None:
+                            res = self.get('/v1/procedures/{}/runs'.format(proc_id)).json()
+                            if res:
+                                run_id = res[0]
+                            else:
+                                continue
+
+                        res = self.get('/v1/procedures/{}/runs/{}'.format(proc_id, run_id)).json()
+                        if res['state'] == 'executing':
+                            sl.log_progress_steps(res['progress']['steps'])
+                        else:
+                            break
+
+                except Exception as e:
+                    self.log(str(e))
+                    import traceback
+                    self.log(traceback.format_exc())
+
+            t = threading.Thread(target=monitor_progress)
+            t.start()
+
+            try:
+                while True:
+                    try:
+                        status = self.get(f'{uri}/')
+                        print(status)
+                    except mldb_wrapper.ResponseException as e:
+                        return e.response
+            finally:
+                event.set()
+                t.join()
 
 
 class MldbUnitTest(unittest.TestCase):
