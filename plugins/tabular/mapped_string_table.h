@@ -1,7 +1,17 @@
+/* mapped_string_table.h                                          -*- C++ -*-
+   Jeremy Barnes, 6 November 2015
+   Copyright (c) 2015 mldb.ai inc.  All rights reserved.
+
+   This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
+*/
+
 #pragma once
-#include "mmap.hpp"
-#include "mapped_int_table.hpp"
-#include "string_table.hpp"
+
+#include "mmap.h"
+#include "mapped_int_table.h"
+#include "string_table.h"
+
+namespace MLDB {
 
 // A string table is a more efficient way of holding a set of strings.  It serializes the concatenated
 // set of strings in a single block of text, and a table of offsets holding the beginning and end
@@ -51,7 +61,7 @@ struct MappedStringTable {
 };
 
 // Freezing a string table involves freezing both the offsets and the block of text.
-void freeze(MappingContext & context, MappedStringTable & output, const StringTable & input)
+inline void freeze(MappingContext & context, MappedStringTable & output, const StringTable & input)
 {
     freeze_field(context, "offsets", output.offsets, input.offsets);
     freeze_field(context, "mem", output.mem, input.mem);
@@ -63,7 +73,7 @@ struct MappedCharacterRangeTableBase {
 
 struct MappedCharacterRangeTable: public CharacterRangeTableImpl<MappedCharacterRangeTableBase> {};
 
-void freeze(MappingContext & context, MappedCharacterRangeTable & output, const CharacterRangeTable & input)
+inline void freeze(MappingContext & context, MappedCharacterRangeTable & output, const CharacterRangeTable & input)
 {
     freeze(context, output.codeRanges, input.codeRanges);
 }
@@ -75,7 +85,7 @@ struct MappedEntropyEncoderDecoderBase {
 
 struct MappedEntropyEncoderDecoder: public EntropyEncoderDecoderImpl<MappedEntropyEncoderDecoderBase> {};
 
-void freeze(MappingContext & context, MappedEntropyEncoderDecoder & output, const EntropyEncoderDecoder & input)
+inline void freeze(MappingContext & context, MappedEntropyEncoderDecoder & output, const EntropyEncoderDecoder & input)
 {
     freeze_field(context, "characterCodes", output.characterCodes, input.characterCodes);
     freeze_field(context, "capitalizationCodes", output.capitalizationCodes, input.capitalizationCodes);
@@ -87,7 +97,7 @@ struct MappedSuffixDecoderBase {
 
 struct MappedSuffixDecoder: public SuffixDecoderImpl<MappedSuffixDecoderBase> {};
 
-void freeze(MappingContext & context, MappedSuffixDecoder & output, const SuffixDecoder & input)
+inline void freeze(MappingContext & context, MappedSuffixDecoder & output, const SuffixDecoder & input)
 {
     freeze_field(context, "charToPrefix", output.charToPrefix, input.charToPrefix);
 }
@@ -101,7 +111,7 @@ struct MappedOptimizedStringTableBase {
 
 struct MappedOptimizedStringTable: public OptimizedStringTableImpl<MappedOptimizedStringTableBase> {};
 
-void freeze(MappingContext & context, MappedOptimizedStringTable & output, const OptimizedStringTable & input)
+inline void freeze(MappingContext & context, MappedOptimizedStringTable & output, const OptimizedStringTable & input)
 {
     freeze_field(context, "encoded", output.encoded, input.encoded);
     freeze_field(context, "capDecoder", output.capDecoder, input.capDecoder);
@@ -109,3 +119,4 @@ void freeze(MappingContext & context, MappedOptimizedStringTable & output, const
     freeze_field(context, "entropyDecoder", output.entropyDecoder, input.entropyDecoder);
 }
 
+} // namespace MLDB
