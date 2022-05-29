@@ -37,6 +37,30 @@
 using namespace std;
 using namespace MLDB;
 
+#if defined(__i386__)
+#  define ARCH "i386" 
+#elif defined (__amd64__)
+#  define ARCH "x86_64"
+#elif defined (__aarch64__)
+#  define ARCH "arm64"
+#elif defined(__arm__)
+#  define ARCH "arm"
+#else
+#  error "Need to define your architecture"
+#endif
+
+#if defined(__APPLE__)
+#  define SOEXT ".dylib"
+#  define PLATFORM "Darwin"
+#elif defined(__linux__)
+#  define SOEXT ".so"
+#  define PLATFORM "linux"
+#else
+#  error "Need to define SOEXT for your platform"
+#endif
+
+#define PLATFORM_SO_DIR "build/" ARCH "-" PLATFORM "/lib/"
+
 namespace MLDB {
 
 /** MLDB environment search functions.
@@ -64,7 +88,7 @@ namespace MLDB {
     In the case that the findEnvironment() function will perform the following
     steps to enable MLDB to be loaded:
 
-    1.  Dynamic load libmldb_platform_python.so, which contains everything
+    1.  Dynamic load libmldb_platform_python{SOEXT}, which contains everything
         necessary to create an MldbEngine instance hooked into the Python.
         This will also load the entire set of MLDB runtime libraries.
     2.  Find the MLDB::getPythonEnvironment() function exported by that module.
@@ -103,7 +127,7 @@ loadPythonEnvironment()
 
     std::unique_lock<std::mutex> guard(dlopenMutex);
 
-    string path = "libmldb_platform_python.so";
+    string path = PLATFORM_SO_DIR "libmldb_platform_python" SOEXT;
     
     dlerror();  // clear existing error
     
