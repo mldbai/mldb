@@ -1070,7 +1070,7 @@ struct JSONImporter: public Procedure {
         filter_istream stream(filename, { { "mapped", "true" } });
 
         bool isArray = false;
-        bool separatedWithNewlines = false;
+        //bool separatedWithNewlines = false;
         bool oneRecordPerLine = false;
 
         ParseContext parseContext(filename, stream);

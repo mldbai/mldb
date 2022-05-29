@@ -12,6 +12,7 @@
 #include "mldb/core/procedure.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/utils/lightweight_hash.h"
+#include "mldb/sql/decompose.h"
 #include "sql_csv_scope.h"
 #include <memory>
 
