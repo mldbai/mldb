@@ -187,14 +187,28 @@ struct SimdJsonParsingContext: public JsonParsingContext {
     simdjson::ondemand::document & doc;
     mutable std::vector<simdjson::ondemand::value> values; 
 
-    virtual void exception(const std::string & message) const
+    virtual void exception(const Utf8String & message) const
     {
         throw MLDB::Exception(message);
     }
-    
+
     virtual std::string getContext() const
     {
         return "";
+    }
+
+    virtual JsonNumber expectNumber()
+    {
+        using nt = simdjson::ondemand::number_type;
+        JsonNumber result;
+        switch (values.back().get_number_type()) {
+            case nt::unsigned_integer:      result.type = JsonNumber::UNSIGNED_INT;   result.uns = values.back().get_uint64();  break;
+            case nt::signed_integer:        result.type = JsonNumber::SIGNED_INT;     result.sgn = values.back().get_int64();   break;
+            case nt::floating_point_number: result.type = JsonNumber::FLOATING_POINT; result.fp  = values.back().get_double();  break;
+            default:
+                exception("expected JSON number");
+        }
+        return result;
     }
 
     virtual int expectInt()
@@ -400,6 +414,16 @@ struct SimdJsonParsingContext: public JsonParsingContext {
     virtual bool eof() const
     {
         return !doc.is_alive();
+    }
+
+    virtual std::any savePosition()
+    {
+        MLDB_THROW_UNIMPLEMENTED_ON_THIS("TODO");
+    }
+
+    virtual void restorePosition(const std::any & token)
+    {
+        MLDB_THROW_UNIMPLEMENTED_ON_THIS("TODO");
     }
 };
 
