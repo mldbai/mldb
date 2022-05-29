@@ -11,6 +11,7 @@
 #include "mldb/arch/demangle.h"
 #include "mldb/types/value_description.h"
 #include "mldb/utils/grammar.h"
+#include "mldb/utils/lisp_parsing.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -18,6 +19,7 @@
 using namespace std;
 using namespace MLDB;
 using namespace MLDB::Grammar;
+using namespace MLDB::Lisp;
 
 
 TEST_CASE("test-grammar-parsing", "[none]")
@@ -32,7 +34,8 @@ TEST_CASE("test-grammar-parsing", "[none]")
     skipLispWhitespace(pcontext);
     pcontext.expect_eof("extra junk at end of grammar");
 
-    auto ccontext = std::make_shared<CompilationContext>(lcontext);
+    SourceLocation loc;  // TODO
+    auto ccontext = std::make_shared<CompilationContext>(lcontext, loc, "test-grammar-parsing");
     auto parser = grammar.compile(ccontext);
 
     ParseContext context2("test", "true", 4);

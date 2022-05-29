@@ -35,8 +35,8 @@ using ParserOutput = std::optional<Value>;
 
 
 struct CompilationContext: public Lisp::CompilationScope {
-    CompilationContext(Lisp::Context & lcontext);
-    CompilationContext(CompilationContext & parent);
+    CompilationContext(Lisp::Context & lcontext, Lisp::SourceLocation loc, PathElement functionName);
+    CompilationContext(CompilationContext & parent, Lisp::SourceLocation loc, PathElement functionName);
 
     void exception(const Utf8String & reason) const MLDB_NORETURN;
     void setCompiledRule(PathElement ruleName, Parser parser);
@@ -44,7 +44,7 @@ struct CompilationContext: public Lisp::CompilationScope {
     std::function<void (ParsingContext & context, Value val)> getVariableSetter(PathElement name);
     std::function<Value (const ParsingContext & context)> getVariableReference(PathElement name) const;
 
-    std::shared_ptr<CompilationContext> enter(PathElement where);
+    std::shared_ptr<CompilationContext> enter(Lisp::SourceLocation loc, PathElement where);
 
 private:
     std::shared_ptr<CompilationState> state;

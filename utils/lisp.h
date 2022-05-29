@@ -137,9 +137,10 @@ struct CompilationScope {
     // Returns whether we're in a recursive compilation of the given function or not
     bool inScopeOfFunction(PathElement fn) const;
 
-private:
+protected:
     CompilationScope();
     CompilationScope(const CompilationScope & parent, SourceLocation loc, PathElement functionName);
+private:
     std::vector<PathElement> importedNamespaces = { "std" };
     Context * context_ = nullptr;
     const CompilationScope * parent_ = nullptr;
