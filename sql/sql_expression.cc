@@ -747,10 +747,10 @@ SqlExpression::
 {
 }
 
-namespace {
+namespace SqlParsing {
 
 // Match a non-scoped identifier
-static bool matchPathIdentifier(ParseContext & context,
+bool matchPathIdentifier(ParseContext & context,
                                 bool allowUtf8, Utf8String & result)
 {
     if (context.eof()) {
@@ -794,14 +794,14 @@ static bool matchPathIdentifier(ParseContext & context,
     return !result.empty();
 }
 
-static Utf8String matchIdentifier(ParseContext & context, bool allowUtf8)
+Utf8String matchIdentifier(ParseContext & context, bool allowUtf8)
 {
     Utf8String result;
     matchPathIdentifier(context, allowUtf8, result);
     return result;
 }
 
-static ColumnPath matchColumnName(ParseContext & context, bool allowUtf8)
+ColumnPath matchColumnName(ParseContext & context, bool allowUtf8)
 {
     ColumnPath result;
 
@@ -925,7 +925,7 @@ void expect_whitespace(ParseContext & ctx)
 }
 
 // Match a keyword in any case
-static bool matchKeyword(ParseContext & context, const char * keyword)
+bool matchKeyword(ParseContext & context, const char * keyword)
 {
     ParseContext::Revert_Token token(context);
 
@@ -957,7 +957,7 @@ static bool matchKeyword(ParseContext & context, const char * keyword)
 }
 
 // Expect a keyword in any case
-static void expectKeyword(ParseContext & context, const char * keyword)
+void expectKeyword(ParseContext & context, const char * keyword)
 {
     if (!matchKeyword(context, keyword)) {
         context.exception("expected keyword " + string(keyword));
@@ -965,7 +965,7 @@ static void expectKeyword(ParseContext & context, const char * keyword)
 }
 
 // Read ahead to see if a keyword matches
-static bool peekKeyword(ParseContext & context, const char * keyword)
+bool peekKeyword(ParseContext & context, const char * keyword)
 {
     ParseContext::Revert_Token token(context);
     return matchKeyword(context, keyword);
@@ -1100,9 +1100,8 @@ bool matchConstant(ParseContext & context, ExpressionValue & result,
     else return false;
 }
 
-
 // Match an operator in any case
-static bool matchOperator(ParseContext & context, const char * keyword)
+bool matchOperator(ParseContext & context, const char * keyword)
 {
     ParseContext::Revert_Token token(context);
 
@@ -1211,7 +1210,9 @@ const SqlExpression::Operator operators[] = {
     { "SOME", true,      SqlExpression::unimp,  7, "Some true" }
 };
 
-} // file scope
+} // namespace SQLParsing
+
+using namespace SqlParsing;
 
 std::shared_ptr<SqlExpression>
 SqlExpression::
