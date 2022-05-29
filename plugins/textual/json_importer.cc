@@ -135,6 +135,7 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
     nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
                bool noMoreData, const JsonSplitterState & state) const override
     {
+        //cerr << "JSON nextBlockT: n1 = " << n1 << " n2 = " << n2 << endl;
         auto truncated = [] () -> std::pair<const char *, JsonSplitterState>
         {
             return { nullptr, {} };
@@ -146,6 +147,7 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
             MLDB_TRACE_EXCEPTIONS(false);
             if (!skipJson(*context.context))
                 return truncated();
+            //cerr << "nextBlockT: returning " << string(block1, block1 + context.context->get_offset()) << endl;
             return { block1 + context.context->get_offset(), {} };
         }
         catch (const std::exception & exc) {
@@ -719,6 +721,7 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
                     nextField.parserSuccessCount += fieldSuccess;
                     success = success && fieldSuccess;
                 } catch (...) {
+                    cerr << "type = " << type_name(*nextField.parser) << endl;
                     cerr << "startPosition = " << startPosition << endl;
                     cerr << "nextField.numFixedOutputFields = " << nextField.numFixedOutputFields << endl;
                     cerr << "nextField.parser->getFixedColumnCount = " << nextField.parser->getFixedColumnCount() << endl;
@@ -753,7 +756,7 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
         if (numFailures == 0)
             return nullptr;  // nothing to learn
 
-        cerr << "learning over " << fields.size() << " fields with " << numCalls << " calls" << endl;
+        //cerr << "learning over " << fields.size() << " fields with " << numCalls << " calls" << endl;
 
         // Learn each of them individually
         origin.learn();
@@ -844,6 +847,7 @@ struct ArrayExpressionValueParser: public PredictiveExpressionValueParser {
     {
         ExcAssertEqual(fixed.size(), 0);
         ExpressionValue expr = ExpressionValue::parseJson(context, timestamp, arrays);
+
         auto onAtom = [&] (auto && path, auto && value, Date timestamp) -> bool
         {
             //static std::mutex mutex;
@@ -1007,6 +1011,9 @@ create(std::span<CellValue> fixed, std::vector<std::pair<Path, CellValue>> & ext
         JsonParsingContext & context, const Path & prefix,
         Date timestamp, JsonArrayHandling arrays)
 {
+    //if (context.isNull()) {
+    //    return NullExpressionValueParser::create(fixed, extra, context, prefix, timestamp, arrays);
+    //}
     if (context.isObject()) {
         return StructureExpressionValueParser::create(fixed, extra, context, prefix, timestamp, arrays);
     }
@@ -1142,8 +1149,14 @@ struct JSONImporter: public Procedure {
         // from the first record only
         // Once that changes, we can stop doing this
         for (size_t i = 0;  i < 100 && !jsonContext.eof();  ++i) {
+            if (isArray) {
+                jsonContext.skipJsonWhitespace();
+                parseContext.expect_literal(',');
+                jsonContext.skipJsonWhitespace();
+            }
             fixed.resize(predictor->getFixedColumnCount());
             extra.clear();
+            //cerr << "learning over row " << i << endl;
             predictor->apply(fixed, extra, jsonContext, {}, Date(), runProcConf.arrays);
         }
         auto initialPredictor = predictor->learn();
@@ -1153,11 +1166,11 @@ struct JSONImporter: public Procedure {
         auto fixedColumns = initialPredictor->getFixedColumnNames();
         cerr << "Importing for " << fixedColumns.size() << " fixed columns: " << jsonEncodeStr(fixedColumns) << endl;
 
-        cerr << "firstRecord " << firstRecord << endl;
-        cerr << "isArray = " << isArray << endl;
-        cerr << "separatedWithNewlines = " << separatedWithNewlines << endl;
-        cerr << "oneRecordPerLine = " << oneRecordPerLine << endl;
-        cerr << "startChar = " << startChar << endl;
+        //cerr << "firstRecord " << firstRecord << endl;
+        //cerr << "isArray = " << isArray << endl;
+        //cerr << "separatedWithNewlines = " << separatedWithNewlines << endl;
+        //cerr << "oneRecordPerLine = " << oneRecordPerLine << endl;
+        //cerr << "startChar = " << startChar << endl;
 
         if (stream.isRandomSeekable()) {
             stream.seekg(startChar);
@@ -1289,12 +1302,13 @@ struct JSONImporter: public Procedure {
                             Date timestamp, JsonArrayHandling arrays,
                             uint64_t lineNumber, uint64_t lineOffset)
             {
-                //cerr << endl << endl << "recording line " << lineNumber << endl;
+                //cerr << endl << endl << "recording line " << lineNumber << " at " << lineOffset << ": " << string(line, len) << endl;
                 PossiblyDynamicBuffer<CellValue> fixedValues(predictor->getFixedColumnCount());
                 std::vector<std::pair<Path, CellValue>> extraValues;
 
                 simdjson::padded_string_view lineView(line, len, capacity);
                 auto parsed = parser.iterate(lineView);
+                //cerr << "parsed.type() = " << parsed.type() << endl;
                 //cerr << "parsing error: " << parsed.error() << endl;
                 SimdJsonParsingContext context(parsed.value());
                 bool success = predictor->apply(fixedValues, extraValues, context, {}, timestamp, arrays);
@@ -1312,6 +1326,11 @@ struct JSONImporter: public Procedure {
                 auto rowScope = recordScope.bindRow(fixedValues.data(), fixedValues.size(),
                                                     extraValues.data(), extraValues.size(),
                                                     timestamp, lineNumber, lineOffset);
+
+                //cerr << "fixed values " << jsonEncode(vector<CellValue>(fixedValues.begin(), fixedValues.end())) << endl;
+                //for (auto & [key, value]: extraValues) {
+                //    cerr << "  extra " << key << " = " << value << endl;
+                //}
 
                 recorder.recordRow(rowScope, fixedValues, extraValues, lineNumber);
 
