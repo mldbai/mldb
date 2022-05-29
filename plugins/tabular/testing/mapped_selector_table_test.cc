@@ -30,7 +30,7 @@ freeze_table(const InputContainer & input, Options&&... options)
 
     // Check that the bytes required are correctly calculated
     size_t maxInputValue = 0;
-    size_t maxInputCount = 0;
+    size_t maxInputCount [[maybe_unused]] = 0;  // for a subsequent test...
     if (!input.empty()) {
         maxInputValue = *std::max_element(input.begin(), input.end());
         std::vector<uint32_t> valueCounts(maxInputValue + 1);

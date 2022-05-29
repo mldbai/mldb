@@ -20,7 +20,7 @@ memusage() const
 {
     using namespace std;
     size_t result = sizeof(*this);
-    size_t before = result;
+    size_t before [[maybe_unused]] = result;
     for (auto & c: columns)
         result += c->memusage();
         

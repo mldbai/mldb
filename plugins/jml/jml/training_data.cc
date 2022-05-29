@@ -496,7 +496,7 @@ partition(const std::vector<float> & sizes_, bool random,
         //cerr << "sizes = " << sizes << endl;
         
         unsigned gr = 0;
-        size_t total = 0;
+        size_t total [[maybe_unused]]= 0; // debug
         for (unsigned i = 0;  i < sizes.size();  ++i) {
             /* Make an output training data object of the right type. */
             output[i].reset(make_type());

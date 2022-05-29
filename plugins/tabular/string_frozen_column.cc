@@ -198,7 +198,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
 
         std::vector<size_t> sampleSizes;
         size_t currentOffset = 0;
-        size_t valNumber = 0;
+        //size_t valNumber = 0;
 
         // Accumulate the first 1MB of strings in a contiguous buffer
 
@@ -209,7 +209,7 @@ struct CompressedStringFrozenColumnFormat: public FrozenColumnFormat {
             sampleBuffer.append(v.toUtf8String().rawString());
             sampleSizes.push_back(sampleSize);
             currentOffset += sampleSize;
-            valNumber += 1;
+            //valNumber += 1;
         }
 
         Date before = Date::now();
