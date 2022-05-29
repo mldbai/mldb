@@ -239,6 +239,34 @@ freeze(MappedSerializer & serializer)
 
 
 /*****************************************************************************/
+/* FROZEN DOUBLE TABLE                                                       */
+/*****************************************************************************/
+
+/*****************************************************************************/
+/* MUTABLE DOUBLE TABLE                                                      */
+/*****************************************************************************/
+
+FrozenDoubleTable
+MutableDoubleTable::
+freeze(MappedSerializer & serializer)
+{
+    FrozenDoubleTable result;
+    result.underlying = underlying.freeze(serializer);
+    return result;
+}
+
+std::pair<FrozenDoubleTable, std::vector<uint32_t>>
+MutableDoubleTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    FrozenDoubleTable result;
+    std::vector<uint32_t> remapping;
+    std::tie(result.underlying, remapping) = underlying.freezeRemapped(serializer);
+    return { std::move(result), std::move(remapping) };
+}
+
+
+/*****************************************************************************/
 /* FROZEN BLOB TABLE                                                         */
 /*****************************************************************************/
 
@@ -398,6 +426,38 @@ getContents(uint32_t index,
             size_t tempBufferSize) const
 {
     return itl->getContents(index, tempBuffer, tempBufferSize);
+}
+
+CellValue
+FrozenBlobTable::
+operator [] (size_t index) const
+{
+    if (needsBuffer(index)) {
+        size_t bytesRequired = getBufferSize(index);
+
+        // Nulls are serialized as zero byte blobs; all others take at least
+        // one byte so there is no ambiguity
+        if (bytesRequired == 0)
+            return CellValue();
+
+        // Create a buffer for the blob, and reconstitute it
+        PossiblyDynamicBuffer<char, 4096> buf(bytesRequired);
+        std::string_view contents
+            = getContents(index, buf.data(), buf.size());
+        return CellValue::blob(contents.data(), contents.size());
+    }
+    else {
+        std::string_view contents = getContents(index, nullptr, 0);
+        size_t length = contents.length();
+
+        // Nulls are serialized as zero byte blobs; all others take at least
+        // one byte so there is no ambiguity
+        if (length == 0)
+            return CellValue::blob(nullptr, 0);
+
+        // Decode the output directly in place
+        return CellValue::blob(contents.data(), contents.length());
+    }
 }
 
 size_t
@@ -658,6 +718,111 @@ freezeUncompressed(MappedSerializer & serializer)
 
 
 /*****************************************************************************/
+/* FROZEN STRING TABLE                                                       */
+/*****************************************************************************/
+
+
+/*****************************************************************************/
+/* MUTABLE STRING TABLE                                                      */
+/*****************************************************************************/
+
+size_t
+MutableStringTable::
+add(const char * contents, size_t length)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+size_t
+MutableStringTable::
+add(std::string && contents)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+size_t
+MutableStringTable::
+add(const std::string & contents)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+FrozenStringTable
+MutableStringTable::
+freeze(MappedSerializer & serializer)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+std::pair<FrozenStringTable, std::vector<uint32_t>>
+MutableStringTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+
+/*****************************************************************************/
+/* FROZEN PATH TABLE                                                         */
+/*****************************************************************************/
+
+/*****************************************************************************/
+/* MUTABLE PATH TABLE                                                        */
+/*****************************************************************************/
+
+FrozenPathTable
+MutablePathTable::
+freeze(MappedSerializer & serializer)
+{
+    FrozenPathTable result;
+    result.underlying = this->underlying.freeze(serializer);
+    return result;
+}
+
+std::pair<FrozenPathTable, std::vector<uint32_t>>
+MutablePathTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    FrozenPathTable result;
+    std::vector<uint32_t> remapping;
+
+    std::tie(result.underlying, remapping) = underlying.freezeRemapped(serializer);
+
+    return { std::move(result), std::move(remapping) };
+}
+
+
+/*****************************************************************************/
+/* FROZEN TIMESTAMP TABLE                                                    */
+/*****************************************************************************/
+
+/*****************************************************************************/
+/* MUTABLE TIMESTAMP TABLE                                                   */
+/*****************************************************************************/
+
+FrozenTimestampTable
+MutableTimestampTable::
+freeze(MappedSerializer & serializer)
+{
+    FrozenTimestampTable result;
+    result.underlying = this->underlying.freeze(serializer);
+    return result;
+}
+
+std::pair<FrozenTimestampTable, std::vector<uint32_t>>
+MutableTimestampTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    FrozenTimestampTable result;
+    std::vector<uint32_t> remapping;
+
+    std::tie(result.underlying, remapping) = underlying.freezeRemapped(serializer);
+
+    return { std::move(result), std::move(remapping) };
+}
+
+
+/*****************************************************************************/
 /* FROZEN CELL VALUE TABLE                                                   */
 /*****************************************************************************/
 
@@ -777,23 +942,71 @@ freeze(MappedSerializer & serializer)
 /* MUTABLE CELL VALUE SET                                                    */
 /*****************************************************************************/
 
+// Apply op(fieldName, enumValue) for each index kind in the mutable CellValue set
+#define FOR_EACH_INDEX_KIND(op) \
+    op(others, MutableCellValueSet::OTHER) \
+    op(intValues, MutableCellValueSet::INT) \
+    op(doubleValues, MutableCellValueSet::DOUBLE) \
+    op(timestampValues, MutableCellValueSet::TIMESTAMP) \
+    op(stringValues, MutableCellValueSet::STRING) \
+    op(blobValues, MutableCellValueSet::BLOB) \
+    op(pathValues, MutableCellValueSet::PATH) \
+
+size_t
+FrozenCellValueSet::
+bytesForValues(std::span<const CellValue> vals)
+{
+    // TODO: we should be able to do better than this...
+    size_t result = 0;
+    for (const CellValue & v: vals) {
+        result += v.serializedBytes(true);
+    }
+    return result;
+}
+
 std::pair<FrozenCellValueSet, std::vector<uint32_t> >
 MutableCellValueSet::
 freeze(MappedSerializer & serializer)
 {
-    // For now, we don't remap.  Later we will...
     std::vector<uint32_t> remapping;
     remapping.reserve(indexes.size());
 
-    MutableIntegerTable offsets;
-    size_t totalOffset = 0;
-        
+    std::array<uint32_t, NUM_TYPES + 1> startOffsets;
+    size_t current = 0;
+#define doStartOffset(field, index) \
+    { startOffsets[index] = current;  current += field.size(); }
+    FOR_EACH_INDEX_KIND(doStartOffset);
+    startOffsets[NUM_TYPES] = current;
+
+    cerr << "total of " << current << " values in table" << endl;
+    std::vector<std::vector<uint32_t>> remappings(NUM_TYPES);
+
+    FrozenCellValueSet result;
+
+    auto freezeTable = [&] (int n, auto & table)
+    {
+        auto [tableOut, remapping] = table.freezeRemapped(serializer);
+        remappings[n] = std::move(remapping);
+        return tableOut;
+    };
+
+#define DO_TABLE(field, num) { result.field = freezeTable(num, field); }
+    FOR_EACH_INDEX_KIND(DO_TABLE)
+
+
+    //MutableIntegerTable offsets;
+    //size_t totalOffset = 0;
+
+    
+#if 0
     for (size_t i = 0;  i < others.size();  ++i) {
         totalOffset += others[i].serializedBytes(true /* exact length */);
         offsets.add(totalOffset);
         remapping.push_back(i);
     }
+#endif
 
+#if 0
     FrozenIntegerTable frozenOffsets
         = offsets.freeze(serializer);
     MutableMemoryRegion region
@@ -813,9 +1026,12 @@ freeze(MappedSerializer & serializer)
     ExcAssertEqual(c - region.data(), totalOffset);
     ExcAssertEqual(currentOffset, totalOffset);
 
-    FrozenCellValueSet result;
     result.offsets = std::move(frozenOffsets);
     result.cells = region.freeze();
+#endif
+
+    MLDB_THROW_UNIMPLEMENTED();
+
     return std::make_pair(std::move(result), std::move(remapping));
 }
 
@@ -823,9 +1039,9 @@ void
 MutableCellValueSet::
 add(CellValue val)
 {
-    indexes.emplace_back(OTHER, others.size());
-    others.emplace_back(std::move(val));
-    return;
+    //indexes.emplace_back(OTHER, others.size());
+    //others.emplace_back(std::move(val));
+    //return;
 
     switch (val.cellType()) {
     case CellValue::EMPTY:
@@ -851,8 +1067,7 @@ add(CellValue val)
         return;
     case CellValue::TIMESTAMP:
     case CellValue::TIMEINTERVAL:
-        indexes.emplace_back(OTHER, others.size());
-        others.emplace_back(std::move(val));
+        indexes.emplace_back(OTHER, others.add(std::move(val)));
         return;
     default:
         break;
@@ -867,20 +1082,61 @@ add(CellValue val)
 /* FROZEN CELL VALUE SET                                                     */
 /*****************************************************************************/
 
+uint64_t
+FrozenCellValueSet::
+memusage() const
+{
+    uint64_t result = sizeof(*this) + startOffsets.memusage();
+#define ADD_FIELD(field, n) { result += field.memusage(); }
+    FOR_EACH_INDEX_KIND(ADD_FIELD);
+    return result;
+}
+
+CellValue
+FrozenCellValueSet::
+operator [] (size_t index) const
+{
+    size_t op = 0;
+#define GET_FIELD(field, n) { auto o = startOffsets[n + 1]; if (index < o) return field[index - op]; else op = 0; }
+    FOR_EACH_INDEX_KIND(GET_FIELD)
+    MLDB_THROW_RANGE_ERROR("Index out of range: %lli >= %lli", index, size());
+}
+
 void
 FrozenCellValueSet::
 serialize(StructuredSerializer & serializer) const
 {
-    offsets.serialize(serializer);
-    serializer.addRegion(cells, "c");
+    MLDB_THROW_UNIMPLEMENTED();
 }
 
 void
 FrozenCellValueSet::
 reconstitute(StructuredReconstituter & reconstituter)
 {
-    offsets.reconstitute(reconstituter);
-    cells = reconstituter.getRegion("c");
+    MLDB_THROW_UNIMPLEMENTED();
+}
+
+bool
+FrozenCellValueSet::
+forEachDistinctValue(std::function<bool (CellValue &)> fn) const
+{
+    MLDB_THROW_UNIMPLEMENTED();
+
+#if 0
+    std::vector<CellValue> vals;
+    vals.reserve(size());
+    for (size_t i = 0;  i < size();  ++i) {
+        vals.emplace_back(operator [] (i));
+    }
+    std::sort(vals.begin(), vals.end());
+    for (size_t i = 0;  i < vals.size();  ++i) {
+        if (i > 0 && vals[i] == vals[i - 1])
+            continue;
+        if (!fn(vals[i]))
+            return false;
+    }
+    return true;
+#endif
 }
 
 } // namespace MLDB
