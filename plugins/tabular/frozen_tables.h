@@ -15,6 +15,7 @@
 #include "mldb/arch/endian.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/compiler/string_view.h"
+#include <span>
 
 
 namespace MLDB {
@@ -108,6 +109,7 @@ struct FrozenIntegerTable {
     }
 
     uint64_t get(size_t i) const;
+    uint64_t operator [] (size_t index) const { return get(index); }
 
     uint64_t getDefault(size_t i, uint64_t def = -1) const;
     
@@ -131,6 +133,67 @@ struct MutableIntegerTable {
     size_t bytesRequired() const;
 
     FrozenIntegerTable freeze(MappedSerializer & serializer);
+
+    std::pair<FrozenIntegerTable, std::vector<uint32_t>>
+    freezeRemapped(MappedSerializer & serializer)
+    {
+        return { freeze(serializer), {} };
+    }
+};
+
+
+/*****************************************************************************/
+/* BLOB TABLES                                                               */
+/*****************************************************************************/
+
+struct FrozenBlobTable {
+    FrozenBlobTable();
+    ~FrozenBlobTable();
+    
+    size_t getSize(uint32_t index) const;
+    size_t getBufferSize(uint32_t index) const;
+    bool needsBuffer(uint32_t index) const;
+    std::string_view
+    getContents(uint32_t index,
+                char * tempBuffer,
+                size_t tempBufferSize) const;
+    
+    size_t memusage() const;
+    size_t size() const;
+    void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
+
+    CellValue operator [] (size_t index) const;
+
+private:
+    struct Itl;
+    std::shared_ptr<Itl> itl;
+    friend class MutableBlobTable;
+};
+
+struct MutableBlobTable {
+
+    MutableBlobTable();
+    
+    size_t add(std::string && blob);
+    size_t add(std::string_view blob);
+
+    size_t size() const { return blobs.size(); }
+
+    MutableIntegerTable offsets;
+    std::vector<std::string> blobs;
+
+    StringStats stats;
+    
+    FrozenBlobTable freeze(MappedSerializer & serializer);
+    FrozenBlobTable freezeUncompressed(MappedSerializer & serializer);
+
+    std::pair<FrozenBlobTable, std::vector<uint32_t>>
+    freezeRemapped(MappedSerializer & serializer)
+    {
+        return { freeze(serializer), {} };
+    }
+
 };
 
 
@@ -187,60 +250,47 @@ struct FrozenDoubleTable: public FrozenDoubleTableMetadata {
             return isNull() ? CellValue() : value();
         }
     };
+
+    FrozenBlobTable underlying;
+
+    uint64_t memusage() const
+    {
+        return underlying.memusage();
+    }
+
+    double operator [] (size_t index) const
+    {
+        Entry result;
+        char * rp = (char *)&result;
+        auto blob = underlying.getContents(index, rp, sizeof(result));
+        if (blob.empty())
+            MLDB_THROW_LOGIC_ERROR("blob didn't return our double");
+
+        if (blob.data() != rp) {
+            std::memcpy(rp, blob.data(), sizeof(result));
+        }
+        return result.value();
+    }
 };
 
 struct MutableDoubleTable {
 
-    size_t add(double val);
+    using Entry = FrozenDoubleTable::Entry;
+    MutableBlobTable underlying;
+
+
+    size_t add(double val)
+    {
+        Entry entry = val;
+        return underlying.add(std::string_view{(const char *)&entry, sizeof(entry)});
+    }
+
+    size_t size() const { return underlying.size(); }
 
     FrozenDoubleTable freeze(MappedSerializer & serializer);
-};
 
-
-
-/*****************************************************************************/
-/* BLOB TABLES                                                               */
-/*****************************************************************************/
-
-struct FrozenBlobTable {
-    FrozenBlobTable();
-    ~FrozenBlobTable();
-    
-    size_t getSize(uint32_t index) const;
-    size_t getBufferSize(uint32_t index) const;
-    bool needsBuffer(uint32_t index) const;
-    std::string_view
-    getContents(uint32_t index,
-                char * tempBuffer,
-                size_t tempBufferSize) const;
-    
-    size_t memusage() const;
-    size_t size() const;
-    void serialize(StructuredSerializer & serializer) const;
-    void reconstitute(StructuredReconstituter & reconstituter);
-
-private:
-    struct Itl;
-    std::shared_ptr<Itl> itl;
-    friend class MutableBlobTable;
-};
-
-struct MutableBlobTable {
-
-    MutableBlobTable();
-    
-    size_t add(std::string && blob);
-    size_t add(std::string_view blob);
-
-    size_t size() const { return blobs.size(); }
-
-    MutableIntegerTable offsets;
-    std::vector<std::string> blobs;
-
-    StringStats stats;
-    
-    FrozenBlobTable freeze(MappedSerializer & serializer);
-    FrozenBlobTable freezeUncompressed(MappedSerializer & serializer);
+    std::pair<FrozenDoubleTable, std::vector<uint32_t>>
+    freezeRemapped(MappedSerializer & serializer);
 };
 
 
@@ -249,7 +299,17 @@ struct MutableBlobTable {
 /*****************************************************************************/
 
 struct FrozenStringTable {
-    FrozenBlobTable blobs;
+    FrozenBlobTable underlying;
+
+    Utf8String operator [] (size_t index) const
+    {
+        MLDB_THROW_UNIMPLEMENTED();
+    }
+
+    size_t memusage() const
+    {
+        return underlying.memusage();
+    }
 };
 
 struct MutableStringTable {
@@ -258,10 +318,13 @@ struct MutableStringTable {
     size_t add(std::string && contents);
     size_t add(const std::string & contents);
 
-    std::vector<std::pair<const char *, size_t> > strings;
-    std::vector<std::string> ownedStrings;
+    MutableBlobTable underlying;
+
+    size_t size() const { return underlying.size(); }
 
     FrozenStringTable freeze(MappedSerializer & serializer);
+    std::pair<FrozenStringTable, std::vector<uint32_t>>
+    freezeRemapped(MappedSerializer & serializer);
 };
 
 
@@ -270,16 +333,31 @@ struct MutableStringTable {
 /*****************************************************************************/
 
 struct FrozenPathTable {
-    FrozenBlobTable blobs;
+    FrozenStringTable underlying;
+
+    Path operator [] (size_t index) const
+    {
+        return Path::parse(underlying[index]);
+    }
+
+    uint64_t memusage() const { return underlying.memusage(); }
 };
 
 struct MutablePathTable {
 
-    std::vector<Path> paths;
+    MutableStringTable underlying;
 
-    size_t add(Path path);
+    size_t add(Path path)
+    {
+        return underlying.add(path.toUtf8String().stealRawString());
+    }
+
+    size_t size() const { return underlying.size(); }
 
     FrozenPathTable freeze(MappedSerializer & serializer);
+
+    std::pair<FrozenPathTable, std::vector<uint32_t>>
+    freezeRemapped(MappedSerializer & serializer);
 };
 
 
@@ -288,17 +366,33 @@ struct MutablePathTable {
 /*****************************************************************************/
 
 struct FrozenTimestampTable {
+
+    FrozenDoubleTable underlying;
+
+    Date operator [] (size_t index) const
+    {
+        return Date::fromSecondsSinceEpoch(underlying[index]);
+    }
+
+    uint64_t memusage() const { return underlying.memusage(); }
 };
 
 struct MutableTimestampTable {
 
-    std::vector<Date> timestamp;
+    MutableDoubleTable underlying;
 
-    size_t add(Date ts);
+    size_t size() const { return underlying.size(); }
+
+    size_t add(Date ts)
+    {
+        return underlying.add(ts.secondsSinceEpoch());
+    }
 
     FrozenTimestampTable freeze(MappedSerializer & serializer);
-};
+    std::pair<FrozenTimestampTable, std::vector<uint32_t>>
 
+    freezeRemapped(MappedSerializer & serializer);
+};
 
 /*****************************************************************************/
 /* CELL VALUE TABLE                                                          */
@@ -367,8 +461,21 @@ struct MutableCellValueTable {
 
     void set(uint64_t index, const CellValue & val);
 
+    size_t size() const { return blobs.size(); }
+
+    //const std::string & operator [] (size_t i) const
+    //{
+    //    return blobs.blobs.at(i);
+    //}
+
     FrozenCellValueTable
     freeze(MappedSerializer & serializer);
+
+    std::pair<FrozenCellValueTable, std::vector<uint32_t>>
+    freezeRemapped(MappedSerializer & serializer)
+    {
+        return { freeze(serializer), {} };
+    }
 
     MutableBlobTable blobs;
 };
@@ -380,52 +487,32 @@ struct MutableCellValueTable {
 
 struct FrozenCellValueSet {
 
-    CellValue operator [] (size_t index) const
-    {
-        static uint8_t format
-            = CellValue::serializationFormat(true /* known length */);
-        size_t offset0 = (index == 0 ? 0 : offsets.get(index - 1));
-        size_t offset1 = offsets.get(index);
+    // How many bytes (approximately) to hold the given set of values?
+    static size_t bytesForValues(std::span<const CellValue> vals);
 
-        const char * data = cells.data() + offset0;
-        size_t len = offset1 - offset0;
-        return CellValue::reconstitute(data, len, format, true /* known length */).first;
-    }
+    CellValue operator [] (size_t index) const;
 
-    uint64_t memusage() const
-    {
-        return offsets.memusage() + cells.memusage() + sizeof(*this);
-    }
+    uint64_t memusage() const;
 
     size_t size() const
     {
-        return offsets.size();
+        return startOffsets.get(startOffsets.size() - 1);
     }
 
-    template<typename Fn>
-    bool forEachDistinctValue(Fn && fn) const
-    {
-        std::vector<CellValue> vals;
-        vals.reserve(size());
-        for (size_t i = 0;  i < size();  ++i) {
-            vals.emplace_back(operator [] (i));
-        }
-        std::sort(vals.begin(), vals.end());
-        for (size_t i = 0;  i < vals.size();  ++i) {
-            if (i > 0 && vals[i] == vals[i - 1])
-                continue;
-            if (!fn(vals[i]))
-                return false;
-        }
-        return true;
-    }
+    bool forEachDistinctValue(std::function<bool (CellValue &)> fn) const;
 
     void serialize(StructuredSerializer & serializer) const;
-
     void reconstitute(StructuredReconstituter & reconstituter);
 
-    FrozenIntegerTable offsets;
-    FrozenMemoryRegion cells;
+    FrozenCellValueTable others;      ///< Index 0; ones that don't fit elsewhere
+    FrozenIntegerTable intValues;     ///< Index 1
+    FrozenDoubleTable doubleValues;   ///< Index 2
+    FrozenTimestampTable timestampValues;   ///< Index 3
+    FrozenStringTable stringValues;   ///< Index 4
+    FrozenBlobTable blobValues;       ///< Index 5
+    FrozenPathTable pathValues;       ///< Index 6
+
+    FrozenIntegerTable startOffsets;
 };
 
 struct MutableCellValueSet {
@@ -473,10 +560,11 @@ struct MutableCellValueSet {
         TIMESTAMP = 3,
         STRING = 4,
         BLOB = 5,
-        PATH = 6
+        PATH = 6,
+        NUM_TYPES
     };
     
-    std::vector<CellValue> others;     ///< Index 0; ones that don't fit elsewhere
+    MutableCellValueTable others;      ///< Index 0; ones that don't fit elsewhere
     MutableIntegerTable intValues;     ///< Index 1
     MutableDoubleTable doubleValues;   ///< Index 2
     MutableTimestampTable timestampValues;   ///< Index 3
@@ -484,7 +572,6 @@ struct MutableCellValueSet {
     MutableBlobTable blobValues;       ///< Index 5
     MutablePathTable pathValues;       ///< Index 6
 };
-
 
 
 } // namespace MLDB

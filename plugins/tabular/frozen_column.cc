@@ -546,8 +546,7 @@ struct TableFrozenColumnFormat: public FrozenColumnFormat {
             = sizeof(TableFrozenColumn)
             + (indexBits * numEntries + 31) / 8;
 
-        for (auto & v: column.indexedVals)
-            result += v.memusage();
+        result += FrozenCellValueSet::bytesForValues(column.indexedVals);
         
         return result;
     }
