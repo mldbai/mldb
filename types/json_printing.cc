@@ -851,7 +851,7 @@ void
 StructuredJsonPrintingContext::
 reset(Json::Value & newOutput)
 {
-    output = current = &newOutput;
+    outputPtr = current = &newOutput;
     path.clear();
     path.reserve(8);
 }

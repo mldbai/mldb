@@ -746,7 +746,7 @@ Json::Value jsonEncode(const T & obj)
     Json::Value output;
     StructuredJsonPrintingContext context(output);
     desc->printJson(&obj, context);
-    return std::move(context.output);
+    return std::move(*context.outputPtr);
 }
 
 // jsonEncode implementation for any type which:

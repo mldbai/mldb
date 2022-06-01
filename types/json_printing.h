@@ -251,7 +251,7 @@ struct Utf8StringJsonPrintingContext
 struct StructuredJsonPrintingContext
     : public JsonPrintingContext {
 
-    Json::Value * output;
+    Json::Value * outputPtr;
     Json::Value * current;
 
     StructuredJsonPrintingContext(Json::Value & output);
