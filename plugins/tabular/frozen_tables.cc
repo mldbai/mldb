@@ -730,35 +730,42 @@ size_t
 MutableStringTable::
 add(const char * contents, size_t length)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    return underlying.add(string_view{contents, length});
 }
 
 size_t
 MutableStringTable::
 add(std::string && contents)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    return underlying.add(contents);
 }
 
 size_t
 MutableStringTable::
 add(const std::string & contents)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    return underlying.add(contents);
 }
 
 FrozenStringTable
 MutableStringTable::
 freeze(MappedSerializer & serializer)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    FrozenStringTable result;
+    result.underlying = this->underlying.freeze(serializer);
+    return result;    
 }
 
 std::pair<FrozenStringTable, std::vector<uint32_t>>
 MutableStringTable::
 freezeRemapped(MappedSerializer & serializer)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    FrozenStringTable result;
+    std::vector<uint32_t> remapping;
+
+    std::tie(result.underlying, remapping) = underlying.freezeRemapped(serializer);
+
+    return { std::move(result), std::move(remapping) };
 }
 
 
@@ -969,7 +976,7 @@ MutableCellValueSet::
 freeze(MappedSerializer & serializer)
 {
     std::vector<uint32_t> remapping;
-    remapping.reserve(indexes.size());
+    remapping.resize(indexes.size());
 
     std::array<uint32_t, NUM_TYPES + 1> startOffsets;
     size_t current = 0;
@@ -985,6 +992,7 @@ freeze(MappedSerializer & serializer)
 
     auto freezeTable = [&] (int n, auto & table)
     {
+        cerr << "freezing table " << n << " of type " << demangle(typeid(table)) << " with " << table.size() << " entries" << endl;
         auto [tableOut, remapping] = table.freezeRemapped(serializer);
         remappings[n] = std::move(remapping);
         return tableOut;
@@ -993,6 +1001,30 @@ freeze(MappedSerializer & serializer)
 #define DO_TABLE(field, num) { result.field = freezeTable(num, field); }
     FOR_EACH_INDEX_KIND(DO_TABLE)
 
+    // For each value, we remap into the index in the new table
+    for (size_t i = 0;  i < indexes.size();  ++i) {
+        uint32_t tp = indexes[i].index;  // what type (changes which list its in)
+        uint32_t startOffset = startOffsets[tp];
+        const auto & rm = remappings.at(tp);
+        if (rm.empty()) {
+            remapping[i] = startOffset + indexes[i].entry;
+        }
+        else {
+            remapping[i] = startOffset + rm.at(indexes[i].entry);
+        }
+    }
+
+    //cerr << "remapping = " << remapping << endl;
+
+    if (stringValues.underlying.size() == 1) {
+        cerr << "Unique string value: " << stringValues.underlying.blobs.at(0) << endl;
+    }
+
+    MutableIntegerTable startOffsetSerialized;
+    for (auto & o: startOffsets)
+        startOffsetSerialized.add(o);
+
+    result.startOffsets = startOffsetSerialized.freeze(serializer);
 
     //MutableIntegerTable offsets;
     //size_t totalOffset = 0;
@@ -1029,8 +1061,6 @@ freeze(MappedSerializer & serializer)
     result.offsets = std::move(frozenOffsets);
     result.cells = region.freeze();
 #endif
-
-    MLDB_THROW_UNIMPLEMENTED();
 
     return std::make_pair(std::move(result), std::move(remapping));
 }

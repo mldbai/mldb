@@ -15,6 +15,7 @@
 #include "mldb/arch/endian.h"
 #include "mldb/sql/cell_value.h"
 #include "mldb/compiler/string_view.h"
+#include "int_table.h"
 #include <span>
 
 
@@ -548,7 +549,7 @@ struct MutableCellValueSet {
         }
 
         uint32_t index:3;
-        uint32_t entry:30;
+        uint32_t entry:29;
     };
 
     std::vector<IndexNumber> indexes;
