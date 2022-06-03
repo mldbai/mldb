@@ -36,7 +36,7 @@ setuptools==57.1.0
 lz4==3.1.3
 
 # MLDB-684-test-server.py
-bottle==0.12.19
+bottle==0.12.20
 
 # benchmarks
 elasticsearch==7.13.3
