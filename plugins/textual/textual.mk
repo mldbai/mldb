@@ -15,6 +15,7 @@ LIBMLDB_TEXTUAL_PLUGIN_SOURCES:= \
 	tokensplit.cc \
 	dataset_builder.cc \
 	csv_splitter.cc \
+	mysql_dump_importer.cc \
 
 LIBMLDB_TEXTUAL_PLUGIN_LINK:= \
 	mldb_core \
