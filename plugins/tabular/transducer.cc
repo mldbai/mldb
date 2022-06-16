@@ -573,8 +573,11 @@ struct TableCharacterTransducer: public CharacterTransducer {
     
     TableCharacterTransducer(const std::bitset<256> & table)
     {
-        // If we have all set, then there is no advantage
-        ExcAssertLess(table.count(), 255);
+        if (table.count() == 256) {
+            // Identity if this->table is empty
+            return;
+       }
+        ExcAssertLess(table.count(), 256);
 
         for (size_t i = 0;  i < table.size();  ++i) {
             if (table.test(i)) {
@@ -608,13 +611,29 @@ struct TableCharacterTransducer: public CharacterTransducer {
 
     virtual unsigned char decode(uint32_t input) const
     {
+        if (table.empty())
+            return input;  // identity
         return table.at(input);
     }
 
-    virtual uint32_t encode(unsigned char input) const
+    virtual uint32_t encode(uint8_t input) const
     {
-        if (input[index] == 0)
+        if (table.empty())
+            return input;  // identity
+
+        if (index[input] == 0) {
+            static std::mutex mutex;
+            std::unique_lock guard{mutex};
+            cerr << "input = " << (int)input << endl;
+            cerr << "table.size() = " << table.size() << endl;
+            for (size_t i = 0;  i < table.size();  ++i) {
+                cerr << "table[" << i << "] = " << (int)table[i] << endl;
+            }
+            for (size_t i = 0;  i < 256;  ++i) {
+                cerr << "index[" << i << "] = " << (int)index[i] << endl;
+            }
             throw Exception(500, "Logic error in char transducer encode");
+        }
         uint8_t result = index[input] - 1;
         ExcAssertEqual((int)decode(result), (int)input);
         return result;
@@ -626,7 +645,7 @@ struct TableCharacterTransducer: public CharacterTransducer {
             + table.capacity();
     }
     
-    std::vector<unsigned char> table;
+    std::vector<uint8_t> table;
     uint8_t index[256] = {0};
 };
 
@@ -705,7 +724,13 @@ struct IdTransducerInfo {
     std::vector<TableCharacterTransducer> transducers;
     size_t totalBits = 0;         // Total number of bits to write
     size_t numInts() const { return (totalBits + 63) / 64; } // Total number of (64 bit) integers making up this ID
-    size_t lastIntWidth() const { return totalBits % 64; }   // Width of the last of these
+    size_t lastIntWidth() const
+    {
+        if (totalBits == 0) return 0;
+        size_t res = totalBits % 64;
+        return res ? res : 64;
+    }   // Width of the last of these
+
     size_t totalOutputBytes() const { return (totalBits + 7) / 8; }  // How many bytes each one produces
     size_t widthOfInt(size_t intNumber) { return intNumber == numInts() - 1 ? lastIntWidth() : 64; }
 
@@ -781,6 +806,12 @@ struct ForwardIdTransducer: public StringTransducer {
                     current = current >> 8;
                 }
 
+                if (current != 0) {
+                    cerr << "info->totalBits " << info->totalBits << endl;
+                    cerr << "currentInt " << currentInt << endl;
+                    cerr << "current " << current << endl;
+                    cerr << "width " << width << endl;
+                }
                 ExcAssertEqual(current, 0);
                 
                 current = 0;

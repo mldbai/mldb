@@ -10,6 +10,10 @@
 #include "mldb/base/exc_assert.h"
 #include <sstream>
 #include <array>
+#include <fstream>
+#include "mldb/types/value_description.h"
+#include "mldb/types/map_description.h"
+#include "mldb/types/vector_description.h"
 
 namespace MLDB {
 
@@ -71,7 +75,8 @@ std::string_view decodeWithCapStyle(std::string_view str, CapStyle style, std::s
             return storage;
         case TOUPPER_FIRST:
             storage = str;
-            storage[0] = toupper(storage.at(0));
+            if (!storage.empty())
+                storage[0] = toupper(storage.at(0));
             return storage;
         default:
             return str;
@@ -134,46 +139,82 @@ std::u16string SuffixEncoder::encode(std::string_view str, bool debug) const
     if (debug)
         cerr << "encodeWithPrefixes " << str << endl;
 
+    // DEBUG: no suffix encoding
+    if (false) {
+        std::u16string result(str.begin(), str.end());
+        return result;
+    }
+
     // Divide and conquer.  Look at all ways we can split into two, take the shortest one
     if (str.length() <= 1)
         return u16string(str.begin(), str.end());
-    
-    u16string best;
 
-    // Does it match one of our prefixes?
-    {
-        auto it = prefixes.find(std::string(str));
-        if (it != prefixes.end()) {
+    std::string sstr(str);
+    auto it = prefixes.lower_bound(sstr);
+    if (it != prefixes.end()) {
+        if (sstr == it->first) {
             return { it->second };
-        }   
+        }
     }
 
-    std::string cacheKey(str.begin(), str.end());
     {
         std::unique_lock<std::mutex> guard(prefixCacheMutex);
-        auto it = prefixCache.find(cacheKey);
+        auto it = prefixCache.find(sstr);
         if (it != prefixCache.end()) {
             return it->second;
         }
     }
 
-    for (size_t position = 1;  position < str.length();  ++position) {
+    u16string best;
 
-        //cerr << "splitting " << str << " into " << str.substr(0, position) << " and " << str.substr(position) << endl;
+    // Does it match one of our prefixes?
+    auto prefixLen = [&] (const std::string & prefix) -> size_t
+    {
+        size_t n = std::min(str.size(), prefix.size());
+        for (size_t i = 0;  i < n;  ++i) {
+            if (prefix[i] != str[i])
+                return i;
+        }
+        return n;
+    };
 
-        u16string first = encode(str.substr(0, position), debug);
-        u16string rest = encode(str.substr(position), debug);
+    if (it != prefixes.begin()) {
+        --it;
+        auto len = prefixLen(it->first);
+        if (len == it->first.size()) {
+            //cerr << "** prefix match " << it->first << " len " << len << endl;
+            best = char16_t(it->second) + encode(str.substr(len), debug);
+        }
+    }
 
-        //cerr << "str " << str << " position " << position << " first " << first << " rest " << rest << endl;
+    if (best.empty() && str.size() > 512) {
+        // Extremely long string; divide and conquer
+        auto split = str.size() / 2;
+        best = encode(str.substr(0, split), debug) + encode(str.substr(split), debug);
+    }
+    else if (best.empty() && str.size() > 16) {
+        best = u16string{ (char16_t)str[0] } + encode(str.substr(1), debug);
+    }
+    else if (best.empty()) {
 
-        if (best.empty() || first.length() + rest.length() < best.length()) {
-            best = first;
-            best += rest;
+        for (size_t position = 1;  position < str.length();  ++position) {
+
+            //cerr << "splitting " << str << " into " << str.substr(0, position) << " and " << str.substr(position) << endl;
+
+            u16string first = encode(str.substr(0, position), debug);
+            u16string rest = encode(str.substr(position), debug);
+
+            //cerr << "str " << str << " position " << position << " first " << first << " rest " << rest << endl;
+
+            if (best.empty() || first.length() + rest.length() < best.length()) {
+                best = first;
+                best += rest;
+            }
         }
     }
 
     std::unique_lock<std::mutex> guard(prefixCacheMutex);
-    prefixCache[cacheKey] = best;
+    prefixCache[sstr] = best;
 
     return best;
 }
@@ -207,11 +248,12 @@ struct SuffixFilter {
         return s1.substr(0,l);
     }
 
-    std::map<std::string_view, int> countPrefixes(const MultiSuffixArray & suffixes)
+    using PrefixMap = std::unordered_map<std::string_view, int>;
+
+    PrefixMap countPrefixes(const MultiSuffixArray & suffixes)
     {
         using namespace std;
 
-        using PrefixMap = std::map<std::string_view, int>;
         PrefixMap prefixCounts;
         std::vector<int> prefixStarts;  // position at which each prefix started
 
@@ -232,9 +274,12 @@ struct SuffixFilter {
 
         std::string_view lastStr;
 
+        //cerr << "suffixes.size() = " << suffixes.size() << endl;
+
         for (size_t i = 0;  i < suffixes.size();  ++i) {
             auto [str,index,start] = suffixes.at(i);
             std::string_view prefix = commonPrefix(str, lastStr);
+            //cerr << "i = " << i << " commonPrefix = " << prefix << endl;
             calcPrefixes(prefix, i);
             lastStr = str;
         }
@@ -245,11 +290,11 @@ struct SuffixFilter {
         return prefixCounts;
     }
 
-    std::pair<std::map<std::string, char16_t>,
+    std::pair<std::map<std::string, uint16_t>,
               std::vector<std::string>>
     scorePrefixes(const StringTable & table,
                   const MultiSuffixArray & suffixes,
-                  const std::map<std::string_view, int> & prefixCounts, bool trace = false)
+                  const PrefixMap & prefixCounts, bool trace = false)
     {
         using namespace std;
 
@@ -266,7 +311,7 @@ struct SuffixFilter {
         for (int c = 0;  c < 256;  ++c) {
             characterPriors[c] = 1.0 * characterCounts[c]  / totalCharacters;
             if (characterCounts[c] > 0) {
-               cerr << "character " << (char)c << " has prior " << characterPriors[c] << endl;
+               //cerr << "character " << (char)c << " has prior " << format("%6.2f%%", characterPriors[c] * 100.0)  << endl;
             }
         }
 
@@ -283,10 +328,13 @@ struct SuffixFilter {
             // prior probability of this prefix?
             double priorProbability = 1.0;
             for (size_t i = 0;  i < prefix.length();  ++i) {
-                priorProbability = priorProbability * characterPriors[(unsigned char)prefix[0]];
+                double characterPrior = characterPriors[(unsigned char)prefix[i]];
+                ExcAssert(characterPrior > 0);
+                priorProbability = priorProbability * characterPrior;
             }
 
-            ExcAssert(priorProbability != 0);
+            if (priorProbability < 1e-100)
+                priorProbability = 1e-100;
 
             // Ratio
             double probabilityRatio = prefixProbability / priorProbability;
@@ -318,7 +366,7 @@ struct SuffixFilter {
         }
 #endif
 
-        std::map<std::string, char16_t> retainedPrefixes;
+        std::map<std::string, uint16_t> retainedPrefixes;
         std::vector<std::string> charToPrefix;
 
         // First 256 code points map directly onto the same byte, unless the byte is not present in which
@@ -356,7 +404,7 @@ struct SuffixFilter {
             uint16_t code = (gapNumber < gaps.size() ? gaps[gapNumber++] : charToPrefix.size());
             maxCode = std::max<uint32_t>(maxCode, code);
 
-            if (trace || true) {
+            if (trace) {
                 cerr << "  retained prefix " << prefix << " with score " << score << " at code point " << code << endl;
             }
 
@@ -394,11 +442,14 @@ struct SuffixFilter {
         }
 
         // Now only keep the ones that really help
+        //std::map<std::string, char16_t> newRetainedPrefixes = { { "", 0 } };
+        //std::vector<std::string> newCharToPrefix = { "" };
+
         for (size_t i = 0;  i < retainedPrefixes.size();  ++i) {
             std::string_view prefix = charToPrefix[i];
             if (i == 0 || prefix.empty())
                 continue;
-            int expectedCount;
+            int expectedCount [[maybe_unused]];
             if (prefix.length() == 1) {
                 expectedCount = characterCounts[(unsigned char)prefix[0]];
             }
@@ -410,9 +461,18 @@ struct SuffixFilter {
                 ExcAssert(it != prefixCounts.end());
                 expectedCount = it->second;
             }
-            cerr << "prefix " << i << " " << prefix << " expected count " << expectedCount << " real count " << realCounts[i] << endl;
-        }
+            if (realCounts[i] > 0) {
+                //cerr << "prefix " << i << " " << prefix << " expected count " << expectedCount << " real count " << realCounts[i] << endl;
+                //char16_t code = newRetainedPrefixes.size();
+                //newRetainedPrefixes[string(prefix)] = code;
+                //newCharToPrefix.emplace_back(std::string(prefix));
+            }
+            else {
+                charToPrefix[i] = "";
+                retainedPrefixes.erase(std::string(prefix));
 
+            }
+        }
 
         return { retainedPrefixes, charToPrefix };
     }
@@ -420,18 +480,31 @@ struct SuffixFilter {
     void initialize(const StringTable & table)
     {
         using namespace std;
-        cerr << "creating suffix array on " << table.mem.size() << " entries" << endl;
+        cerr << "creating suffix array on " << table.mem.size() << " bytes" << endl;
         auto started = std::chrono::steady_clock::now();
+        auto ended = started;
+
+        auto writeTime = [&] (const char * what)
+        {
+            ended = std::chrono::steady_clock::now();
+            std::cerr << "elapsed time for " << what << ": " << std::chrono::duration<double>(ended - started).count() << endl;
+            started = ended;
+
+        };
 
         MultiSuffixArray suffixes(table.begin(), table.end());
 
-        auto ended = std::chrono::steady_clock::now();
-        std::chrono::duration<double> elapsed_seconds = ended-started;
-        std::cerr << "elapsed time: " << elapsed_seconds.count() << endl;
+        cerr << "table.size() = " << table.size() << " suffixes.size() = " << suffixes.size() << endl;        
+
+        writeTime("suffix array");
 
         auto prefixCounts = countPrefixes(suffixes);
 
+        writeTime("prefix counts");
+
         auto [retainedPrefixes, charToPrefixVector] = scorePrefixes(table, suffixes, prefixCounts);
+
+        writeTime("score prefixes");
 
         StringTable charToPrefix;
         for (auto && s: charToPrefixVector) {
@@ -464,7 +537,7 @@ CharacterRangeTable create_character_table(const std::vector<int> & charFrequenc
 
     CharacterRangeTable result;
 
-#if 1
+#if 0
     std::vector<std::pair<int, char> > sortedCharFrequencies;
     for (size_t i = 0;  i < charFrequencies.size();  ++i) {
         if (charFrequencies[i] <= 1) continue;
@@ -612,6 +685,7 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
     cerr << "                    entropyDecoder  " << memUsage(result.entropyDecoder) << endl;
     
     // Test that all of the strings are faithfully decoded
+    std::vector<std::string> errorStrings;
     for (size_t i = 0;  i < table.size();  ++i) {
         auto s1 = table.get(i);
         auto s2 = result.get(i);
@@ -623,26 +697,55 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
                 std::ostringstream s;
                 s << str << "\t";
                 for (auto c: str) {
-                    s << hex << setw(2 * sizeof(c)) << (unsigned)c << setw(0) << " " << dec;
+                    s << hex << setw(2 * sizeof(c)) << (unsigned char)c << setw(0) << " " << dec;
                 }
                 return s.str();
             };
 
-            std::string storage;
-            cerr << "error on string " << i << ":" << endl;
-            cerr << "original      = " << s1 << endl;
-            cerr << "capEncoded    = " << dump(decapitalizedStrings.get(i)) << endl;
-            cerr << "prefixDecoded = " << dump(suffixFilter.decoder.decode(compactedStrings.get(i))) << endl;
-            cerr << "prefixEncoded = " << dump(compactedStrings.get(i)) << endl;
-            cerr << "entropyDecoded= " << dump(entropyFilter.decoder.decode(entropyFilter.strings.get(i)).second) << endl;
-            cerr << "fullyEncoded  = " << dump(entropyFilter.strings.get(i)) << endl;
-            cerr << "reconstituted = " << dump(s2) << endl;
-            cerr << endl;
-            cerr << "------ encoding" << endl;
-            entropyFilter.encoder.encode(compactedStrings.get(i), capStyles[i], true /* debug */);
-            cerr << endl;
-            cerr << "------ decoding" << endl;
-            entropyFilter.decoder.decode(entropyFilter.strings.get(i), true /* debug */);
+            if (errorStrings.size() < 5) {
+                std::string storage;
+                cerr << "error on string " << i << ":" << endl;
+                cerr << "original      = " << s1 << endl;
+                cerr << "reproduced    = " << s2 << endl;
+                cerr << "capEncoded    = " << dump(decapitalizedStrings.get(i)) << endl;
+                cerr << "prefixDecoded = " << dump(suffixFilter.decoder.decode(compactedStrings.get(i))) << endl;
+                cerr << "prefixEncoded = " << dump(compactedStrings.get(i)) << endl;
+                cerr << "entropyDecoded= " << dump(entropyFilter.decoder.decode(entropyFilter.strings.get(i)).second) << endl;
+                cerr << "fullyEncoded  = " << dump(entropyFilter.strings.get(i)) << endl;
+                cerr << "reconstituted = " << dump(s2) << endl;
+                cerr << endl;
+            }
+
+            errorStrings.push_back(string(s1));
+        }
+
+        if (!errorStrings.empty()) {
+            static std::mutex testCaseMutex;
+            std::unique_lock guard { testCaseMutex };
+            static int testCaseNum = 0;
+            std::string testCaseFileName = "encode-decode-test-" + std::to_string(++testCaseNum) + ".txt";
+            std::ofstream testCaseFile(testCaseFileName);
+            testCaseFile << jsonEncodeStr(suffixFilter.encoder.prefixes) << endl;
+            //for (auto [prefix, ch]: suffixFilter.encoder.prefixes)
+            //    testCaseFile << "  " << prefix << " " << (uint32_t)ch << endl;
+
+            testCaseFile << jsonEncodeStr(entropyFilter.encoder.capitalizationCodes.codeRanges) << endl;
+            //for (auto & rng: entropyFilter.encoder.capitalizationCodes.codeRanges)
+            //    testCaseFile << "  " << rng << endl;
+
+            testCaseFile << jsonEncodeStr(entropyFilter.encoder.characterCodes.codeRanges) << endl;
+            //for (auto & rng: entropyFilter.encoder.characterCodes.codeRanges)
+            //    testCaseFile << "  " << rng << endl;
+
+            testCaseFile << jsonEncodeStr(errorStrings) << endl;
+
+            cerr << "wrote test case with " << errorStrings.size() << " to " << testCaseFileName << endl;
+
+            //cerr << "------ encoding" << endl;
+            //entropyFilter.encoder.encode(compactedStrings.get(i), capStyles[i], true /* debug */);
+            //cerr << endl;
+            //cerr << "------ decoding" << endl;
+            //entropyFilter.decoder.decode(entropyFilter.strings.get(i), true /* debug */);
             ExcAssert(false);
         }
     }

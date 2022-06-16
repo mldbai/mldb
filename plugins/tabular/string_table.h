@@ -168,7 +168,19 @@ struct SuffixDecoder: public SuffixDecoderImpl<SuffixDecoderBase> {};
 extern template struct SuffixDecoderImpl<SuffixDecoderBase>;
 
 struct SuffixEncoder {
-    std::map<std::string, char16_t> prefixes;
+    SuffixEncoder() = default;
+
+    SuffixEncoder(const SuffixEncoder & other)
+        : prefixes(other.prefixes)
+    {
+    }
+
+    SuffixEncoder(SuffixEncoder && other)
+        : prefixes(std::move(other.prefixes))
+    {
+    }
+
+    std::map<std::string, uint16_t> prefixes;
     mutable std::unordered_map<std::string, std::u16string> prefixCache;
     mutable std::mutex prefixCacheMutex;
 
@@ -193,7 +205,7 @@ struct CharacterRangeTableImpl: public Base {
             idx -= 1;
         }
 
-        if (idx < 0 || idx > codeRanges.size() || debug) {
+        if (idx < 0 || idx > codeRanges.size() /*|| debug*/) {
             using namespace std;
             cerr << "i = " << i << endl;
             cerr << hex << "idx = " << idx << " *pos = " << *pos << dec << endl;
@@ -210,10 +222,10 @@ struct CharacterRangeTableImpl: public Base {
         ExcAssert(i >= 0);
         ExcAssert(i < codeRanges.size());
         if (debug) {
-            cerr << "getting range for " << hex << i << ": " << codeRanges[i] << "-" << codeRanges[i + 1] << " of " << range();
-            if (i > 0) cerr << "  prev " << codeRanges[i - 1];
-            if (i < codeRanges.size() - 1) cerr << "  next " << codeRanges[i + 2] << endl;
-            cerr << dec << endl;
+            //cerr << "getting range for " << hex << i << ": " << codeRanges[i] << "-" << codeRanges[i + 1] << " of " << range();
+            //if (i > 0) cerr << "  prev " << codeRanges[i - 1];
+            //if (i < codeRanges.size() - 1) cerr << "  next " << codeRanges[i + 2] << endl;
+            //cerr << dec << endl;
         }
 
         auto [idx, lo, hi, rng] = decodeRange(codeRanges[i]);
@@ -254,7 +266,9 @@ struct EntropyEncoderDecoderImpl: public Base {
     using Base::capitalizationCodes;
     using Base::characterCodes;
 
-    std::pair<CapStyle, std::u16string> decode(const std::string_view & str, bool debug = false) const
+    std::pair<CapStyle, std::u16string>
+    decode(const std::string_view & str, bool debug = false,
+           std::vector<RangeCoder64::TraceEntry> * trace = nullptr) const
     {
         using namespace std;
         if (str.empty())
@@ -274,7 +288,7 @@ struct EntropyEncoderDecoderImpl: public Base {
             return (unsigned char)str[readPos++];
         };
 
-        decoder.start(readChar, debug);
+        decoder.start(readChar, debug, trace);
 
         auto decodeRangeCap = [&] (int i)
         {
@@ -291,7 +305,8 @@ struct EntropyEncoderDecoderImpl: public Base {
         CapStyle capStyle = (CapStyle)decoder.decodeOne(readChar, decodeRangeCap, capitalizationCodes.range(), debug).first;
 
         for (;;) {
-            auto [c, maybeMore] =  decoder.decodeOne(readChar, decodeRangeChar, characterCodes.range(), debug);
+            //debug = decoded.size() > 300;
+            auto [c, maybeMore] =  decoder.decodeOne(readChar, decodeRangeChar, characterCodes.range(), debug, trace);
             if (c == 0 || c == EOF)
                 break;
             decoded.push_back(c);
@@ -305,7 +320,9 @@ struct EntropyEncoderDecoderImpl: public Base {
         return { capStyle, std::move(decoded) };
     }
 
-    std::string encode(std::u16string_view str, CapStyle capStyle, bool debug = false) const
+    std::string
+    encode(std::u16string_view str, CapStyle capStyle, bool debug = false,
+           std::vector<RangeCoder64::TraceEntry> * trace = nullptr) const
     {
         using namespace std;
         
@@ -337,9 +354,9 @@ struct EntropyEncoderDecoderImpl: public Base {
             return characterCodes.encodeRange(i, debug);
         };
 
-        encoder.encodeOne(writeChar, capStyle, encodeRangeCap, debug);
+        encoder.encodeOne(writeChar, capStyle, encodeRangeCap, debug, trace);
         for (uint16_t c: str) {
-            encoder.encodeOne(writeChar, c, encodeRangeChar, debug);
+            encoder.encodeOne(writeChar, c, encodeRangeChar, debug, trace);
         }
 
         // First try to encode WITHOUT the EOF character.  Sometimes we are able to know we're done
@@ -349,6 +366,7 @@ struct EntropyEncoderDecoderImpl: public Base {
         // 1.  An unambiguous EOF written to the stream
         // 2.  A possible EOF, with no more characters to read
         if (false) {
+#if 0
             std::string shortEncoded = encoded;
             RangeEncoder64 encoder2 = encoder;
             encoder2.flushEof(writeChar, characterCodes.codeRanges.at(1), characterCodes.range(), debug);
@@ -369,11 +387,12 @@ struct EntropyEncoderDecoderImpl: public Base {
                 cerr << "Saved a byte for " << str << " from " << shortEncoded.length() << " to " << encoded.length() << endl;
                 return encoded;
             }
+#endif
         }
         else {
             //encoder.encodeOne(writeChar, EOF, encodeRangeChar, debug);
             //encoder.flush(writeChar, debug);
-            encoder.flushEof(writeChar, characterCodes.codeRanges.at(1), characterCodes.range(), debug);
+            encoder.flushEof(writeChar, characterCodes.codeRanges.at(1), characterCodes.range(), debug, trace);
         }
 
         return encoded;

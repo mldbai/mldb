@@ -1050,6 +1050,8 @@ struct TabularDataset::TabularDataStore
                           ssize_t offset,
                           ssize_t limit) const override
         {
+            cerr << "Tabular generateRowsWhere: " << where.print() << " offset " << offset << " limit " << limit << endl;
+            return Dataset::generateRowsWhere(context, alias, where, offset, limit);
             GenerateRowsWhereFunction result;
             return result;
         }
@@ -1083,7 +1085,10 @@ struct TabularDataset::TabularDataStore
 
             md.earliestTs = earliestTs;
             md.latestTs = latestTs;
-            md.numFixedColumns = owner->fixedColumns.size();
+
+            // If nothing was ever recorded in this chunk, then we never created our
+            // columns.  So we say no fixed columns.
+            md.numFixedColumns = columns.empty() ? 0 : owner->fixedColumns.size();
             
             serializer.newObject("md", md);
         }
@@ -1098,33 +1103,49 @@ struct TabularDataset::TabularDataStore
             this->earliestTs = md.earliestTs;
             this->latestTs = md.latestTs;
 
-            ExcAssertGreaterEqual(md.numFixedColumns, 0);
-            ExcAssertLessEqual(md.numFixedColumns, md.columns.size());
+            cerr << jsonEncode(md) << endl;
+            auto subitems = reconstituter.getDirectory();
+            cerr << subitems.size() << " subitems" << endl;
+            for (auto & item: subitems) {
+                cerr << "  has item " << item.name << endl;
+            }
+
+            size_t numColumnsToIterate = md.numFixedColumns;
+
+            if (!md.columns.empty()) {
+                ExcAssertGreaterEqual(md.numFixedColumns, 0);
+                ExcAssertLessEqual(md.numFixedColumns, md.columns.size());
+            }
+            else {
+                numColumnsToIterate = 0;
+            }
 
             // TODO: ugly reaching into the owner like this; refactor
-            for (size_t i = 0;  i < md.numFixedColumns;  ++i) {
+            for (size_t i = 0;  i < numColumnsToIterate;  ++i) {
                 owner->fixedColumns.emplace_back(md.columns[i]);
                 owner->fixedColumnIndex[md.columns[i].oldHash()] = i;
             }
             
-            auto chunkStructure = reconstituter.getStructure("ch");
-            auto entries = chunkStructure->getDirectory();
-                
             std::vector<std::shared_ptr<TabularDatasetChunk> > newChunks;
-            newChunks.resize(entries.size());
-         
-            for (auto & e: entries) {
-                int chunkNumber = e.name.toIndex();
-                if (chunkNumber < 0 || chunkNumber >= newChunks.size()) {
-                    throw AnnotatedException
-                        (400, "Corrupt Tabular Dataset: chunk index out of range");
-                }
-                if (newChunks[chunkNumber]) {
-                    throw AnnotatedException
-                        (400, "Corrupt Tabular Dataset: duplicate chunk index");
-                }
+            if (!md.columns.empty()) {
+                auto chunkStructure = reconstituter.getStructure("ch");
+                auto entries = chunkStructure->getDirectory();
+                    
+                newChunks.resize(entries.size());
+            
+                for (auto & e: entries) {
+                    int chunkNumber = e.name.toIndex();
+                    if (chunkNumber < 0 || chunkNumber >= newChunks.size()) {
+                        throw AnnotatedException
+                            (400, "Corrupt Tabular Dataset: chunk index out of range");
+                    }
+                    if (newChunks[chunkNumber]) {
+                        throw AnnotatedException
+                            (400, "Corrupt Tabular Dataset: duplicate chunk index");
+                    }
 
-                newChunks[chunkNumber].reset(new TabularDatasetChunk(*e.getStructure()));
+                    newChunks[chunkNumber].reset(new TabularDatasetChunk(*e.getStructure()));
+                }
             }
 
             // Add these chunks properly...
@@ -2312,7 +2333,11 @@ struct TabularDataset::TabularDataStore
 
         currentState.store(newState);
         
+
         uint64_t totalRows = newState->rowCount;
+        auto gb = [] (size_t s) { return 1.0 * s / 1000000000.0; };
+        auto perrow = [&] (size_t s) { return 1.0 * s / totalRows; };
+
         size_t mem = 0;
         size_t rowNameMem = 0, timestampMem = 0;
         for (auto & c: newState->chunks) {
@@ -2321,18 +2346,25 @@ struct TabularDataset::TabularDataStore
             timestampMem += c->timestamps->memusage();
         }
 
+        size_t columnMem = 0;
+        size_t totalColumnMem = 0;
+        std::vector<std::pair<size_t, ColumnPath>> colMem;
+
         if (!newState->chunks.empty()) {
-            INFO_MSG(logger) << "row name usage is " << rowNameMem
-                             << " bytes at "
-                             << 1.0 * rowNameMem / totalRows << " per row with "
+            INFO_MSG(logger) << "row name usage is " << gb(rowNameMem)
+                             << " gb at "
+                             << perrow(rowNameMem) << " per row with "
                              << MLDB::type_name(*newState->chunks[0]->rowNames);
             INFO_MSG(logger) << "timestamp usage is " << timestampMem
                              << " bytes at "
-                             << 1.0 * timestampMem / totalRows << " per row with "
+                             << perrow(timestampMem) << " per row with "
                              << MLDB::type_name(*newState->chunks[0]->timestamps);
+            colMem.emplace_back(rowNameMem, "<<ROW NAMES>>");
+            colMem.emplace_back(timestampMem, "<<TIMESTAMP>>");
+
+            totalColumnMem += rowNameMem + timestampMem;
         }
 
-        size_t columnMem = 0;
         for (auto & c: newState->columns) {
             size_t bytesUsed = 0;
             for (auto & chunk: c.chunks) {
@@ -2340,25 +2372,30 @@ struct TabularDataset::TabularDataStore
             }
             INFO_MSG(logger)
                 << "column " << c.columnName << " used "
-                << bytesUsed << " bytes at "
-                << 1.0 * bytesUsed / totalRows << " per row with "
+                << gb(bytesUsed) << " gb at "
+                << perrow(bytesUsed) << " per row with "
                 << MLDB::type_name(*c.chunks[0].second);
             columnMem += bytesUsed;
+            totalColumnMem += bytesUsed;
+            colMem.emplace_back(bytesUsed, c.columnName);
         }
 
         size_t rowIndexMem = newState->rowIndex.memusage();
         mem += rowIndexMem;
+        colMem.emplace_back(rowIndexMem, "<<ROW INDEX>>");
 
-        INFO_MSG(logger) << "row index usage is " << rowIndexMem
-                         << " bytes at "
-                         << 1.0 * rowIndexMem / totalRows << " per row";
+        INFO_MSG(logger) << "row index usage is " << gb(rowIndexMem)
+                         << " gb at "
+                         << perrow(rowIndexMem) << " per row";
+        
 
-        INFO_MSG(logger) << "total mem usage is " << mem << " bytes" << " for "
+        INFO_MSG(logger) << "total mem usage is " << gb(mem) << "gb for "
                          << totalRows << " rows and "
                          << newState->columns.size()
                          << " columns for "
-                         << 1.0 * mem / totalRows << " bytes/row";
+                         << perrow(mem) << " bytes/row";
         INFO_MSG(logger) << "column memory is " << columnMem;
+        INFO_MSG(logger) << "total column memory is " << totalColumnMem;
 
     }
 

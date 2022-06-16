@@ -42,12 +42,12 @@ struct SuffixArray {
 
     Iterator begin() const
     {
-        return {this, 0};
+        return {this, 0 };
     }
 
     Iterator end() const
     {
-        return {this, 0};
+        return {this, size() };
     }
 
     static size_t offset(Iterator it)
@@ -77,6 +77,10 @@ struct MultiSuffixArray {
 
         size_t numStrings = std::distance(begin, end);
 
+        //cerr << "numStrings = " << numStrings << endl;
+
+        //cerr << "numStrings = " << numStrings << endl;
+
         offsets.reserve(numStrings + 1);
         offsets.push_back(0);
 
@@ -98,6 +102,10 @@ struct MultiSuffixArray {
             str.append(s, 0, s.length());
             str.append({'\0'});
         }
+
+        //cerr << "totalLength = " << totalLength << " size() = " << size() << endl;
+
+        //cerr << "totalLength = " << totalLength << " size() = " << size() << endl;
 
         ExcAssert(str.length() == totalLength);
         ExcAssert(offsets.size() == numStrings + 1);
