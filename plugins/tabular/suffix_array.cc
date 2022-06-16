@@ -41,8 +41,12 @@ void MultiSuffixArray::finish_construct()
         return pos;
     };
 
+    //cerr << "constructing array" << endl;
+
     // Construct the sorted suffix array
     array.construct(str);
+
+    //cerr << "array.size() = " << array.size() << endl;
 
     size_t totalLength = str.length();
     size_t numStrings = offsets.size() - 1;

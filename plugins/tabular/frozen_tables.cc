@@ -19,6 +19,8 @@
 #include "mldb/base/scope.h"
 #include <mutex>
 #include <bitset>
+#include "string_table.h"
+#include "mapped_string_table.h"
 
 
 using namespace std;
@@ -242,6 +244,30 @@ freeze(MappedSerializer & serializer)
 /* FROZEN DOUBLE TABLE                                                       */
 /*****************************************************************************/
 
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenDoubleTableMetadata)
+{
+    setVersion(1);
+    addAuto("version", &FrozenDoubleTableMetadata::version, "");
+}
+
+void
+FrozenDoubleTable::
+serialize(StructuredSerializer & serializer) const
+{
+    serializer.newObject("md", md);
+    underlying.serialize(*serializer.newStructure("dbl"));
+}
+
+void
+FrozenDoubleTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    reconstituter.getObject("md", md);
+    ExcAssertEqual(md.version, 1);
+    underlying.reconstitute(*reconstituter.getStructure("dbl"));
+}
+
+
 /*****************************************************************************/
 /* MUTABLE DOUBLE TABLE                                                      */
 /*****************************************************************************/
@@ -271,13 +297,18 @@ freezeRemapped(MappedSerializer & serializer)
 /*****************************************************************************/
 
 struct FrozenBlobTableMetadata {
+    uint8_t version = 0;
+    uint8_t format = 0;
 };
 
 IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenBlobTableMetadata)
 {
     setVersion(1);
+    addAuto("version", &FrozenBlobTableMetadata::version, "");
+    addAuto("format", &FrozenBlobTableMetadata::format, "");
 }
 
+#if 0
 struct FrozenBlobTable::Itl {
     Itl()
     {
@@ -356,7 +387,7 @@ struct FrozenBlobTable::Itl {
             = blobData.memusage()
             + offset.memusage()
             + length.memusage()
-            + transducer->memusage();
+            + (transducer ? transducer->memusage() : 0);
         return result;
     }
 
@@ -380,12 +411,154 @@ struct FrozenBlobTable::Itl {
     reconstitute(StructuredReconstituter & reconstituter)
     {
         reconstituter.getObject("md", md);
+        ExcAssertEqual(md.version, 1);
         blobData = reconstituter.getRegion("bl");
         offset.reconstitute(*reconstituter.getStructure("of"));
         length.reconstitute(*reconstituter.getStructure("l"));
         transducer = StringTransducer::thaw(*reconstituter.getStructure("tr"));
     }
 };
+#else
+struct FrozenBlobTable::Itl {
+    Itl()
+    {
+    }
+
+    ~Itl()
+    {
+    }
+
+    FrozenBlobTableMetadata md;
+    FrozenMemoryRegion blobData;
+    FrozenIntegerTable offset;
+    FrozenIntegerTable length;  // How much longer is uncompressed than cmprsd
+    std::shared_ptr<StringTransducer> transducer;
+
+    const MappedOptimizedStringTable & blobs() const { return *reinterpret_cast<const MappedOptimizedStringTable *>(blobData.data()); }
+
+    size_t
+    getSize(uint32_t index) const
+    {
+        if (md.format == 0) {
+            size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
+            size_t offset1 = offset.get(index);
+            size_t compressedLength = offset1 - offset0;
+            const char * data = blobData.data() + offset0;
+            if (transducer->canGetOutputLength()) {
+                return transducer
+                    ->getOutputLength(string_view(data, compressedLength));
+            }
+            else {
+                size_t decompressedLength = compressedLength + length.get(index);
+                return decompressedLength;
+            }
+        }
+        else {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+    }
+    
+    size_t
+    getBufferSize(uint32_t index) const
+    {
+        if (md.format == 0) {
+            size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
+            size_t offset1 = offset.get(index);
+            size_t compressedLength = offset1 - offset0;
+            const char * data = blobData.data() + offset0;
+            size_t decompressedLength = compressedLength + length.get(index);
+            return transducer
+                ->getTemporaryBufferSize(string_view(data, compressedLength),
+                                        decompressedLength);
+
+        }
+        else {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+    }
+
+    bool
+    needsBuffer(uint32_t index) const
+    {
+        return true;
+    }
+
+    string_view
+    getContents(uint32_t index,
+                char * tempBuffer,
+                size_t tempBufferSize) const
+    {
+        if (md.format == 0) {
+            size_t offset0 = (index == 0) ? 0 : offset.get(index - 1);
+            size_t offset1 = offset.get(index);
+            size_t compressedLength = offset1 - offset0;
+            std::string_view input(blobData.data() + offset0, compressedLength);
+            return transducer->generateAll(input, tempBuffer, tempBufferSize);
+        }
+        else {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+    }
+
+    size_t
+    memusage() const
+    {
+        size_t result
+            = blobData.memusage()
+            + sizeof(*this);
+
+        if (md.format == 0) {
+            result +=
+                + offset.memusage()
+                + length.memusage()
+                + (transducer ? transducer->memusage() : 0);
+        }
+        return result;
+    }
+
+    size_t
+    size() const
+    {
+        if (md.format == 0) {
+            return offset.size();
+        }
+        else {
+            return blobs().size();
+        }
+    }
+
+    void
+    serialize(StructuredSerializer & serializer) const
+    {
+        serializer.newObject("md", md);
+        if (md.format == 0) {
+            serializer.addRegion(blobData, "bl");
+            offset.serialize(*serializer.newStructure("of"));
+            length.serialize(*serializer.newStructure("l"));
+            transducer->serialize(*serializer.newStructure("tr"));
+        }
+        else {
+            serializer.addRegion(blobData, "st");
+        }
+    }
+
+    void
+    reconstitute(StructuredReconstituter & reconstituter)
+    {
+        reconstituter.getObject("md", md);
+        ExcAssertEqual(md.version, 1);
+        if (md.format == 0) {
+            blobData = reconstituter.getRegion("bl");
+            offset.reconstitute(*reconstituter.getStructure("of"));
+            length.reconstitute(*reconstituter.getStructure("l"));
+            transducer = StringTransducer::thaw(*reconstituter.getStructure("tr"));
+        }
+        else {
+            blobData = reconstituter.getRegion("st");
+        }
+    }
+};
+#endif
 
 FrozenBlobTable::
 FrozenBlobTable()
@@ -537,8 +710,8 @@ FrozenBlobTable
 MutableBlobTable::
 freeze(MappedSerializer & serializer)
 {
-    //cerr << "freezing with " << uniqueShortLengths << " short lengths"
-    //     << " and " << uniqueBytes << " unique bytes" << endl;
+    //cerr << "freezing with " << stats.uniqueShortLengths << " short lengths"
+    //     << " and " << stats.uniqueBytes << " unique bytes" << endl;
 
     double bytesPerEntry = 1.0 * stats.totalBytes / blobs.size();
 
@@ -546,15 +719,63 @@ freeze(MappedSerializer & serializer)
     
     if (stats.totalBytes > 10000000 // 10MB
         && bytesPerEntry > 64) {
+        //cerr << "zstd transducer" << endl;
         std::tie(forward, reverse)
             = ZstdStringTransducer::train(blobs, serializer);
     }
     if (!forward
         && stats.uniqueLongLengths == 0
         && stats.uniqueShortLengths == 1) {
+        //cerr << "ID transducer" << endl;
         std::tie(forward, reverse)
             = trainIdTransducer(blobs, stats, serializer);
     }
+    if (!forward && stats.totalBytes >= 4096) {
+        //cerr << "String table; total bytes " << stats.totalBytes << endl;
+        StringTable table;
+        table.reserve(blobs.size(), stats.totalBytes);
+        //cerr << "adding " << blobs.size() << " blobs" << endl;
+        for (auto & bl: blobs) {
+        //    if (table.size() < 100) cerr << "  " << bl << endl;
+            table.add(bl);
+        }
+        
+        //static std::mutex mutex;
+        //std::unique_lock guard{mutex};
+        OptimizedStringTable optimized = optimize_string_table(table);
+
+        MappingContext context;
+        MappedOptimizedStringTable & st = context.alloc<MappedOptimizedStringTable>();
+        MLDB::freeze(context, st, optimized);
+
+        FrozenBlobTable result;
+        auto itl = result.itl;
+        itl->md.version = 1;
+        itl->md.format = 1;
+        auto blobData = serializer.allocateWritable(context.getOffset(), alignof(MappedOptimizedStringTable));
+        std::memcpy(blobData.data(), context.getMemory(), context.getOffset());
+        itl->blobData = blobData.freeze();
+        return result;
+
+        //FrozenBlobTable result = freezeUncompressed(serializer);
+
+        //cerr << "optimized " << stats.totalBytes << " bytes to " << optimized.memUsageIndirect({})
+        //     << " (instead of " << result.memusage() << ") for "
+        //     << blobs.size() << " blobs of length " << 1.0 * stats.totalBytes / blobs.size() << endl;
+
+
+#if 0
+        if (stats.totalBytes < optimized.memUsageIndirect({})) {
+            cerr << "incompressible string table" << endl;
+            for (size_t i = 0;  i < std::min<size_t>(table.size(), 100);  ++i) {
+                cerr << i << "\t" << blobs[i] << endl;
+            }
+        }
+#endif
+        //cerr << "naive blob table length " << result.memusage() << endl;
+        return result;
+    }
+
     if (!forward) {
         return freezeUncompressed(serializer);
     }
@@ -722,6 +943,30 @@ freezeUncompressed(MappedSerializer & serializer)
 /*****************************************************************************/
 
 
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenStringTableMetadata)
+{
+    setVersion(1);
+    addAuto("version", &FrozenStringTableMetadata::version, "");
+}
+
+void
+FrozenStringTable::
+serialize(StructuredSerializer & serializer) const
+{
+    serializer.newObject("md", md);
+    underlying.serialize(*serializer.newStructure("str"));
+}
+
+void
+FrozenStringTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    reconstituter.getObject("md", md);
+    ExcAssertEqual(md.version, 1);
+    underlying.reconstitute(*reconstituter.getStructure("str"));
+}
+
+
 /*****************************************************************************/
 /* MUTABLE STRING TABLE                                                      */
 /*****************************************************************************/
@@ -773,6 +1018,30 @@ freezeRemapped(MappedSerializer & serializer)
 /* FROZEN PATH TABLE                                                         */
 /*****************************************************************************/
 
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenPathTableMetadata)
+{
+    setVersion(1);
+    addAuto("version", &FrozenPathTableMetadata::version, "");
+}
+
+void
+FrozenPathTable::
+serialize(StructuredSerializer & serializer) const
+{
+    serializer.newObject("md", md);
+    underlying.serialize(*serializer.newStructure("dbl"));
+}
+
+void
+FrozenPathTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    reconstituter.getObject("md", md);
+    ExcAssertEqual(md.version, 1);
+    underlying.reconstitute(*reconstituter.getStructure("dbl"));
+}
+
+
 /*****************************************************************************/
 /* MUTABLE PATH TABLE                                                        */
 /*****************************************************************************/
@@ -802,6 +1071,31 @@ freezeRemapped(MappedSerializer & serializer)
 /*****************************************************************************/
 /* FROZEN TIMESTAMP TABLE                                                    */
 /*****************************************************************************/
+
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenTimestampTableMetadata)
+{
+    setVersion(1);
+    addAuto("version", &FrozenTimestampTableMetadata::version, "");
+}
+
+
+void
+FrozenTimestampTable::
+serialize(StructuredSerializer & serializer) const
+{
+    serializer.newObject("md", md);
+    underlying.serialize(*serializer.newStructure("dbl"));
+}
+
+void
+FrozenTimestampTable::
+reconstitute(StructuredReconstituter & reconstituter)
+{
+    reconstituter.getObject("md", md);
+    ExcAssertEqual(md.version, 1);
+    underlying.reconstitute(*reconstituter.getStructure("dbl"));
+}
+
 
 /*****************************************************************************/
 /* MUTABLE TIMESTAMP TABLE                                                   */
@@ -833,6 +1127,12 @@ freezeRemapped(MappedSerializer & serializer)
 /* FROZEN CELL VALUE TABLE                                                   */
 /*****************************************************************************/
 
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenCellValueTableMetadata)
+{
+    setVersion(1);
+    addAuto("version", &FrozenCellValueTableMetadata::version, "");
+}
+
 CellValue
 FrozenCellValueTable::
 operator [] (size_t index) const
@@ -840,8 +1140,8 @@ operator [] (size_t index) const
     static uint8_t format
         = CellValue::serializationFormat(true /* known length */);
     
-    if (blobs.needsBuffer(index)) {
-        size_t bytesRequired = blobs.getBufferSize(index);
+    if (underlying.needsBuffer(index)) {
+        size_t bytesRequired = underlying.getBufferSize(index);
 
         // Nulls are serialized as zero byte blobs; all others take at least
         // one byte so there is no ambiguity
@@ -851,14 +1151,14 @@ operator [] (size_t index) const
         // Create a buffer for the blob, and reconstitute it
         PossiblyDynamicBuffer<char, 4096> buf(bytesRequired);
         std::string_view contents
-            = blobs.getContents(index, buf.data(), buf.size());
+            = underlying.getContents(index, buf.data(), buf.size());
         // Decode the output
         return CellValue::reconstitute(contents.data(), contents.length(),
                                        format,
                                        true /* known length */).first;
     }
     else {
-        std::string_view contents = blobs.getContents(index, nullptr, 0);
+        std::string_view contents = underlying.getContents(index, nullptr, 0);
         size_t length = contents.length();
 
         // Nulls are serialized as zero byte blobs; all others take at least
@@ -877,28 +1177,28 @@ uint64_t
 FrozenCellValueTable::
 memusage() const
 {
-    return blobs.memusage() + sizeof(*this);
+    return underlying.memusage() + sizeof(*this);
 }
 
 size_t
 FrozenCellValueTable::
 size() const
 {
-    return blobs.size();
+    return underlying.size();
 }
 
 void
 FrozenCellValueTable::
 serialize(StructuredSerializer & serializer) const
 {
-    blobs.serialize(serializer);
+    underlying.serialize(serializer);
 }
 
 void
 FrozenCellValueTable::
 reconstitute(StructuredReconstituter & reconstituter)
 {
-    blobs.reconstitute(reconstituter);
+    underlying.reconstitute(reconstituter);
 }
 
 
@@ -917,21 +1217,21 @@ MutableCellValueTable::
 add(const CellValue & val)
 {
     if (val.empty()) {
-        return blobs.add(std::string());
+        return underlying.add(std::string());
     }
     size_t bytes = val.serializedBytes(true /* exact length */);
     std::string buf(bytes, 0);
     val.serialize(&buf[0], bytes, true /* exact length */);
-    return blobs.add(std::move(buf));
+    return underlying.add(std::move(buf));
 }
 
 void
 MutableCellValueTable::
 set(uint64_t index, const CellValue & val)
 {
-    ExcAssertGreaterEqual(index, blobs.size());
-    while (index > blobs.size())
-        blobs.add(std::string());  // implicit nulls are added
+    ExcAssertGreaterEqual(index, underlying.size());
+    while (index > underlying.size())
+        underlying.add(std::string());  // implicit nulls are added
     add(val);
 }
 
@@ -940,7 +1240,7 @@ MutableCellValueTable::
 freeze(MappedSerializer & serializer)
 {
     FrozenCellValueTable result;
-    result.blobs = blobs.freeze(serializer);
+    result.underlying = underlying.freeze(serializer);
     return result;
 }
 
@@ -985,14 +1285,14 @@ freeze(MappedSerializer & serializer)
     FOR_EACH_INDEX_KIND(doStartOffset);
     startOffsets[NUM_TYPES] = current;
 
-    cerr << "total of " << current << " values in table" << endl;
+    //cerr << "total of " << current << " values in table" << endl;
     std::vector<std::vector<uint32_t>> remappings(NUM_TYPES);
 
     FrozenCellValueSet result;
 
     auto freezeTable = [&] (int n, auto & table)
     {
-        cerr << "freezing table " << n << " of type " << demangle(typeid(table)) << " with " << table.size() << " entries" << endl;
+        //cerr << "freezing table " << n << " of type " << demangle(typeid(table)) << " with " << table.size() << " entries" << endl;
         auto [tableOut, remapping] = table.freezeRemapped(serializer);
         remappings[n] = std::move(remapping);
         return tableOut;
@@ -1016,9 +1316,9 @@ freeze(MappedSerializer & serializer)
 
     //cerr << "remapping = " << remapping << endl;
 
-    if (stringValues.underlying.size() == 1) {
-        cerr << "Unique string value: " << stringValues.underlying.blobs.at(0) << endl;
-    }
+    //if (stringValues.underlying.size() == 1) {
+    //    cerr << "Unique string value: " << stringValues.underlying.blobs.at(0) << endl;
+    //}
 
     MutableIntegerTable startOffsetSerialized;
     for (auto & o: startOffsets)
@@ -1081,7 +1381,6 @@ add(CellValue val)
         return;
     case CellValue::FLOAT:
         indexes.emplace_back(DOUBLE, doubleValues.add(val.toDouble()));
-        doubleValues.add(val.toInt());
         return;
     case CellValue::ASCII_STRING:
     case CellValue::UTF8_STRING:
@@ -1112,6 +1411,12 @@ add(CellValue val)
 /* FROZEN CELL VALUE SET                                                     */
 /*****************************************************************************/
 
+IMPLEMENT_STRUCTURE_DESCRIPTION(FrozenCellValueSetMetadata)
+{
+    setVersion(1);
+    addAuto("version", &FrozenCellValueSetMetadata::version, "");
+}
+
 uint64_t
 FrozenCellValueSet::
 memusage() const
@@ -1127,7 +1432,7 @@ FrozenCellValueSet::
 operator [] (size_t index) const
 {
     size_t op = 0;
-#define GET_FIELD(field, n) { auto o = startOffsets[n + 1]; if (index < o) return field[index - op]; else op = 0; }
+#define GET_FIELD(field, n) { auto o = startOffsets[n + 1]; if (index < o) return field[index - op]; else op = o; }
     FOR_EACH_INDEX_KIND(GET_FIELD)
     MLDB_THROW_RANGE_ERROR("Index out of range: %lli >= %lli", index, size());
 }
@@ -1136,14 +1441,23 @@ void
 FrozenCellValueSet::
 serialize(StructuredSerializer & serializer) const
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    serializer.newObject("md", md);
+    startOffsets.serialize(*serializer.newStructure("sofs"));
+    
+#define SERIALIZE_FIELD(field, n) { if (startOffsets[n] < startOffsets[n+1]) field.serialize(*serializer.newStructure(n)); }
+    FOR_EACH_INDEX_KIND(SERIALIZE_FIELD)
 }
 
 void
 FrozenCellValueSet::
 reconstitute(StructuredReconstituter & reconstituter)
 {
-    MLDB_THROW_UNIMPLEMENTED();
+    reconstituter.getObject("md", md);
+    ExcAssertEqual(md.version, 1);
+    startOffsets.reconstitute(*reconstituter.getStructure("sofs"));
+
+#define RECONSTITUTE_FIELD(field, n) { if (startOffsets[n] < startOffsets[n+1]) field.reconstitute(*reconstituter.getStructure(n)); }
+    FOR_EACH_INDEX_KIND(RECONSTITUTE_FIELD)
 }
 
 bool
@@ -1168,5 +1482,45 @@ forEachDistinctValue(std::function<bool (CellValue &)> fn) const
     return true;
 #endif
 }
+
+#if 0
+template<typename Fn>
+bool forEachDistinctValue(Fn && fn) const
+{
+    std::vector<CellValue> vals;
+    vals.reserve(size());
+    for (size_t i = 0;  i < size();  ++i) {
+        vals.emplace_back(operator [] (i));
+    }
+    std::sort(vals.begin(), vals.end());
+    for (size_t i = 0;  i < vals.size();  ++i) {
+        if (i > 0 && vals[i] == vals[i - 1])
+            continue;
+        if (!fn(vals[i]))
+            return false;
+    }
+    return true;
+}
+#endif
+
+#if 0
+template<typename Fn>
+bool forEachDistinctValue(Fn && fn) const
+{
+    std::vector<CellValue> vals;
+    vals.reserve(size());
+    for (size_t i = 0;  i < size();  ++i) {
+        vals.emplace_back(operator [] (i));
+    }
+    std::sort(vals.begin(), vals.end());
+    for (size_t i = 0;  i < vals.size();  ++i) {
+        if (i > 0 && vals[i] == vals[i - 1])
+            continue;
+        if (!fn(vals[i]))
+            return false;
+    }
+    return true;
+}
+#endif
 
 } // namespace MLDB

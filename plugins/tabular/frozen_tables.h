@@ -10,6 +10,7 @@
 
 #include "transducer.h"
 #include "frozen_column.h"
+#include "string_table.h"
 #include "mldb/arch/bitops.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/endian.h"
@@ -140,6 +141,9 @@ struct MutableIntegerTable {
     {
         return { freeze(serializer), {} };
     }
+
+    void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 };
 
 
@@ -203,9 +207,11 @@ struct MutableBlobTable {
 /*****************************************************************************/
 
 struct FrozenDoubleTableMetadata {
+    uint8_t version = 1;
 };
 
-struct FrozenDoubleTable: public FrozenDoubleTableMetadata {
+struct FrozenDoubleTable {
+    FrozenDoubleTableMetadata md;
 
     // Nullable or double entry
     struct Entry {
@@ -272,6 +278,9 @@ struct FrozenDoubleTable: public FrozenDoubleTableMetadata {
         }
         return result.value();
     }
+
+    void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 };
 
 struct MutableDoubleTable {
@@ -299,18 +308,32 @@ struct MutableDoubleTable {
 /* STRING TABLES                                                             */
 /*****************************************************************************/
 
+struct FrozenStringTableMetadata {
+    uint8_t version = 1;
+};
+
 struct FrozenStringTable {
+    FrozenStringTableMetadata md;
     FrozenBlobTable underlying;
 
     Utf8String operator [] (size_t index) const
     {
-        MLDB_THROW_UNIMPLEMENTED();
+        std::string buf;
+        size_t len = underlying.getBufferSize(index);
+        buf.resize(len);
+        auto blob = underlying.getContents(index, buf.data(), len);
+        if (blob.data() != buf.data())
+            std::memcpy(buf.data(), blob.data(), len);
+        return std::move(buf);
     }
 
     size_t memusage() const
     {
         return underlying.memusage();
     }
+
+    void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 };
 
 struct MutableStringTable {
@@ -333,7 +356,13 @@ struct MutableStringTable {
 /* PATH TABLES                                                               */
 /*****************************************************************************/
 
+struct FrozenPathTableMetadata {
+    uint8_t version = 1;
+};
+
+
 struct FrozenPathTable {
+    FrozenPathTableMetadata md;
     FrozenStringTable underlying;
 
     Path operator [] (size_t index) const
@@ -342,6 +371,9 @@ struct FrozenPathTable {
     }
 
     uint64_t memusage() const { return underlying.memusage(); }
+
+    void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 };
 
 struct MutablePathTable {
@@ -366,8 +398,14 @@ struct MutablePathTable {
 /* TIMESTAMP TABLES                                                          */
 /*****************************************************************************/
 
+struct FrozenTimestampTableMetadata {
+    uint8_t version = 1;
+};
+
+
 struct FrozenTimestampTable {
 
+    FrozenStringTableMetadata md;
     FrozenDoubleTable underlying;
 
     Date operator [] (size_t index) const
@@ -376,6 +414,9 @@ struct FrozenTimestampTable {
     }
 
     uint64_t memusage() const { return underlying.memusage(); }
+
+    void serialize(StructuredSerializer & serializer) const;
+    void reconstitute(StructuredReconstituter & reconstituter);
 };
 
 struct MutableTimestampTable {
@@ -395,9 +436,14 @@ struct MutableTimestampTable {
     freezeRemapped(MappedSerializer & serializer);
 };
 
+
 /*****************************************************************************/
 /* CELL VALUE TABLE                                                          */
 /*****************************************************************************/
+
+struct FrozenCellValueTableMetadata {
+    uint8_t version = 1;
+};
 
 struct FrozenCellValueTable {
     CellValue operator [] (size_t index) const;
@@ -439,7 +485,8 @@ struct FrozenCellValueTable {
     void serialize(StructuredSerializer & serializer) const;
     void reconstitute(StructuredReconstituter & reconstituter);
 
-    FrozenBlobTable blobs;
+    FrozenCellValueTableMetadata md;
+    FrozenBlobTable underlying;
 };
 
 struct MutableCellValueTable {
@@ -462,7 +509,7 @@ struct MutableCellValueTable {
 
     void set(uint64_t index, const CellValue & val);
 
-    size_t size() const { return blobs.size(); }
+    size_t size() const { return underlying.size(); }
 
     //const std::string & operator [] (size_t i) const
     //{
@@ -478,13 +525,17 @@ struct MutableCellValueTable {
         return { freeze(serializer), {} };
     }
 
-    MutableBlobTable blobs;
+    MutableBlobTable underlying;
 };
 
 
 /*****************************************************************************/
 /* CELL VALUE SET                                                            */
 /*****************************************************************************/
+
+struct FrozenCellValueSetMetadata {
+    uint8_t version = 1;
+};
 
 struct FrozenCellValueSet {
 
@@ -505,6 +556,8 @@ struct FrozenCellValueSet {
     void serialize(StructuredSerializer & serializer) const;
     void reconstitute(StructuredReconstituter & reconstituter);
 
+    FrozenCellValueSetMetadata md;
+    FrozenIntegerTable startOffsets;
     FrozenCellValueTable others;      ///< Index 0; ones that don't fit elsewhere
     FrozenIntegerTable intValues;     ///< Index 1
     FrozenDoubleTable doubleValues;   ///< Index 2
@@ -512,8 +565,6 @@ struct FrozenCellValueSet {
     FrozenStringTable stringValues;   ///< Index 4
     FrozenBlobTable blobValues;       ///< Index 5
     FrozenPathTable pathValues;       ///< Index 6
-
-    FrozenIntegerTable startOffsets;
 };
 
 struct MutableCellValueSet {

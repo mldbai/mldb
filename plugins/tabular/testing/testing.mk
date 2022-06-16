@@ -16,3 +16,6 @@ $(eval $(call test,mapped_selector_table_test,$(TABULAR_TEST_LINK),catch2 manual
 $(eval $(call test,raw_mapped_int_table_test,$(TABULAR_TEST_LINK),catch2))
 $(eval $(call test,mmap_test,$(TABULAR_TEST_LINK),catch2))
 $(eval $(call test,fit_accumulator_test,$(TABULAR_TEST_LINK) algebra,catch2 manual))
+
+$(eval $(call test,range_coder_test,$(TABULAR_TEST_LINK),catch2))
+$(eval $(call test,string_table_test,$(TABULAR_TEST_LINK),catch2))
