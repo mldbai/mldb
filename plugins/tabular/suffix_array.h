@@ -11,7 +11,10 @@
 #include <string_view>
 #include <iostream>
 #include <vector>
+#include <unordered_map>
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/min_max.h"
+
 
 namespace MLDB {
 
@@ -32,6 +35,8 @@ struct SuffixArray {
         auto offset = suffixes.at(n);
         return std::string_view(str.data() + offset, size() - offset);
     }
+
+    auto get(size_t n) const { return at(n); }
 
     size_t size() const
     {
@@ -120,6 +125,7 @@ struct MultiSuffixArray {
     std::vector<int> offsets;  //< Offset in string table for each one
     std::vector<std::pair<int, int>> entries;  // (string number, start offset) for each string
 
+    // Returns the suffix, the string number, and the character position in the string
     std::tuple<std::string_view, int, int> at(size_t n) const
     {
         auto [stringNumber, startOffset] = entries.at(n);
@@ -128,6 +134,8 @@ struct MultiSuffixArray {
         std::string_view view(str.data() + stringOffset + startOffset, stringLength - startOffset);
         return std::make_tuple(view, stringNumber, startOffset);
     }
+
+    auto get(size_t n) const { return at(n); }
 
     size_t size() const
     {
@@ -147,7 +155,16 @@ struct MultiSuffixArray {
     {
         return {this, size()};
     }
+
+    using PrefixMap = std::unordered_map<std::string_view, int>;
+
+
 };
+
+// For every prefix in the map, count the number of times it occurs
+// Returns them ordered
+std::vector<std::pair<std::string_view, uint32_t>>
+countPrefixes(const MultiSuffixArray & suffixes, uint32_t maxLen = MAX_LIMIT);
 
 } // namespace MLDB
 

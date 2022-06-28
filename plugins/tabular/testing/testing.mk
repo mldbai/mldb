@@ -19,3 +19,6 @@ $(eval $(call test,fit_accumulator_test,$(TABULAR_TEST_LINK) algebra,catch2 manu
 
 $(eval $(call test,range_coder_test,$(TABULAR_TEST_LINK),catch2))
 $(eval $(call test,string_table_test,$(TABULAR_TEST_LINK),catch2))
+$(eval $(call test,suffix_array_test,$(TABULAR_TEST_LINK),catch2))
+$(eval $(call test,multi_suffix_array_test,$(TABULAR_TEST_LINK),catch2))
+$(eval $(call test,prefix_trie_test,$(TABULAR_TEST_LINK),catch2))
