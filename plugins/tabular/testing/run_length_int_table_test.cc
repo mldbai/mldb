@@ -161,3 +161,16 @@ TEST_CASE("run length mapped size wrong")
 
     freeze_table<MappedRunLengthIntTable>(vals);
 }
+
+TEST_CASE("raw mapped bytes wrong")
+{
+    std::vector<uint32_t> vals(120);
+    vals.at('h') = 20;
+    vals.at('w') = 103;
+
+    IntTableStats<uint32_t> stats { vals };
+    auto bytes = run_length_indirect_bytes(stats);
+    CHECK(bytes == 8);
+
+    auto [context, table] = freeze_table<MappedRunLengthIntTable>(vals);
+}

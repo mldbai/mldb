@@ -467,7 +467,8 @@ void dumpAnnotated(const MappingContext::Stats & stats, std::ostream & stream)
                         stream << "non-structure: " << entry.info->printJsonString(entry.start + entry.offset) << endl;
                     }
                 } else {
-                    stream << "type " << entry.typeName() << " has no value description" << endl;
+                    //stream << "type " << entry.typeName() << " has no value description" << endl;
+                    stream << "(opaque)" << endl;
                 }
             }
 
@@ -708,6 +709,14 @@ size_t MappingContext::getOffset() const
     return sharedState_->offset_;
 }
 
+// Return the offset in the arena of the given object.  Throws if the object is not
+// in the arena.
+size_t MappingContext::getOffset(const void * obj) const
+{
+    assertInArena(obj);
+    return (const std::byte *)obj - getMemory(0);
+}
+
 // Return the memory at the given offset in the array.  Mostly used for
 // debugging or calculating the storage efficiency.
 const std::byte * MappingContext::getMemory(size_t offset) const
@@ -733,7 +742,7 @@ std::byte * MappingContext::malloc(size_t size)
 //
 // Note that we allow things to be at the end of the arena, as zero-length
 // objects need to be able to be somewhere.
-void MappingContext::assertInArena(const void * obj)
+void MappingContext::assertInArena(const void * obj) const
 {
     auto o2 = (const std::byte *)obj;
     if (o2 < sharedState_->mem_.get() || o2 > sharedState_->mem_.get() + sharedState_->offset_) {

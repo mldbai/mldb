@@ -266,7 +266,7 @@ struct MappingContext {
     void align(size_t n)
     {
         if (n == 0)
-            MLDB_THROW_RUNTIME_ERROR("can't alignt to zero");
+            MLDB_THROW_RUNTIME_ERROR("can't align to zero");
         int aoffset = sharedState_->offset_ % n; // current offset from alignment
         int padding = (n - aoffset) % n;  // how many we need to skip to get the right alignment
         ExcAssert((sharedState_->offset_ + padding) % n == 0);
@@ -291,7 +291,7 @@ struct MappingContext {
     //
     // Note that we allow things to be at the end of the arena, as zero-length
     // objects need to be able to be somewhere.
-    void assertInArena(const void * obj);
+    void assertInArena(const void * obj) const;
 
     // Assert that this object is in the arena and is writable (in other words,
     // the object it refers to hasn't been finalized yet).
@@ -302,9 +302,13 @@ struct MappingContext {
     // as the string will be inserted into "lost space" in the file.
     //void tag(const char * str);
 
-    // Return the current offset in the array.  Mostly used for debugging or calculting
+    // Return the current offset in the aren.  Mostly used for debugging or calculting
     // the storage efficiency.
     size_t getOffset() const;
+
+    // Return the offset in the arena of the given object.  Throws if the object is not
+    // in the arena.
+    size_t getOffset(const void * obj) const;
 
     // Return the memory at the given offset in the array.  Mostly used for
     // debugging or calculating the storage efficiency.
