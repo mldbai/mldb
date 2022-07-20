@@ -147,12 +147,16 @@ void freeze(MappingContext & context, RawMappedIntTable & output, std::span<cons
     for (size_t i = 0;  i < input.size() && validate;  ++i) {
         ExcAssert(output.at(i) == input[i]);
     }
+#if 0  // False positives when the input isn't aligned
     if (context.getOffset() - start != size) {
         cerr << "raw mapped bytes wrong: expected " << size << " vs actual " << context.getOffset() - start << endl;
         cerr << input << endl;
         cerr << "type = " << type << endl;
+        cerr << "start = " << start << endl;
+        cerr << "offset = " << context.getOffset() << endl;
     }
     ExcAssert(context.getOffset() - start == size);
+#endif
 
     if (trace) {
         auto end = context.getOffset();

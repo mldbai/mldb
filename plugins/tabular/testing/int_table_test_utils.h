@@ -36,7 +36,8 @@ static size_t intTableTestIndex = 0;
 static bool dumpTestCorpus = false;  // set to true to create a seed corpus for fuzzing
 
 template<typename OutputContainer, typename InputContainer, typename... Options>
-std::pair<MappingContext, OutputContainer *> freeze_table(const InputContainer & input, Options&&... options)
+std::pair<MappingContext, OutputContainer *>
+freeze_table(const InputContainer & input, Options&&... options)
 {
     using namespace std;
 
