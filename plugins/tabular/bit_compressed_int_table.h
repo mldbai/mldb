@@ -79,6 +79,8 @@ struct MappedBitCompressedIntTable {
     uint32_t countValues(uint32_t startPos, uint32_t endPos, uint32_t value) const;
     uint32_t size() const { return size_ < INTERNAL_OFFSET ? size_ : size_ - INTERNAL_OFFSET; }
     bool empty() const { return size() == 0; }
+    uint32_t front() const { return at(0); }
+    uint32_t back() const { return at(size() - 1); }
 
     using Iterator = IntTableIterator<const MappedBitCompressedIntTable>;
 

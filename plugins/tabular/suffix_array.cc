@@ -104,7 +104,7 @@ size_t commonPrefixLength2(const char * p1, const char * p2, size_t maxLen)
     return maxLen;
 }
 
-static size_t commonPrefixLength(const char * p1, const char * p2, size_t maxLen)
+static size_t commonPrefixLength(const char * p1, const char * p2, size_t maxLen) ATTRIBUTE_NO_SANITIZE_UNDEFINED
 {
     auto n = 0;
 
@@ -134,7 +134,7 @@ static size_t commonPrefixLength(const char * p1, const char * p2, size_t maxLen
     return maxLen;
 }
 
-static std::string_view
+std::string_view
 commonPrefix(const std::string_view & s1, const std::string_view & s2, uint32_t maxLen)
 {
     //cerr << "common prefix between " << s1.substr(0, 50) << " and " << s2.substr(0, 50) << endl;
