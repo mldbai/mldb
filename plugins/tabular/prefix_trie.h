@@ -13,28 +13,164 @@
 #include <optional>
 #include "mmap.h"
 #include "mapped_int_table.h"
+#include "string_table_iterator.h"
 #include "mldb/arch/endian.h"
 #include "mldb/arch/vm.h"
 
 namespace MLDB {
 
+/// Find how many 1 bits there are in the x first bits of the array (inclusive).
+/// So brank(0, {1}) == 1
+/// Inverse of bselect()
+template<typename Unsigned>
+inline uint32_t brank(uint32_t x, std::span<const Unsigned> mem)
+{
+    static_assert(std::is_unsigned_v<Unsigned>, "brank only works on unsigned integral types");
+    static constexpr size_t NBits = sizeof(Unsigned) * 8;
+    // Naive... to be optimized
+    // http://bitmagic.io/rank-select.html
+    size_t p = x / NBits;  // word number
+    uint32_t q = x % NBits;  // bit number within word
+    uint32_t result = 0;
+
+    if (MLDB_UNLIKELY(p >= mem.size()))
+        MLDB_THROW_RANGE_ERROR("brank");
+
+    // Scan a word at a time
+    for (size_t i = 0;  i < p;  ++i)
+        result += std::popcount(mem[i]);
+
+    // Scan the last bits
+    result += std::popcount(mem[p] << (NBits - 1 - q));
+
+    return result;
+}
+
+template<typename Container>
+inline uint32_t brank(uint32_t x, const Container & mem)
+{
+    using Unsigned = decltype(*std::data(mem));
+    return brank<Unsigned>(x, std::span<const Unsigned>(std::data(mem), std::size(mem)));
+}
+
+template<typename Unsigned>
+inline uint32_t brank(uint32_t x, const std::initializer_list<Unsigned> & mem)
+{
+    return brank<Unsigned>(x, std::span<const Unsigned>(std::data(mem), std::size(mem)));
+}
+
+struct Bitstream {
+
+    // Writes n zeros followed by a one
+    void write_n(uint32_t n)
+    {
+        auto b = leftover_bits();
+        if (n >= b) {
+            write_bits(0, b);
+            n -= b;
+            while (n >= 64) {
+                write_aligned_64_bits(0);
+                n -= 64;
+            }
+        }   
+        write_bits(0, n);
+        write_bits(1, 1);
+    }
+
+    void write_bits(uint64_t val, uint8_t nbits)
+    {
+        if (nbits == 0)
+            return;
+        uint32_t b = leftover_bits();
+        if (b == 0) {
+            bits.emplace_back(0);
+            b = 64;
+        }
+        uint32_t n = std::min<uint32_t>(b, nbits);
+        uint32_t x = len % 64;
+        uint64_t mask = (1 << n) - 1;
+        bits.back() |= (val & mask) << x;
+        len += n;
+
+        if (nbits > n) {
+            write_bits(val >> n, nbits - n);
+        }
+    }
+
+    void write_aligned_64_bits(uint64_t val)
+    {
+        ExcAssertEqual(leftover_bits(), 0);
+        bits.push_back(val);
+    }
+
+    uint32_t leftover_bits() const { uint32_t b = len % 64;  return b ? 64 - b : 0; }
+
+    std::vector<uint64_t> bits;
+    uint32_t len = 0;
+};
+
+
+
+/// Find the first position such that there are x 1 bits in the array up to and including
+/// that position.
+/// Inverse of brank()
+template<typename Unsigned>
+inline uint32_t bselect(uint32_t x, std::span<const uint64_t> mem)
+{
+    static_assert(std::is_unsigned_v<Unsigned>, "brank only works on unsigned integral types");
+    static constexpr size_t NBits = sizeof(Unsigned) * 8;
+
+    // Naive... to be optimized
+    // http://bitmagic.io/rank-select.html
+
+    // Scan a word at a time
+    size_t p = 0;  // word number
+    if (MLDB_UNLIKELY(mem.size() == 0))
+        MLDB_THROW_LOGIC_ERROR("bselect");
+
+    while (x > 0 && x >= std::popcount(mem[p])) {
+        x -= std::popcount(mem[p]);
+        ++p;
+    }
+
+    // Scan a bit at a time; q is bit number
+    for (uint32_t q = 0;  q < NBits && x > 0;  ++q) {
+        if (std::popcount(mem[p] << (NBits - 1 - q)) == x)
+            return p * 64 + q;
+    }
+
+    // Fall through: x == 0
+    return 0;
+}
+
+template<typename Container>
+inline uint32_t bselect(uint32_t x, const Container & mem)
+{
+    using Unsigned = decltype(*std::data(mem));
+    return bselect<Unsigned>(x, std::span<Unsigned>(std::data(mem), std::size(mem)));
+}
+
+// In suffix_array.h
+std::string_view commonPrefix(const std::string_view & s1, const std::string_view & s2, uint32_t maxLen);
+
 enum PrefixTrieNodeType: uint8_t {
     EMPTY,
     DENSE,
     TAIL,
+    MULTILEAF,
+    PREFIX,
     SPARSE,
-    LEAF,
+    SUCCINCT
 };
 
 #define MLDB_FOR_EACH_PREFIX_TRIE_NODE_TYPE(op, ...) \
-    op(EMPTY, EmptyNode, __VA_ARGS__) \
-    op(DENSE, DenseNode, __VA_ARGS__) \
-    op(TAIL,  TailNode,  __VA_ARGS__) \
-
-/*
-    op(SPARSE, SparseNode, __VA_ARGS__) \
-    op(LEAF, LeafNode, __VA_ARGS__) \
-*/
+    op(EMPTY,     EmptyNode,      __VA_ARGS__) \
+    op(DENSE,     DenseNode,      __VA_ARGS__) \
+    op(TAIL,      TailNode,       __VA_ARGS__) \
+    op(MULTILEAF, MultiLeafNode,  __VA_ARGS__) \
+    op(PREFIX,    PrefixNode,     __VA_ARGS__) \
+    op(SPARSE,    SparseNode,     __VA_ARGS__) \
+    op(SUCCINCT,  SuccinctNode,   __VA_ARGS__) \
 
 #define MLDB_DO_PREFIX_TRIE_TYPE_SWITCH(val, tp, node, typedNode, ...) \
 case PrefixTrieNodeType::val: { const auto & typedNode = (node).template atOffset<tp>(0); __VA_ARGS__; break; } \
@@ -45,23 +181,6 @@ switch ((PrefixTrieNodeType)(node).type_) { \
 MLDB_FOR_EACH_PREFIX_TRIE_NODE_TYPE(MLDB_DO_PREFIX_TRIE_TYPE_SWITCH, node, typedNode, __VA_ARGS__) \
 default: MLDB_THROW_LOGIC_ERROR(); \
 } 
-
-template<typename Node>
-inline void get_trie_node_val(const Node * n, uint16_t & val)
-{
-    val = n->getVal();
-}
-
-template<typename Node>
-inline void set_trie_node_val(Node * n, uint16_t val)
-{
-    n->setVal(val);
-}
-
-inline size_t get_trie_node_num_bytes(uint16_t val)
-{
-    return 2;
-}
 
 template<typename N>
 inline N * aligned_to(const void * p)
@@ -75,16 +194,36 @@ inline N * aligned_to(const void * p)
     return reinterpret_cast<N *>(i);
 }
 
+template<typename Ch>
+std::string toString(std::basic_string_view<Ch> s)
+{
+    std::string result;
+    result.reserve(s.size());
+    for (Ch c: s) {
+        if (isascii(c))
+            result += c;
+        else
+            result += "_";
+    }
+    return result;
+}
+
+inline std::string toString(std::string_view s)
+{
+    return std::string{s};
+}
+
+std::ostream & operator << (std::ostream & stream, const std::basic_string<char8_t> & s);
+std::ostream & operator << (std::ostream & stream, const std::basic_string_view<char8_t> & s);
+
 // Allocate without a node
-template<typename Node, typename Val>
-Node & alloc_trie_node(MappingContext & context, std::string_view prefix, size_t extraBytes, bool hasVal)
+template<typename Node, typename Ch>
+Node & alloc_trie_node(MappingContext & context, std::basic_string_view<Ch> prefix, size_t extraBytes)
 {
     //static_assert(alignof(Node) == 1, "Only packed / byte aligned trie nodes can be allocated");
-    Node & res = context.alloc_field<Node>(std::string(prefix) + ".node");
+    Node & res = context.alloc_field<Node>(toString(prefix) + ".node");
     if (extraBytes)
         context.malloc(extraBytes);
-    if (hasVal)
-        context.alloc_field<Val>(std::string(prefix) + ".val");
     return res;
 }
 
@@ -104,12 +243,13 @@ struct PrefixTrieNodeHeader {
 } MLDB_PACKED;
 
 
-template<typename Ch, typename Val, typename Base>
+template<typename Ch, typename Base>
 struct PrefixTrieImpl: Base {
 private:
     using Base::data;
     using Base::dataLength;
     using NodeHeader = PrefixTrieNodeHeader;
+    using StringViewType = std::basic_string_view<Ch>;
 
     template<typename T> const T * atOffset(uint32_t offset) const
     {
@@ -121,15 +261,14 @@ private:
     }
 
 public:
-    Val get(const Ch * p, Val def = Val()) const
+    std::optional<uint32_t> get(const Ch * p) const
     {
-        return this->getImpl(*atOffset<NodeHeader>(0), p, p + std::char_traits<Ch>::length(p), def);
+        return this->getImpl(*atOffset<NodeHeader>(0), {p, std::char_traits<Ch>::length(p)});
     }
 
-    template<typename Seq>
-    Val get(Seq&&seq, Val def = Val()) const
+    std::optional<uint32_t> get(StringViewType s) const
     {
-        return atOffset<Node>(0)->getImpl(seq.begin(), seq.end(), def);
+        return this->getImpl(*atOffset<NodeHeader>(0), s);
     }
 
     size_t size() const
@@ -139,91 +278,63 @@ public:
 
     void dump(std::ostream & stream, size_t indent = 0) const
     {
-        dumpImpl(*atOffset<NodeHeader>(0), stream, indent);
+        dumpImpl(*atOffset<NodeHeader>(0), stream, indent, 0 /* startAt */);
     }
 
 //private:
     template<typename Node>
-    static Val getVal(const Node & node)
+    static std::optional<uint32_t>
+    getImpl(const Node & node, StringViewType s)
     {
-        auto doNode = [&] (const auto & typedNode) { return typedNode.getVal(); };
-        MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, return doNode(typedNode));
-    }
-
-    template<typename Node, typename It>
-    static Val getImpl(const Node & node, It first, It last, Val def)
-    {
-        if (first == last) {
-            using namespace std;
-            //cerr << "getImpl " << std::string(first, last) << "hasVal_ " << (int)node.hasVal_ << endl;
+        if (s.empty()) {
             if (node.hasVal_)
-                return getVal(node);
-            else return def;
+                return 0;
+            else
+                return std::nullopt;
         }
 
-        auto doNode = [&] (const auto & typedNode) { return typedNode.getChild(first, last, def); };
+        auto doNode = [&] (const auto & typedNode) { return typedNode.getChild(s); };
         MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, return doNode(typedNode));
     }
 
     template<typename Node>
-    static Val size(const Node & node)
+    static uint32_t size(const Node & node)
     {
-        //using namespace std;
-        //cerr << "size of " << (int)node.type_ << endl;
         MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, return typedNode.size(); );
     }
 
-    static void dumpImpl(const NodeHeader & node, std::ostream & stream, size_t indent = 0)
+    static void dumpImpl(const NodeHeader & node, std::ostream & stream, size_t indent, size_t startAt)
     {
-        MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, typedNode.dumpImpl(stream, indent);  return);
+        MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, typedNode.dumpImpl(stream, indent, startAt);  return);
     }
 
     // Empty node, no sub-keys, may have a value
     struct EmptyNode: public NodeHeader {
 
-        template<typename It>
-        Val getChild(It first, It last, Val def) const
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
         {
-            ExcAssert(first != last);
-            return def;
+            ExcAssert(!s.empty());
+            return std::nullopt;
         }
 
         size_t size() const { return hasVal_; }
 
-        Val getVal() const
-        {
-            ExcAssert(hasVal_);
-            return val[0];
-        }
-
-        void setVal(Val newVal)
-        {
-            ExcAssert(hasVal_);
-            val[0] = std::move(newVal);
-        }
-
-        void dumpImpl(std::ostream & stream, size_t indent = 0) const
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
         {
             std::string i(indent, ' ');
-            stream << i << "EMPTY " << " ";
+            stream << i << "EMPTY";
             if (hasVal_)
-                stream << " VAL(" << getVal() << ")";
-            else
-                stream << " NO VAL";
+                stream << " --> " << startAt;
             stream << std::endl;
         }
 
-        LittleEndian<Val> val[0];
-
-        static auto & alloc(MappingContext & context, std::string_view prefix, std::optional<Val> val)
+        static auto & alloc(MappingContext & context, StringViewType prefix, bool hasValue)
         {
-            auto & node = alloc_trie_node<EmptyNode, Val>(context, prefix, 0 /* extra */, val.has_value());
+            auto & node = alloc_trie_node<EmptyNode>(context, prefix, 0 /* extra */);
             node.type_ = PrefixTrieNodeType::EMPTY;
-            node.hasVal_ = val.has_value();
+            node.hasVal_ = hasValue;
             node.data_ = 0;
-            if (val) {
-                set_trie_node_val(&node, *val);
-            }
             return node;
         }
     };
@@ -231,23 +342,25 @@ public:
     // Dense node, with (up to) 256 pointers, one per character
     struct DenseNode: public NodeHeader {
         using NodeHeader::atOffset;
-        template<typename It>
-        Val getChild(It first, It last, Val def) const
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
         {
-            ExcAssert(first != last);
-            uint32_t c = *first++;
+            ExcAssert(!s.empty());
+            uint32_t c = s[0];
             if (c >= offsets.size())
-                return def;
+                return std::nullopt;
             auto ofs = offsets.at(c);
             if (ofs == 0)
-                return def;
-            //if (hasVal_)
-            //    ofs += valNumBytes();
-            return PrefixTrieImpl::getImpl(NodeHeader::template atOffset<NodeHeader>(ofs), first, last, def);
+                return std::nullopt;
+            auto v = PrefixTrieImpl::getImpl(NodeHeader::template atOffset<NodeHeader>(ofs), s.substr(1));
+            if (!v) return v;
+            return v.value() + sizes.at(c) + hasVal_;
         }
 
         size_t size() const
         {
+            return sizes.back();
+#if 0
             size_t result = hasVal_;
 
             for (size_t i = 0;  i < offsets.size();  ++i) {
@@ -257,34 +370,18 @@ public:
                 result += PrefixTrieImpl::size(NodeHeader::template atOffset<NodeHeader>(ofs));
             }
             return result;
+#endif
         }
 
-        size_t valNumBytes() const
-        {
-            return sizeof(Val);
-        }
-
-        Val getVal() const
-        {
-            ExcAssert(hasVal_);
-            return val[0];
-        }
-
-        void setVal(Val newVal)
-        {
-            ExcAssert(hasVal_);
-            val[0] = std::move(newVal);
-        }
-
-        void dumpImpl(std::ostream & stream, size_t indent = 0) const
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
         {
             using namespace std;
             std::string ind(indent, ' ');
             stream << ind << "DENSE";
-            if (hasVal_)
-                stream << " VAL(" << getVal() << ")";
-            else
-                stream << " NO VAL";
+            if (hasVal_) {
+                stream << " --> " << startAt;
+                ++startAt;
+            }
             stream << std::endl;
 
             //using namespace std;
@@ -293,118 +390,408 @@ public:
                 auto ofs = offsets.at(i);
                 if (ofs == 0)
                     continue;
-                //if (hasVal_)
-                //    ofs += valNumBytes();
-                //cerr << "i " << i << " ofs " << ofs << endl;
-                stream << ind << "  '" << char(i) << "':"
+                auto sz = sizes.at(i);
+                stream << ind << "  '" << Ch(i) << "':"
                        << " ofs " << ofs
                        << std::endl;
-                PrefixTrieImpl::dumpImpl(NodeHeader::template atOffset<NodeHeader>(ofs), stream, indent + 4);
+                PrefixTrieImpl::dumpImpl(NodeHeader::template atOffset<NodeHeader>(ofs), stream, indent + 4, startAt + sz);
             }
         }
 
         RawMappedIntTable offsets;
-        LittleEndian<Val> val[0];
+        RawMappedIntTable sizes;
 
-        static auto & alloc(MappingContext & context, std::string_view prefix, std::optional<Val> val)
+        static auto & alloc(MappingContext & context, std::basic_string_view<Ch> prefix, bool hasValue)
         {
-            auto & node = alloc_trie_node<DenseNode, Val>(context, prefix, 0 /* extra */, val.has_value());
+            auto & node = alloc_trie_node<DenseNode>(context, prefix, 0 /* extra */);
             node.type_ = PrefixTrieNodeType::DENSE;
-            node.hasVal_ = val.has_value();
+            node.hasVal_ = hasValue;
             node.data_ = 0;
-            if (val) {
-                set_trie_node_val(&node, *val);
-            }
             return node;
         }
     };
 
-    // Dense node, with (up to) 256 pointers, one per character
-    struct TailNode: public NodeHeader {
+    // Sparse node, with (up to) 32 pointers, one per character, slower lookup but more compact
+    struct SparseNode: public NodeHeader {
         using NodeHeader::atOffset;
-        template<typename It>
-        Val getChild(It first, It last, Val def) const
+
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
         {
-            for (size_t i = 0;  i < len_;  ++i, ++first) {
-                if (first == last || tailChars_[i] != *first)
-                    return def;
-            }
-            return getVal();
+            ExcAssert(!s.empty());
+            uint32_t c = s[0];
+
+            auto beg = ch, end = ch + nch(), it = std::lower_bound(beg, end, c);
+            if (it == end || *it != c)
+                return std::nullopt;
+            uint32_t i = it - beg;
+            auto ofs = sizesAndOffsets.at(i * 2 + 1);
+
+            auto v = PrefixTrieImpl::getImpl(NodeHeader::template atOffset<NodeHeader>(ofs), s.substr(1));
+            if (!v) return v;
+            auto sz  = sizesAndOffsets.at(i * 2);
+            return hasVal_ + sz + v.value();
         }
 
         size_t size() const
         {
-            return 1;
+            return sizesAndOffsets.back();
         }
 
-        size_t valNumBytes() const
+        uint32_t nch() const
         {
-            return sizeof(Val);
+            return sizesAndOffsets.size() / 2;
         }
 
-        Val getVal() const
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
         {
-            return *getValPtr();
+            using namespace std;
+            std::string ind(indent, ' ');
+            stream << ind << "SPARSE size=" << size();
+            if (hasVal_) {
+                stream << " --> " << startAt;
+                ++startAt;
+            }
+            stream << std::endl;
+            for (size_t i = 0;  i < nch();  ++i) {
+                auto sz = sizesAndOffsets.at(i * 2);
+                auto ofs = sizesAndOffsets.at(i * 2 + 1);
+                stream << ind << "  '" << ch[i] << "':"
+                        << " ofs " << ofs << " size " << sz
+                        << std::endl;
+                PrefixTrieImpl::dumpImpl(NodeHeader::template atOffset<NodeHeader>(ofs), stream, indent + 4, startAt + sz);
+            }
         }
 
-        void setVal(Val newVal)
+        MappedBitCompressedIntTable sizesAndOffsets;  ///< Data for table (2*n entries; even size, odd offset)
+        Ch ch[0];        ///< Characters we're keyed off
+
+        static auto & alloc(MappingContext & context,
+                            std::basic_string_view<Ch> prefix,
+                            bool hasValue,
+                            uint32_t n)
         {
-            *getValPtr() = newVal;
+            auto & node = alloc_trie_node<SparseNode>(context, prefix, n * sizeof(Ch) /* extra */);
+            node.type_ = PrefixTrieNodeType::SPARSE;
+            node.hasVal_ = hasValue;
+            node.data_ = 0;
+            return node;
+        }
+    };
+
+    // A chunk of prefix followed by a single value
+    struct TailNode: public NodeHeader {
+        using NodeHeader::atOffset;
+
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
+        {
+            //using namespace std;
+            //cerr << "tail getChild " << s << " " << getSuffix() << endl;
+            if (hasVal_ && s.empty())
+                return 0;
+            if (s == getSuffix())
+                return 0 + hasVal_;
+            return std::nullopt;
         }
 
-        void dumpImpl(std::ostream & stream, size_t indent = 0) const
+        size_t size() const
+        {
+            return 1 + hasVal_;
+        }
+
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
         {
             std::string i(indent, ' ');
-            stream << i << "TAIL " << " ";
-            stream << getSuffix() << " ";
-            stream << " VAL(" << getVal() << ")";
-            stream << std::endl;
+            stream << i << "TAIL ";
+            if (hasVal_)
+                stream << "--> " << startAt << ", ";
+            stream << getSuffix() << " --> ";
+            stream << startAt + hasVal_ << std::endl;
         }
 
         uint8_t len_;
-        char tailChars_[0];
+        Ch tailChars_[0];
 
-        Val * getValPtr() const
-        {
-            return aligned_to<Val>(((const std::byte *)this) + sizeof(*this) + len_);
-        }
-
-        std::string_view getSuffix() const
+        std::basic_string_view<Ch> getSuffix() const
         {
             return { tailChars_, len_ };
         }
 
-        static auto & alloc(MappingContext & context, std::string_view prefix, std::string_view key, Val val)
+        static auto & alloc(MappingContext & context,
+                            std::basic_string_view<Ch> prefix,
+                            std::basic_string_view<Ch> key,
+                            bool hasValue)
         {
             size_t n = key.size() - prefix.size();
-            auto & node = alloc_trie_node<TailNode, Val>(context, prefix, n /* extra */, true /* has value */);
+            auto & node = alloc_trie_node<TailNode>(context, prefix, n /* extra */);
             node.type_ = PrefixTrieNodeType::TAIL;
-            node.hasVal_ = true;
+            node.hasVal_ = hasValue;
             node.data_ = 0;
             ExcAssertLess(n, 256);
             node.len_ = n;
             std::copy(key.data() + prefix.size(), key.data() + key.size(), node.tailChars_);
-            if (val) {
-                set_trie_node_val(&node, val);
-            }
             return node;
         }
-
     };
 
-    struct SparseNode: public NodeHeader {
-    } MLDB_PACKED;
+    // A chunk of prefix followed by a single value
+    struct PrefixNode: public NodeHeader {
+        using NodeHeader::atOffset;
 
-    struct LeafNode: public NodeHeader {
-    } MLDB_PACKED;
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
+        {
+            if (hasVal_ && s.empty())
+                return 0;
+            if (!s.starts_with(getPrefix()))
+                return std::nullopt;
+            auto v = PrefixTrieImpl::getImpl(getNode(), s.substr(len_));
+            if (!v)
+                return std::nullopt;
+            return v.value() + hasVal_;
+        }
 
-    struct Node: public NodeHeader {
+        size_t size() const
+        {
+            return hasVal_ + PrefixTrieImpl::size(getNode());
+        }
 
-    } MLDB_PACKED;
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
+        {
+            std::string i(indent, ' ');
+            stream << i << "PREFIX " << getPrefix();
+            if (hasVal_)
+                stream << "--> " << startAt;
+            stream << std::endl;
+            PrefixTrieImpl::dumpImpl(getNode(), stream, indent + 4, startAt + hasVal_);
+        }
+
+        uint8_t len_;
+        uint8_t nodeOfs_;
+        Ch prefixChars_[0];
+
+        std::basic_string_view<Ch> getPrefix() const
+        {
+            return { prefixChars_, len_ };
+        }
+
+        const NodeHeader & getNode() const
+        {
+            return *reinterpret_cast<const NodeHeader *>(prefixChars_ + len_ + nodeOfs_);
+        }
+
+        static auto & alloc(MappingContext & context,
+                            std::basic_string_view<Ch> prefix,
+                            std::basic_string_view<Ch> key,
+                            bool hasValue)
+        {
+            size_t n = key.size() - prefix.size();
+            auto & node = alloc_trie_node<PrefixNode>(context, prefix, n /* extra */);
+            node.type_ = PrefixTrieNodeType::PREFIX;
+            node.hasVal_ = hasValue;
+            node.data_ = 0;
+            ExcAssertLess(n, 256);
+            node.len_ = n;
+            std::copy(key.data() + prefix.size(), key.data() + key.size(), node.prefixChars_);
+            return node;
+        }
+    };
+
+    // Node with multiple leaves, with up to 255 characters in total length
+    struct MultiLeafNode: public NodeHeader {
+
+        uint8_t numLeaves_;
+        uint8_t strs_[0];  // numLeaves offsets followed by compacted string data
+
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
+        {
+            //using namespace std;
+            //cerr << "multi getChild " << s << endl;
+
+            ExcAssert(!s.empty());
+            if (s.empty()) {
+                if (hasVal_)
+                    return 0;
+                else return std::nullopt;
+            }
+
+            auto it = std::lower_bound(begin(), end(), s);
+            if (it != end() && *it == s)
+                return it.position() + hasVal_;
+            return std::nullopt;
+        }
+
+        size_t size() const { return hasVal_ + numLeaves_; }
+
+        uint8_t getLeafOffset(uint32_t n) const
+        {
+            if (n == 0)
+                return 0;
+            ExcAssertLessEqual(n, (uint32_t)numLeaves_);
+            return strs_[n - 1];
+        }
+
+        const Ch * getLeafData() const
+        {
+            return reinterpret_cast<const Ch *>(strs_ + numLeaves_);
+        }
+
+        Ch * getLeafData()
+        {
+            return reinterpret_cast<Ch *>(strs_ + numLeaves_);
+        }
+
+        std::basic_string_view<Ch> get(int n) const
+        {
+            auto ofs1 = getLeafOffset(n);
+            auto ofs2 = getLeafOffset(n + 1);
+            ExcAssertGreater(ofs2, ofs1);
+            return { getLeafData() + ofs1, size_t(ofs2 - ofs1) };
+        }
+
+        using Iterator = StringTableIterator<MultiLeafNode, StringViewType>;
+        Iterator begin() const { return { this, 0 }; }
+        Iterator end() const { return { this, numLeaves_ }; }
+
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
+        {
+            std::string i(indent, ' ');
+            stream << i << "LEAVES (" << (int)numLeaves_ << ")";
+            if (hasVal_) {
+                stream << " --> " << startAt;
+                ++startAt;
+            }
+            stream << std::endl;
+            for (size_t i = 0;  i < numLeaves_;  ++i) {
+                stream << i << "    " << get(i) << " --> " << startAt + i << std::endl;
+            }
+            stream << std::endl;
+        }
+
+        static auto & alloc(MappingContext & context, std::basic_string_view<Ch> prefix,
+                            size_t extraBytes, bool hasValue)
+        {
+            auto & node = alloc_trie_node<MultiLeafNode>(context, prefix, extraBytes);
+            node.type_ = PrefixTrieNodeType::MULTILEAF;
+            node.hasVal_ = hasValue;
+            node.data_ = 0;
+            return node;
+        }
+    };
+
+    // Node with multiple leaves, succinct data structure
+    struct SuccinctNode: public NodeHeader {
+
+        uint16_t numLeaves_;
+        uint16_t numWords_;
+        union {
+            uint64_t u64[0];
+            Ch ch[0];
+        };
+
+        std::optional<uint32_t>
+        getChild(StringViewType s) const
+        {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+
+        size_t size() const { return hasVal_ + numLeaves_; }
+
+        const Ch * getLeafData() const
+        {
+            return reinterpret_cast<const Ch *>(u64 + numWords_);
+        }
+
+        Ch * getLeafData()
+        {
+            return reinterpret_cast<const Ch *>(u64 + numWords_);
+        }
+
+        void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
+        {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+
+        template<typename It>
+        static bool doLevel(std::vector<std::byte> & mem, std::basic_string_view<Ch> prefix, int level, It begin, It end)
+        {
+            using namespace std;
+
+            ExcAssert(begin != end);
+            uint64_t prev = -1;
+
+            // Skip the first empty prefix at the start
+            It start = begin;
+            if (start != end && start->first.size() == prefix.size() + level)
+                ++start;
+
+            // Find all distinct prefixes of length level in the range (begin, end]
+            for (auto it = begin;  true;  /* no inc */) {
+                ExcAssertGreater(it->first.size(), prefix.size() + level);
+                Ch curr = it->first.at(prefix.size() + level);
+                //cerr << "at " << it->first << " curr " << curr << endl;
+                if (curr != prev || std::next(it) == end) {
+                    // We got a new prefix character.  Add it to the trie
+                    uint32_t numChildren = 0;
+
+                    uint64_t prev2 = -1;
+
+                    // Count the number of unique children at this level
+                    It it2 = start;
+
+                    while (it2 != it && it2->first.size() == prefix.size() + level)
+                        ++it2;
+
+                    //numChildren = std::distance(it2, it);
+
+                    for (; it2 != it;  ++it2) {
+                        Ch curr2 = it2->first.at(prefix.size() + level + 1);
+                        if (curr2 != prev2) {
+                            cerr << "  child " << curr2 << " " << it2->first << endl;
+                            ++numChildren;
+                            prev2 = curr2;
+                        }
+                    }
+
+                    ExcAssert(it2 == it);
+
+                    cerr << "got prefix " << Ch(prev) << " with " << numChildren << " children" << endl;
+
+                    ++it;
+                    if (it == end)
+                        break;
+                    start = it;
+                }
+                else {
+                    ++it;
+                }
+                prev = curr;
+            }
+
+            return false;
+        }
+
+        template<typename It>
+        static auto & alloc(MappingContext & context, std::basic_string_view<Ch> prefix,
+                            bool hasValue, It first, It last)
+        {
+            std::vector<std::byte> mem;
+
+            for (int level = 0;  doLevel(mem, prefix, level, first, last);  ++level) {}
+
+            size_t extraBytes = 0;
+            auto & node = alloc_trie_node<SuccinctNode>(context, prefix, extraBytes);
+            node.type_ = PrefixTrieNodeType::SUCCINCT;
+            node.hasVal_ = hasValue;
+            node.data_ = 0;
+            return node;
+        }
+    };
 };
 
 struct MemPrefixTrieBase {
-
     std::vector<std::byte> mem;
     const std::byte * data() const { return mem.data(); }
     size_t dataLength() const { return mem.size(); }
@@ -415,13 +802,14 @@ struct MemPrefixTrieBase {
     }
 };
 
-struct CharPrefixTrie: public PrefixTrieImpl<char8_t, uint16_t, MemPrefixTrieBase> {};
+struct CharPrefixTrie: public PrefixTrieImpl<char, MemPrefixTrieBase> {};
 
 // Insert the entries between first and last sorted (iterators over pair<stringlike, value>)
 // into a newly constructed node on output, ignoring the prefixLen first characters in each
 // string key.  Returns the offset of the node in the mapping context's arena.
-template<typename It>
-inline size_t construct_trie_node(MappingContext & context, std::string_view prefix, It first, It last)
+template<typename It, typename Ch>
+inline size_t
+construct_trie_node(MappingContext & context, std::basic_string_view<Ch> prefix, It first, It last)
 {
     using namespace std;
 
@@ -433,16 +821,20 @@ inline size_t construct_trie_node(MappingContext & context, std::string_view pre
     using Val = std::decay_t<decltype(first->second)>;
 
     if (n == 0) {
-        auto & node = CharPrefixTrie::EmptyNode::alloc(context, prefix, nullopt);
+        auto & node = CharPrefixTrie::EmptyNode::alloc(context, prefix, false /* hasValue */);
         return context.getOffset(&node);
     }
     else if (n == 1 && first->first.size() == prefix.size()) {
         // Just a value
-        auto & node = CharPrefixTrie::EmptyNode::alloc(context, prefix, first->second);
+        auto & node = CharPrefixTrie::EmptyNode::alloc(context, prefix, true /* hasValue */);
         return context.getOffset(&node);
     }
     else if (n == 1) {
-        auto & node = CharPrefixTrie::TailNode::alloc(context, prefix, first->first, first->second);
+        auto & node = CharPrefixTrie::TailNode::alloc(context, prefix, first->first, false /* hasValue */);
+        return context.getOffset(&node);
+    }
+    else if (n == 2 && first->first.size() == prefix.size()) {
+        auto & node = CharPrefixTrie::TailNode::alloc(context, prefix, (++first)->first, true /* hasValue */);
         return context.getOffset(&node);
     }
 
@@ -464,60 +856,186 @@ inline size_t construct_trie_node(MappingContext & context, std::string_view pre
         val = first->second;
         ++first;
     }
-    auto & node = CharPrefixTrie::DenseNode::alloc(context, prefix, val);
-    size_t startOffset = context.getOffset(&node);
 
-    std::vector<uint32_t> offsets;
-    offsets.reserve(256);
+    size_t nch = 0;
+    size_t nleft = 0;
+    int64_t lastCh = -1;
+    for (auto it = first;  it != last;  ++it, ++nleft) {
+        Ch ch = it->first.at(prefixLen);
+        if (ch == lastCh)
+            continue;
+        //cerr << "got char " << ch << endl;
+        ++nch;
+        lastCh = ch;
+    }
+
+    if (nch == 1) {
+        // Common prefix
+        size_t commonPrefixLength = first->first.size() - prefixLen;
+        std::basic_string_view<Ch> sv1 = std::basic_string_view<Ch>(first->first).substr(prefixLen);
+        for (auto it = first;  it != last && commonPrefixLength > 1;  ++it) {
+            auto sv2 = std::basic_string_view<Ch>(it->first).substr(prefixLen);
+            commonPrefixLength = std::min(commonPrefixLength, commonPrefix(sv1, sv2, commonPrefixLength).size());
+        }
+        //cerr << "opportunity for common prefix of length " << commonPrefixLength << " with " << nleft << " vals"
+        //     << " saving " << commonPrefixLength * nleft * sizeof(Ch) << " chars" << endl;
+
+        std::basic_string_view<Ch> nextPrefix = std::basic_string_view<Ch>(first->first).substr(0, prefixLen + commonPrefixLength);
+        //cerr << "prefix = " << prefix << " nextPrefix = " << nextPrefix << endl;
+
+        auto & node = CharPrefixTrie::PrefixNode::alloc(context, prefix, nextPrefix, val.has_value());
+        size_t ofs = context.getOffset(&node);
+        size_t nextOfs = construct_trie_node(context, nextPrefix, first, last);
+        size_t startOfs = context.getOffset(node.prefixChars_ + node.len_);
+        //cerr << "startOfs = " << startOfs << " nodeOfs = " << nextOfs - startOfs << endl;
+        node.nodeOfs_ = nextOfs - startOfs;
+        return ofs;
+    }
+
+    if (totalLen < 256 && nleft <= 16) {
+        size_t extraBytes = totalLen + nleft;
+        auto & node = CharPrefixTrie::MultiLeafNode::alloc(context, prefix, extraBytes, val.has_value());
+        node.numLeaves_ = nleft;
+        uint8_t ofs = 0;
+        int i = 0;
+        for (auto it = first;  it != last;  ++it, ++i) {
+            size_t startofs = ofs;
+            size_t len = it->first.size() - prefixLen;
+            ofs += len;
+            node.strs_[i] = ofs;
+            std::memcpy(node.getLeafData() + startofs, it->first.data() + prefixLen, len);
+        }
+        return context.getOffset(&node);
+    }
 
     auto getCh = [&] () -> uint32_t { return first->first.at(prefixLen); };
 
-    while (first != last) {
-        //cerr << "doing " << first->first << " with prefix " << prefix << endl;
-        ExcAssert(first->first.find(prefix) == 0);
-        if (first->first.size() == prefix.size())
-            continue;  // skip the value associated with the empty key
-        auto it = first;
-        auto c = getCh();
-        std::string_view newPrefix(first->first.data(),
-                                   prefix.size() + 1);
-        //cerr << "str = " << first->first << " prefix " << prefix << " newPrefix = " << newPrefix << endl;
-
-        ++first;
-        while (first != last && getCh() == c)
-            ++first;
-        //cerr << "c = " << (int)c << endl;
-        size_t ofs = construct_trie_node(context, newPrefix, it, first) - startOffset;
-        ExcAssertGreater(ofs, 0);
-        //cerr << "done constructing " << std::distance(it, first) << " with prefix " << newPrefix << " at offset " << ofs << endl;
-        if (c >= offsets.size())
-            offsets.resize(c + 1);
-        offsets[c] = ofs;
+    if (true) {
+        auto & node = CharPrefixTrie::SuccinctNode::alloc(context, prefix, val.has_value(), first, last);
+        size_t startOffset = context.getOffset(&node);
+        MLDB_THROW_UNIMPLEMENTED();
+        return startOffset;
     }
+    else if (nleft <= 32) {
+        // Sparse node
+        auto & node = CharPrefixTrie::SparseNode::alloc(context, prefix, val.has_value(), nleft);
+        size_t startOffset = context.getOffset(&node);
+        std::vector<uint32_t> sizesAndOffsets;
+        sizesAndOffsets.reserve(2 * nleft + 1);
 
-    //cerr << "freezing " << offsets.size() << " offsets for " << prefix << endl;
+        auto orig = first;
 
-    freeze(context, node.offsets, offsets);
+        uint32_t i = 0;
+        while (first != last) {
+            size_t sz = std::distance(orig, first);
+            //cerr << "doing " << first->first << " with prefix " << prefix << endl;
+            ExcAssert(first->first.find(prefix) == 0);
+            if (first->first.size() == prefix.size())
+                continue;  // skip the value associated with the empty key
+            auto it = first;
+            auto c = getCh();
+            std::basic_string_view<Ch> newPrefix(first->first.data(), prefix.size() + 1);
+            //cerr << "str = " << first->first << " prefix " << prefix << " newPrefix = " << newPrefix << endl;
 
-    //cerr << "done construction " << prefix << endl;
-    return startOffset;
+            ++first;
+            while (first != last && getCh() == c)
+                ++first;
+            //cerr << "c = " << (int)c << endl;
+            ssize_t ofs = construct_trie_node(context, newPrefix, it, first) - startOffset;
+            ExcAssertGreater(ofs, 0);
+
+            node.ch[i] = c;
+            sizesAndOffsets.push_back(sz);
+            sizesAndOffsets.push_back(ofs);
+            ++i;
+        }
+
+        sizesAndOffsets.emplace_back(nleft);
+        freeze(context, node.sizesAndOffsets, sizesAndOffsets);
+
+        return startOffset;
+    }
+    else {
+        // Dense node
+        auto & node = CharPrefixTrie::DenseNode::alloc(context, prefix, val.has_value());
+        size_t startOffset = context.getOffset(&node);
+
+        std::vector<uint32_t> offsets;
+        offsets.reserve(256);
+        std::vector<uint32_t> sizes;
+        sizes.reserve(256);
+
+        auto orig = first;
+
+        while (first != last) {
+            size_t sz = std::distance(orig, first);
+            //cerr << "doing " << first->first << " with prefix " << prefix << endl;
+            ExcAssert(first->first.find(prefix) == 0);
+            if (first->first.size() == prefix.size())
+                continue;  // skip the value associated with the empty key
+            auto it = first;
+            auto c = getCh();
+            std::basic_string_view<Ch> newPrefix(first->first.data(), prefix.size() + 1);
+            //cerr << "str = " << first->first << " prefix " << prefix << " newPrefix = " << newPrefix << endl;
+
+            ++first;
+            while (first != last && getCh() == c)
+                ++first;
+            //cerr << "c = " << (int)c << endl;
+            size_t ofs = construct_trie_node(context, newPrefix, it, first) - startOffset;
+            ExcAssertGreater(ofs, 0);
+            //cerr << "done constructing " << std::distance(it, first) << " with prefix " << newPrefix << " at offset " << ofs << endl;
+            if (c >= offsets.size()) {
+                offsets.resize(c + 1);
+                sizes.resize(c + 1);
+            }
+            offsets[c] = ofs;
+            sizes[c] = sz;
+        }
+
+        sizes.emplace_back(std::distance(orig, first));
+
+        //cerr << "freezing " << offsets.size() << " offsets for " << prefix << endl;
+
+        freeze(context, node.offsets, offsets);
+        freeze(context, node.sizes, sizes);
+
+        return startOffset;
+    }
     //MLDB_THROW_UNIMPLEMENTED();
 }
 
 inline CharPrefixTrie construct_trie(const std::map<std::string, uint16_t> & m)
 {
-    CharPrefixTrie result;
-    size_t totalLength = 256;
-    for (auto & [key, val]: m) {
-        totalLength += 24 + key.size() + sizeof(m);
+    std::vector<uint32_t> commonPrefixLengths;
+    if (!m.empty()) {
+        commonPrefixLengths.reserve(m.size() - 1);
+        for (auto it = m.begin(); it != m.end();  /* no inc */) {
+            std::string_view last = (it++)->first;
+            if (it == m.end())
+                break;
+            std::string_view next = it->first;
+            commonPrefixLengths.emplace_back(commonPrefix(last, next, MAX_LIMIT).length());
+        }
     }
 
-    MappingContext context(roundUpToPageSize(totalLength)
-//                           , DUMP_MEMORY_MAP=true
+    CharPrefixTrie result;
+    size_t totalLength = 0;
+    for (auto & [key, val]: m) {
+        totalLength += key.size();
+    }
+
+    size_t toAllocate = 256 + 24 * m.size() + totalLength;
+
+    MappingContext context(roundUpToPageSize(toAllocate)
+    //                       , DUMP_TYPE_STATS=true
+    //                       , DUMP_MEMORY_MAP=true
                            );
-    construct_trie_node(context, {}, m.begin(), m.end());
+    uint32_t ofs = construct_trie_node(context, std::string_view{}, m.begin(), m.end());
+    ExcAssertEqual(ofs, 0);
     using namespace std;
-    cerr << "allocated " << context.getOffset() << " bytes for " << m.size() << " entries" << endl;
+    cerr << "allocated " << context.getOffset() << " bytes of " << toAllocate
+         << " for " << m.size() << " entries with " << totalLength << " key bytes" << endl;
     result.mem = { context.getMemory(), context.getMemory() + context.getOffset() };
     return result;
 }

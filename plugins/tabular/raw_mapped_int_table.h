@@ -39,6 +39,8 @@ struct RawMappedIntTable {
     };
     
     uint32_t at(uint32_t pos) const;
+    uint32_t front() const { return at(0); }
+    uint32_t back() const { return at(size() - 1); }
 
     uint32_t countValues(uint32_t startPos, uint32_t endPos, uint32_t value) const;
 

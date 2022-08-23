@@ -18,6 +18,11 @@
 
 namespace MLDB {
 
+// Returns the prefixes in common between the two strings.  Optimized implementation as
+// this is a major part of the runtime.
+std::string_view
+commonPrefix(const std::string_view & s1, const std::string_view & s2, uint32_t maxLen);
+
 struct SuffixArray {
     SuffixArray() = default;
     SuffixArray(std::string_view str)
