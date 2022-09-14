@@ -12,6 +12,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/pair_description.h"
 #include "mldb/arch/format.h"
 #include "mldb/arch/ansi.h"
 
@@ -43,11 +44,21 @@ TestCase load(const std::string & filename)
 
     TestCase result;
 
-    loadField(result.suffixEncoder.prefixes, stream);
+    std::vector<std::pair<std::string, int> > prefixes;
+    loadField(prefixes, stream);
+    REQUIRE(prefixes.size() > 0);
+    CHECK(prefixes[0].first == "");
+    CHECK(prefixes[0].second == 0);
+    prefixes[0].first = { '\0' };
+
+    std::map<std::string, uint16_t> prefixMap(prefixes.begin(), prefixes.end());
+
+    result.suffixEncoder.initialize(prefixMap);
+
     std::vector<std::string> codeTable;
-    codeTable.reserve(result.suffixEncoder.prefixes.size() + 1);
+    codeTable.reserve(prefixes.size() + 1);
     size_t numCharacters = 0;
-    for (auto [str, codepoint]: result.suffixEncoder.prefixes) {
+    for (auto [str, codepoint]: prefixes) {
         if (codeTable.size() <= codepoint)
             codeTable.resize(codepoint + 1);
         codeTable.at(codepoint) = str;
@@ -55,7 +66,7 @@ TestCase load(const std::string & filename)
         //cerr << "code " << codepoint << " str " << str << endl;
     }
     cerr << "codeTable.size() = " << codeTable.size()
-         << " prefixes.size() = " << result.suffixEncoder.prefixes.size() << endl;
+         << " prefixes.size() = " << prefixes.size() << endl;
     result.suffixDecoder.charToPrefix.reserve(codeTable.size(), numCharacters);
 
     for (size_t i = 0;  i < codeTable.size();  ++i) {
@@ -75,8 +86,8 @@ static const std::string testDir = "mldb/plugins/tabular/testing/fixtures/";
 TEST_CASE("replay")
 {
     for (std::string filename: {
-            "st1/encode-decode-test-1.txt", /*"st1/encode-decode-test-2.txt", "st1/encode-decode-test-3.txt", "st1/encode-decode-test-4.txt",
-            "st2/encode-decode-test-1.txt", "st2/encode-decode-test-2.txt", "st2/encode-decode-test-3.txt", "st2/encode-decode-test-4.txt",
+            "st1/encode-decode-test-1.txt", /*"st1/encode-decode-test-2.txt", "st1/encode-decode-test-3.txt", "st1/encode-decode-test-4.txt",*/
+            /*"st2/encode-decode-test-1.txt", "st2/encode-decode-test-2.txt", "st2/encode-decode-test-3.txt", "st2/encode-decode-test-4.txt",
             "st2/encode-decode-test-5.txt", "st2/encode-decode-test-6.txt", "st2/encode-decode-test-7.txt",*/
              }) {
 
@@ -129,7 +140,7 @@ TEST_CASE("replay")
                     CHECK(s == capDec);
                 }
 
-#if 0
+#if 1
                 SECTION("with suffix encoding") {
                     cerr << endl << ansi::bold << "encoding: s = " << s << ansi::reset << endl;
                     bool debug = false;
@@ -138,7 +149,8 @@ TEST_CASE("replay")
                     std::string storage;
                     auto capEnc = encodeWithCapStyle(s, cap, storage);
 
-                    auto suffixEnc = testCase.suffixEncoder.encode(capEnc, debug);
+
+                    auto suffixEnc = testCase.suffixEncoder.encode(capEnc, nullptr, debug);
 
                     std::string encoded = testCase.entropyCoder.encode(suffixEnc, cap, debug);
                     cerr << "encoded " << s.size() << " chars into " << encoded.size() << endl;

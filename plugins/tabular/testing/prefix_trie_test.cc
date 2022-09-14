@@ -32,10 +32,27 @@ std::ostream & operator << (std::ostream & stream, const std::optional<T> & val)
 
 } // namespace std
 
-TEST_CASE("test rank and select")
+//TEST_CASE("test rank and select")
+//{
+//    CHECK(brank(0, {1U}) == 0);
+//    CHECK(brank(1, {3U}) == 1); 
+//}
+
+template<typename Str>
+void CHECK_LONGEST(const CharPrefixTrie & trie, Str&& s, uint32_t nn, uint32_t ll)
 {
-    CHECK(brank(0, {1U}) == 0);
-    CHECK(brank(1, {3U}) == 1); 
+    //cerr << "longest " << s << endl;
+    auto [n,l] = trie.longest(s);
+    CHECK(n == nn);
+    CHECK(l == ll);
+}
+
+void CHECK_NO_LONGEST(const CharPrefixTrie & trie, const char * s)
+{
+    //cerr << "no longest " << s << endl;
+    auto [n,l] = trie.longest(s);
+    CHECK(n == -1);
+    CHECK(l == 0);
 }
 
 TEST_CASE("test null table")
@@ -47,6 +64,7 @@ TEST_CASE("test null table")
     CHECK(memUsageIndirect(trie, {}) == 1);
     auto v = trie.get("hello");
     CHECK(v == std::nullopt);
+    CHECK_NO_LONGEST(trie, "");
 }
 
 TEST_CASE("test one null entry")
@@ -61,6 +79,9 @@ TEST_CASE("test one null entry")
     CHECK(trie.get("").value() == 0);
     auto v = trie.get("hello");
     CHECK(v == std::nullopt);
+
+    CHECK_LONGEST(trie, "", 0, 0);
+    CHECK_NO_LONGEST(trie, " ");
 }
 
 TEST_CASE("test one entry")
@@ -73,6 +94,11 @@ TEST_CASE("test one entry")
     CHECK(trie.get("hello") == 0);
     auto v = trie.get("world");
     CHECK(v == nullopt);
+
+    CHECK_NO_LONGEST(trie, "");
+    CHECK_NO_LONGEST(trie, "hell");
+    CHECK_LONGEST(trie, "hello", 0, 5);
+    CHECK_LONGEST(trie, "helloWORLD", 0, 5);
 }
 
 TEST_CASE("test two entries")
@@ -85,6 +111,13 @@ TEST_CASE("test two entries")
     CHECK(trie.get("hello") == 0);
     auto v = trie.get("world");
     CHECK(v == 1);
+
+    CHECK_NO_LONGEST(trie, "");
+    CHECK_NO_LONGEST(trie, "hell");
+    CHECK_LONGEST(trie, "hello", 0, 5);
+    CHECK_LONGEST(trie, "helloWORLD", 0, 5);
+    CHECK_LONGEST(trie, "world", 1, 5);
+    CHECK_LONGEST(trie, "worldWORLD", 1, 5);
 }
 
 TEST_CASE("test common prefix")
@@ -96,6 +129,10 @@ TEST_CASE("test common prefix")
     CHECK(trie.size() == 2);
     CHECK(trie.get("2") == 0);
     CHECK(trie.get("23") == 1);
+
+    CHECK_LONGEST(trie, "234", 1, 2);
+    CHECK_LONGEST(trie, "23", 1, 2);
+    CHECK_LONGEST(trie, "2", 0, 1);
 }
 
 TEST_CASE("test telescoping")
@@ -121,7 +158,7 @@ TEST_CASE("test large map")
     filter_istream stream("archive+file://mldb/plugins/tabular/testing/fixtures/words.zip#words.txt");
     std::map<std::string, uint16_t> s;
     int l = 0;
-    int n = 1000;
+    int n = 100000;
     while (stream) {
         std::string word;
         std::getline(stream, word);
@@ -146,5 +183,7 @@ TEST_CASE("test large map")
         CHECK(v2.value() < s.size());
         //cerr << "inserting " << k << " -> " << v2 << endl;
         CHECK(done.insert(v2.value()).second);
+
+        CHECK_LONGEST(trie, k, v2.value(), k.size());
     }
 }

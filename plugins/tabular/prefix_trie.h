@@ -250,6 +250,7 @@ private:
     using Base::dataLength;
     using NodeHeader = PrefixTrieNodeHeader;
     using StringViewType = std::basic_string_view<Ch>;
+    using StringType = std::basic_string<Ch>;
 
     template<typename T> const T * atOffset(uint32_t offset) const
     {
@@ -271,6 +272,27 @@ public:
         return this->getImpl(*atOffset<NodeHeader>(0), s);
     }
 
+    static constexpr std::pair<uint32_t, uint32_t> NO_LONGEST = { -1, 0 };
+
+    std::pair<uint32_t, uint32_t> longest(StringViewType s) const
+    {
+        return this->longestImpl(*atOffset<NodeHeader>(0), s);
+    }
+
+    /// Lookup all prefix matches in the trie
+    /// Parameters:
+    ///   s (input): string to look up
+    ///   res (output): array of nres pairs; first is trie node index, second is length matched
+    ///   nres (input): length of res array
+    ///
+    /// Returns:
+    ///   number of entries of res filled out (up to nres)
+    ///
+    /// If it returns nres, it's possible that the algorithm stopped due to lack of space for
+    /// writing the output.
+
+    size_t lookup(StringViewType s, std::pair<uint32_t, uint32_t> * res, size_t nres) const;
+
     size_t size() const
     {
         return this->size(*atOffset<NodeHeader>(0));
@@ -279,6 +301,13 @@ public:
     void dump(std::ostream & stream, size_t indent = 0) const
     {
         dumpImpl(*atOffset<NodeHeader>(0), stream, indent, 0 /* startAt */);
+    }
+
+    using VisitFn = std::function<void (StringViewType str, int)>;
+
+    void visit(const VisitFn & fn) const
+    {
+        visitImpl(*atOffset<NodeHeader>(0), fn, {} /* prefix */, 0 /* startAt */);
     }
 
 //private:
@@ -298,6 +327,29 @@ public:
     }
 
     template<typename Node>
+    static std::pair<uint32_t, uint32_t>
+    longestImpl(const Node & node, StringViewType s)
+    {
+        if (s.empty()) {
+            if (node.hasVal_)
+                return { 0, 0 };
+            else
+                return NO_LONGEST;
+        }
+
+        uint32_t n, l;
+
+        auto doNode = [&] (const auto & typedNode) { std::tie(n,l) = typedNode.longestImpl(s); };
+        MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, doNode(typedNode));
+
+        if (n == (uint32_t)-1 && node.hasVal_) {
+            return { 0, 0 };
+        }
+
+        return {n, l};
+    }
+
+    template<typename Node>
     static uint32_t size(const Node & node)
     {
         MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, return typedNode.size(); );
@@ -306,6 +358,11 @@ public:
     static void dumpImpl(const NodeHeader & node, std::ostream & stream, size_t indent, size_t startAt)
     {
         MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, typedNode.dumpImpl(stream, indent, startAt);  return);
+    }
+
+    static void visitImpl(const NodeHeader & node, const VisitFn & fn, StringViewType prefix, size_t startAt)
+    {
+        MLDB_PREFIX_TRIE_TYPE_SWITCH(node, typedNode, typedNode.visitImpl(fn, prefix, startAt);  return);
     }
 
     // Empty node, no sub-keys, may have a value
@@ -318,6 +375,12 @@ public:
             return std::nullopt;
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            return NO_LONGEST;
+        }
+
         size_t size() const { return hasVal_; }
 
         void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
@@ -327,6 +390,12 @@ public:
             if (hasVal_)
                 stream << " --> " << startAt;
             stream << std::endl;
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
+        {
+            if (hasVal_)
+                fn(prefix, startAt);
         }
 
         static auto & alloc(MappingContext & context, StringViewType prefix, bool hasValue)
@@ -357,6 +426,23 @@ public:
             return v.value() + sizes.at(c) + hasVal_;
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            if (s.empty())
+                return NO_LONGEST;
+            uint32_t c = s[0];
+            if (c >= offsets.size())
+                return NO_LONGEST;
+            auto ofs = offsets.at(c);
+            if (ofs == 0)
+                return NO_LONGEST;
+            auto [n,l] = PrefixTrieImpl::longestImpl(NodeHeader::template atOffset<NodeHeader>(ofs), s.substr(1));
+            if (n == -1)
+                return NO_LONGEST;
+            return { n + sizes.at(c) + hasVal_, l + 1 };
+        }
+
         size_t size() const
         {
             return sizes.back();
@@ -377,7 +463,7 @@ public:
         {
             using namespace std;
             std::string ind(indent, ' ');
-            stream << ind << "DENSE";
+            stream << ind << "DENSE size=" << offsets.size();
             if (hasVal_) {
                 stream << " --> " << startAt;
                 ++startAt;
@@ -395,6 +481,22 @@ public:
                        << " ofs " << ofs
                        << std::endl;
                 PrefixTrieImpl::dumpImpl(NodeHeader::template atOffset<NodeHeader>(ofs), stream, indent + 4, startAt + sz);
+            }
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
+        {
+            if (hasVal_)
+                fn(prefix, startAt);
+
+            for (uint32_t i = 0;  i < offsets.size();  ++i) {
+                auto ofs = offsets.at(i);
+                if (ofs == 0)
+                    continue;
+                auto sz = sizes.at(i);
+                StringType newPrefix{prefix};
+                newPrefix += Ch(i);
+                PrefixTrieImpl::visitImpl(NodeHeader::template atOffset<NodeHeader>(ofs), fn, newPrefix, startAt + hasVal_ + sz);
             }
         }
 
@@ -433,6 +535,25 @@ public:
             return hasVal_ + sz + v.value();
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            if (s.empty())
+                return NO_LONGEST;
+
+            uint32_t c = s[0];
+
+            auto beg = ch, end = ch + nch(), it = std::lower_bound(beg, end, c);
+            if (it == end || *it != c)
+                return NO_LONGEST;
+            uint32_t i = it - beg;
+            auto ofs = sizesAndOffsets.at(i * 2 + 1);
+
+            auto [n,l] = PrefixTrieImpl::longestImpl(NodeHeader::template atOffset<NodeHeader>(ofs), s.substr(1));
+            if (n == -1) return NO_LONGEST;
+            return { n + sizesAndOffsets.at(i * 2) + hasVal_, l + 1 };
+        }
+
         size_t size() const
         {
             return sizesAndOffsets.back();
@@ -460,6 +581,20 @@ public:
                         << " ofs " << ofs << " size " << sz
                         << std::endl;
                 PrefixTrieImpl::dumpImpl(NodeHeader::template atOffset<NodeHeader>(ofs), stream, indent + 4, startAt + sz);
+            }
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
+        {
+            if (hasVal_)
+                fn(prefix, startAt);
+
+            for (size_t i = 0;  i < nch();  ++i) {
+                auto sz = sizesAndOffsets.at(i * 2);
+                auto ofs = sizesAndOffsets.at(i * 2 + 1);
+                StringType newPrefix{ prefix };
+                newPrefix += ch[i];
+                PrefixTrieImpl::visitImpl(NodeHeader::template atOffset<NodeHeader>(ofs), fn, newPrefix, startAt + hasVal_ + sz);
             }
         }
 
@@ -495,6 +630,19 @@ public:
             return std::nullopt;
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            if (s.starts_with(getSuffix())) {
+                return { (uint32_t)hasVal_, len_ };
+            }
+            // Handled generically
+            //if (hasVal_)
+            //    return { 0, 0 };
+
+            return NO_LONGEST;
+        }
+
         size_t size() const
         {
             return 1 + hasVal_;
@@ -508,6 +656,15 @@ public:
                 stream << "--> " << startAt << ", ";
             stream << getSuffix() << " --> ";
             stream << startAt + hasVal_ << std::endl;
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
+        {
+            if (hasVal_)
+                fn(prefix, startAt);
+            StringType newPrefix{prefix};
+            newPrefix += getSuffix();
+            fn(newPrefix, startAt + hasVal_);
         }
 
         uint8_t len_;
@@ -535,7 +692,7 @@ public:
         }
     };
 
-    // A chunk of prefix followed by a single value
+    // A chunk of prefix followed by another node
     struct PrefixNode: public NodeHeader {
         using NodeHeader::atOffset;
 
@@ -552,6 +709,17 @@ public:
             return v.value() + hasVal_;
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            if (!s.starts_with(getPrefix()))
+                return NO_LONGEST;
+            auto [n,l] = PrefixTrieImpl::longestImpl(getNode(), s.substr(len_));
+            if (n == -1)
+                return NO_LONGEST;
+            return { n + hasVal_, l + len_ };
+        }
+
         size_t size() const
         {
             return hasVal_ + PrefixTrieImpl::size(getNode());
@@ -565,6 +733,16 @@ public:
                 stream << "--> " << startAt;
             stream << std::endl;
             PrefixTrieImpl::dumpImpl(getNode(), stream, indent + 4, startAt + hasVal_);
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
+        {
+            if (hasVal_)
+                fn(prefix, startAt);
+            
+            StringType newPrefix{prefix};
+            newPrefix += getPrefix();
+            PrefixTrieImpl::visitImpl(getNode(), fn, newPrefix, startAt + hasVal_);
         }
 
         uint8_t len_;
@@ -623,6 +801,30 @@ public:
             return std::nullopt;
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            if (s.empty())
+                return NO_LONGEST;
+
+            // Find the lower bound
+            auto it = std::lower_bound(begin(), end(), s);
+
+            // Adjust as strings with a suffix will find a lower bound after their prefixes
+            while (it != begin() && s.starts_with(*std::prev(it)))
+                --it;
+
+            uint32_t n = -1;
+            uint32_t l = 0;
+            while (it != end() && s.starts_with(*it)) {
+                n = it.position() + hasVal_;
+                l = (*it).length();
+                ++it;
+            }
+
+            return { n, l };
+        }
+
         size_t size() const { return hasVal_ + numLeaves_; }
 
         uint8_t getLeafOffset(uint32_t n) const
@@ -657,17 +859,29 @@ public:
 
         void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
         {
-            std::string i(indent, ' ');
-            stream << i << "LEAVES (" << (int)numLeaves_ << ")";
+            std::string idt(indent, ' ');
+            stream << idt << "LEAVES size=" << (int)numLeaves_;
             if (hasVal_) {
                 stream << " --> " << startAt;
                 ++startAt;
             }
             stream << std::endl;
             for (size_t i = 0;  i < numLeaves_;  ++i) {
-                stream << i << "    " << get(i) << " --> " << startAt + i << std::endl;
+                stream << idt << "    " << get(i) << " --> " << startAt + i << std::endl;
             }
             stream << std::endl;
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
+        {
+            if (hasVal_)
+                fn(prefix, startAt);
+
+            for (size_t i = 0;  i < numLeaves_;  ++i) {
+                StringType newPrefix{prefix};
+                newPrefix += get(i);
+                fn(newPrefix, startAt + hasVal_ + i);
+            }
         }
 
         static auto & alloc(MappingContext & context, std::basic_string_view<Ch> prefix,
@@ -697,6 +911,12 @@ public:
             MLDB_THROW_UNIMPLEMENTED();
         }
 
+        std::pair<uint32_t, uint32_t>
+        longestImpl(StringViewType s) const
+        {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+
         size_t size() const { return hasVal_ + numLeaves_; }
 
         const Ch * getLeafData() const
@@ -710,6 +930,11 @@ public:
         }
 
         void dumpImpl(std::ostream & stream, size_t indent, size_t startAt) const
+        {
+            MLDB_THROW_UNIMPLEMENTED();
+        }
+
+        void visitImpl(const VisitFn & fn, StringViewType prefix, size_t startAt) const
         {
             MLDB_THROW_UNIMPLEMENTED();
         }
@@ -910,7 +1135,7 @@ construct_trie_node(MappingContext & context, std::basic_string_view<Ch> prefix,
 
     auto getCh = [&] () -> uint32_t { return first->first.at(prefixLen); };
 
-    if (true) {
+    if (false) {  // Succinct nodes not yet ready
         auto & node = CharPrefixTrie::SuccinctNode::alloc(context, prefix, val.has_value(), first, last);
         size_t startOffset = context.getOffset(&node);
         MLDB_THROW_UNIMPLEMENTED();

@@ -85,24 +85,25 @@ struct RangeCoder64 {
         static void printHeader()
         {
             using namespace std;
-            cerr << ansi::cyan << ansi::underline << format("Num Low                High               Range              Code               EOF                Ch C   Low  High   Rng Encoded") << ansi::reset << endl;
+            cerr << ansi::cyan << ansi::underline << format("Num Low                High               Range              Code               EOF                ChHx ChInt   Low  High   Rng Encoded In -> Out") << ansi::reset << endl;
         }
 
-        void print() const
+        void print(std::function<std::string (int)> printCh) const
         {
             using namespace std;
 
             auto [High, carry] = calcHigh();
 
-            cerr << ansi::cyan << format("%03d %05x.%012llx %05x.%012llx %05x.%012llx %05x.%012llx %05x.%012llx %02x %c %05x %05x %05x %05x",
+            cerr << ansi::cyan << format("%03d %05x.%012llx %05x.%012llx %05x.%012llx %05x.%012llx %05x.%012llx %04x %5i %05x %05x %05x %05x",
                                         n,
                                         whole(Low), frac(Low),
                                         whole(High, carry), frac(High),
                                         whole(Range, carry), frac(Range),
                                         whole(Code), frac(Code),
                                         whole(Eof), frac(Eof),
-                                        (unsigned char)c, (isprint(c) ? c : ' '), SymbolLow, Symbol, SymbolHigh, SymbolRange)
+                                        (uint16_t)c, c, SymbolLow, Symbol, SymbolHigh, SymbolRange)
                 << ansi::reset;
+            cerr << " " << printCh(c) << " ->";
             for (unsigned char c: encoded) {
                 cerr << format(" %02x", c);
             }
@@ -274,6 +275,38 @@ struct RangeEncoder64: public RangeCoder64 {
         //debug = true;
 
         //uint64_t Eof = 0;
+
+#if 0
+        auto [High, carry] = calcHigh();
+
+        while (Low > 0) {
+            uint64_t candidate = Low & ((1ULL << 56)-1);
+            if (candidate < Low && candidate < (255ULL << 56)) {
+                candidate += (1 << 56);
+            }
+            ExcAssert(candidate >= Low);
+
+            if (!carry && candidate >= High) {
+
+            }
+
+            while (candidate) {
+                write(candidate >> 56);
+                candidate << 8;
+            }
+
+            uint32_t cLow = Low >> 56;
+            uint32_t cHigh = High >> 56;
+            if (cLow + 1 < cHigh) {
+                write(cLow + 1);
+                return;
+            }
+            write(cLow);
+            Low << 8;
+
+            if 
+        }
+#endif
 
         if (debug) {
             std::cerr << ansi::red << "flushing EOF ... EOF is 0 to " << hex << eofHigh << " of " << maxRange << dec << ansi::reset << std::endl;

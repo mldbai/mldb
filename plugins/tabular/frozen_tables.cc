@@ -718,7 +718,8 @@ freeze(MappedSerializer & serializer)
     std::shared_ptr<StringTransducer> forward, reverse;
     
     if (stats.totalBytes > 10000000 // 10MB
-        && bytesPerEntry > 64) {
+        && bytesPerEntry > 64
+        && true) {
         //cerr << "zstd transducer" << endl;
         std::tie(forward, reverse)
             = ZstdStringTransducer::train(blobs, serializer);

@@ -15,6 +15,7 @@
 #include <numeric>
 #include "range_coder.h"
 #include "string_table_iterator.h"
+#include "prefix_trie.h"
 #include "mldb/base/exc_assert.h"
 #include <mutex>
 #include <iomanip>
@@ -136,6 +137,11 @@ struct CapStyleEncoder {
     }
 };
 
+struct Lz4Codec {
+    static std::string encode(std::string_view str);
+    static std::string decode(std::string_view encoded);
+};
+
 template<typename Base>
 struct SuffixDecoderImpl: public Base {
 
@@ -168,23 +174,18 @@ struct SuffixDecoder: public SuffixDecoderImpl<SuffixDecoderBase> {};
 extern template struct SuffixDecoderImpl<SuffixDecoderBase>;
 
 struct SuffixEncoder {
-    SuffixEncoder() = default;
 
-    SuffixEncoder(const SuffixEncoder & other)
-        : prefixes(other.prefixes)
-    {
-    }
+    void initialize(const std::map<std::string, uint16_t> & retainedPrefixes);
 
-    SuffixEncoder(SuffixEncoder && other)
-        : prefixes(std::move(other.prefixes))
-    {
-    }
+    CharPrefixTrie trie;
+    std::vector<uint16_t> vals;
 
-    std::map<std::string, uint16_t> prefixes;
-    mutable std::unordered_map<std::string, std::u16string> prefixCache;
-    mutable std::mutex prefixCacheMutex;
+    struct Cache {
+        std::unordered_map<std::string, std::u16string> prefixCache;
+        std::mutex prefixCacheMutex;
+    };
 
-    std::u16string encode(std::string_view str, bool debug = false) const;
+    std::u16string encode(std::string_view str, Cache * cache, bool debug = false) const;
 
     size_t memUsageIndirect(const MemUsageOptions & opt) const;
 };
@@ -395,7 +396,7 @@ struct EntropyEncoderDecoderImpl: public Base {
             encoder.flushEof(writeChar, characterCodes.codeRanges.at(1), characterCodes.range(), debug, trace);
         }
 
-        return encoded;
+        return encoded; //Lz4Codec::encode(encoded);
     }
 
     size_t memUsageIndirect(const MemUsageOptions & opt) const
