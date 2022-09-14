@@ -11,11 +11,43 @@
 #include <sstream>
 #include <array>
 #include <fstream>
+#include <unordered_set>
 #include "mldb/types/value_description.h"
 #include "mldb/types/map_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/vfs/compressor.h"
+
+using namespace std;
 
 namespace MLDB {
+
+std::string Lz4Codec::encode(std::string_view str)
+{
+    std::string result;
+    result.reserve(str.size());
+    auto onData = [&] (const char * c, size_t n)
+    {
+        result.append(c, n);
+        return n;
+    };
+    auto compressor = Compressor::create("lz4", 5);
+    compressor->compress(str.data(), str.size(), onData);
+    return result;
+}
+
+std::string Lz4Codec::decode(std::string_view str)
+{
+    std::string result;
+    result.reserve(str.size());
+    auto onData = [&] (const char * c, size_t n)
+    {
+        result.append(c, n);
+        return n;
+    };
+    auto decompressor = Decompressor::create("lz4");
+    decompressor->decompress(str.data(), str.size(), onData);
+    return result;
+}
 
 template struct StringTableT<char, std::string, std::string_view>;
 template struct StringTableT<char16_t, std::u16string, std::u16string_view>;
@@ -132,7 +164,28 @@ struct CapStyleFilter {
     }
 };
 
-std::u16string SuffixEncoder::encode(std::string_view str, bool debug) const
+void SuffixEncoder::initialize(const std::map<std::string, uint16_t> & retainedPrefixes)
+{
+    trie = construct_trie(retainedPrefixes);
+    ExcAssertEqual(trie.size(), retainedPrefixes.size());
+    vals.resize(retainedPrefixes.size(), -1);
+
+    for (auto & [s,ch]: retainedPrefixes) {
+        auto optn = trie.get(s);
+        ExcAssert(optn.has_value());
+        auto n = optn.value();
+        ExcAssertGreaterEqual(n, 0);
+        ExcAssertLess(n, retainedPrefixes.size());
+        ExcAssertEqual(vals[n], (uint16_t)-1);
+        vals[n] = ch;
+    }
+
+    //for (auto & [s,ch]: retainedPrefixes) {
+    //    cerr << s << " -> " << ch << endl;
+    //}
+}
+
+std::u16string SuffixEncoder::encode(std::string_view str, Cache * cache, bool debug) const
 {
     using namespace std;
 
@@ -145,83 +198,41 @@ std::u16string SuffixEncoder::encode(std::string_view str, bool debug) const
         return result;
     }
 
-    // Divide and conquer.  Look at all ways we can split into two, take the shortest one
-    if (str.length() <= 1)
-        return u16string(str.begin(), str.end());
-
-    std::string sstr(str);
-    auto it = prefixes.lower_bound(sstr);
-    if (it != prefixes.end()) {
-        if (sstr == it->first) {
-            return { it->second };
-        }
-    }
-
-    {
-        std::unique_lock<std::mutex> guard(prefixCacheMutex);
-        auto it = prefixCache.find(sstr);
-        if (it != prefixCache.end()) {
-            return it->second;
-        }
-    }
-
     u16string best;
+    best.reserve(str.size());
 
-    // Does it match one of our prefixes?
-    auto prefixLen = [&] (const std::string & prefix) -> size_t
-    {
-        size_t n = std::min(str.size(), prefix.size());
-        for (size_t i = 0;  i < n;  ++i) {
-            if (prefix[i] != str[i])
-                return i;
-        }
-        return n;
-    };
-
-    if (it != prefixes.begin()) {
-        --it;
-        auto len = prefixLen(it->first);
-        if (len == it->first.size()) {
-            //cerr << "** prefix match " << it->first << " len " << len << endl;
-            best = char16_t(it->second) + encode(str.substr(len), debug);
-        }
-    }
-
-    if (best.empty() && str.size() > 512) {
-        // Extremely long string; divide and conquer
-        auto split = str.size() / 2;
-        best = encode(str.substr(0, split), debug) + encode(str.substr(split), debug);
-    }
-    else if (best.empty() && str.size() > 16) {
-        best = u16string{ (char16_t)str[0] } + encode(str.substr(1), debug);
-    }
-    else if (best.empty()) {
-
-        for (size_t position = 1;  position < str.length();  ++position) {
-
-            //cerr << "splitting " << str << " into " << str.substr(0, position) << " and " << str.substr(position) << endl;
-
-            u16string first = encode(str.substr(0, position), debug);
-            u16string rest = encode(str.substr(position), debug);
-
-            //cerr << "str " << str << " position " << position << " first " << first << " rest " << rest << endl;
-
-            if (best.empty() || first.length() + rest.length() < best.length()) {
-                best = first;
-                best += rest;
+    // We greedily take the longest match at each position
+    size_t pos = 0;
+    
+    while (pos < str.size()) {
+        // Get the longest suffix
+        auto [n, length] = trie.longest(str.substr(pos));
+        if (length == 0) {
+            cerr << "pos = " << pos << endl;
+            cerr << "str.size() = " << str.size() << endl;
+            cerr << "str[pos] = " << str[pos] << endl;
+            cerr << "str = " << str << endl;
+            cerr << "n = " << n << endl;
+            cerr << "best = ";
+            for (auto c: best) {
+                cerr << (int)c << " "; 
             }
+            cerr << endl;
+            trie.dump(cerr);
+            MLDB_THROW_LOGIC_ERROR("No suffix found at all");
         }
+        if (pos + length > str.size())
+            MLDB_THROW_LOGIC_ERROR("Found suffix was too long");
+        best.push_back(vals.at(n));
+        pos += length;
     }
-
-    std::unique_lock<std::mutex> guard(prefixCacheMutex);
-    prefixCache[sstr] = best;
 
     return best;
 }
 
 size_t SuffixEncoder::memUsageIndirect(const MemUsageOptions & opt) const
 {
-    return memUsageIndirectMany(opt, prefixes);
+    return memUsageIndirectMany(opt, trie, vals);
 }
 
 template struct SuffixDecoderImpl<SuffixDecoderBase>;
@@ -235,7 +246,65 @@ struct SuffixFilter {
         initialize(strings);
     }
 
-    using PrefixMap = std::vector<std::pair<std::string_view, uint32_t>>;
+    SuffixEncoder::Cache prefixCache;
+
+    using PrefixMap = std::vector<std::pair<std::string, uint32_t>>;
+
+    // Takes a sorted list of prefixes to keep, and turns them into a mapping onto character
+    // codes.  The EOF code is always at zero and single character prefixes are mapped to the
+    // identity.
+    // Returns retainedPrefixes and prefixToCode
+    static
+    std::pair<std::map<std::string, uint16_t>,
+              std::vector<std::string>>    
+    mapPrefixes(const std::vector<std::string> & keptPrefixes)
+    {
+        // Start with EOF
+        static const std::string EOFSTR = { '\0' };
+        std::map<std::string, uint16_t> retainedPrefixes = { { EOFSTR, 0} };
+        std::vector<std::string> prefixToCode = { EOFSTR };
+
+        // Maximum possible size; will be reduced later
+        prefixToCode.resize(keptPrefixes.size() + 256);
+
+        // First assign single characters to their code points
+        int maxC = -1;
+        for (size_t i = 0;  i < keptPrefixes.size();  ++i) {
+            const std::string & prefix = keptPrefixes[i];
+            if (prefix.empty()) {
+                if (i != 0)
+                    MLDB_THROW_LOGIC_ERROR("empty prefix in wrong place");
+            }
+            else if (prefix.size() == 1) {
+                unsigned char c = prefix[0];
+                if (c == 0 && i == 0)
+                    continue;
+                ExcAssertNotEqual(c, 0);
+                retainedPrefixes[prefix] = c;
+                prefixToCode[c] = prefix;
+                maxC = std::max<int>(maxC, c);
+            }
+        }
+
+        // Finally assign the other prefixes to gaps or at the end
+        int n = 1;
+        for (size_t i = 0;  i < keptPrefixes.size();  ++i) {
+            const std::string & prefix = keptPrefixes[i];
+            if (prefix.size() < 2)
+                continue;
+            while (!prefixToCode[n].empty()) {
+                ++n;
+            }
+            prefixToCode[n] = prefix;
+            retainedPrefixes[prefix] = n;
+
+            ++n;
+        }
+
+        prefixToCode.resize(std::max(maxC + 1, n));
+
+        return { std::move(retainedPrefixes), std::move(prefixToCode) };
+    }
 
     std::pair<std::map<std::string, uint16_t>,
               std::vector<std::string>>
@@ -254,23 +323,26 @@ struct SuffixFilter {
 
         std::vector<size_t> characterCounts(256);
 
+        // Get the character distribution
         for (unsigned char c: suffixes.str) {
             characterCounts[c] += 1;
         }
 
+        // And the character priors
         std::vector<double> characterPriors(256);
         for (int c = 0;  c < 256;  ++c) {
             characterPriors[c] = 1.0 * characterCounts[c]  / totalCharacters;
-            if (characterPriors[c] * 100.0 >= 1.0) {               cerr << "character " << (char)c << " has prior " << format("%6.2f%%", characterPriors[c] * 100.0)  << endl;
+            if (characterPriors[c] * 100.0 >= 1.0) {
+                cerr << "character " << (char)c << " has prior " << format("%6.2f%%", characterPriors[c] * 100.0)  << endl;
             }
         }
 
         PrefixMap prefixCounts = prefixCountsIn;
 
-        std::unordered_set<std::string_view> excludedPrefixes;
+        std::unordered_set<std::string> excludedPrefixes;
 
         // How many characters we could save using this prefix
-        auto scorePrefix = [&] (std::string_view prefix, int count) -> double
+        auto scorePrefix = [&] (const std::string & prefix, int count) -> double
         {
             if (prefix == "" || count < MIN_COUNT || excludedPrefixes.count(prefix))
                 return -INFINITY;
@@ -328,7 +400,7 @@ struct SuffixFilter {
         };
 
         cerr << "scoring " << prefixCounts.size() << " prefixes" << endl;
-        std::vector<std::tuple<double, std::string_view, int> > prefixScores;
+        std::vector<std::tuple<double, std::string, int> > prefixScores;
         
         for (auto & [prefix,count]: prefixCounts) {
             if (prefix.size() < MIN_LENGTH || count < MIN_COUNT || excludedPrefixes.count(prefix))
@@ -347,34 +419,32 @@ struct SuffixFilter {
         for (int round = 0;  true;  ++round) {
 
 #if 1
-            cerr << "round " << round << endl;
+            cerr << "round " << round << " prefixScores.size() = " << prefixScores.size() << endl;
             for (int i = 0;  i < prefixScores.size() && i < 200;  ++i) {
                 auto & [score, prefix, count] = prefixScores[i];
-                if (true /*trace*/ && prefix.length() > 1) {
-                    cerr << "prefix " << i << ": " << score << " " << prefix << " " << count << endl;
+                if (trace && prefix.length() == 1) {
+                    cerr << "char " << i << ": " << score << " " << prefix << " " << count << endl;
+                }
+            }
+            cerr << endl;
+
+            for (int i = 0;  i < prefixScores.size() && i < 200;  ++i) {
+                auto & [score, prefix, count] = prefixScores[i];
+                if (trace && prefix.length() > 1) {
+                    cerr << "prefix \t" << i << ": " << score << " \t" << prefix << " \t" << count << endl;
                 }
             }
 #endif
 
+            // Accumulate a list of prefixes to keep
+            std::vector<std::string> toKeep;
+            toKeep.reserve(prefixScores.size() + 256);
 
-            std::map<std::string, uint16_t> retainedPrefixes;
-            std::vector<std::string> charToPrefix;
-
-            // First 256 code points map directly onto the same byte, unless the byte is not present in which
-            // case we record it as a gap and replace it with something better
-
-            std::vector<size_t> gaps;
-            uint16_t maxCode = 0;
-
+            // We keep all the characters
             for (unsigned i = 0;  i < 256;  ++i) {
                 if (i == 0 || characterCounts[i] > 0) {
-                    while (charToPrefix.size() < i) {
-                        gaps.push_back(charToPrefix.size());
-                        charToPrefix.push_back("");
-                    }
-                    ExcAssert(charToPrefix.size() == i);
-                    charToPrefix.emplace_back(std::string({(char)i}));
-                    maxCode = i;
+                    std::string s({(char)i});
+                    toKeep.emplace_back(s);
                 }
             }
 
@@ -384,46 +454,40 @@ struct SuffixFilter {
             // - Encode an extra 16 bits in the ranges table
             // - Encode the prefix itself in the string table, with an offset of around 16 bits and its bytes
 
-            // Retained prefixes fit into unused characters (for now)
-            size_t gapNumber = 0;
-            for (size_t i = 0;  i < prefixScores.size() && maxCode < 1024;  ++i) {
+            for (size_t i = 0;  i < prefixScores.size() && toKeep.size() < 1024;  ++i) {
                 auto & [score, prefix, count] = prefixScores[i];
                 if (score < 32 + 8 * prefix.length()) {
                     // Not worth adding this prefix
                     continue;
                 }
-                uint16_t code = (gapNumber < gaps.size() ? gaps[gapNumber++] : charToPrefix.size());
-                maxCode = std::max<uint32_t>(maxCode, code);
 
                 if (trace) {
-                    cerr << "  retained prefix " << prefix << " with score " << score << " at code point " << code << endl;
+                    cerr << "  retained prefix " << prefix << " with score " << score << endl;
                 }
 
-                retainedPrefixes[std::string(prefix)] = code;
-                if (code < charToPrefix.size()) {
-                    charToPrefix[code] = prefix;
-                }
-                else {
-                    ExcAssert(code == charToPrefix.size());
-                    charToPrefix.emplace_back(prefix);
-                }
-
-                ExcAssert(charToPrefix.at(code) == prefix);
+                toKeep.emplace_back(prefix);
             }
 
-            cerr << "maxCode = " << maxCode << " charToPrefix.size() = " << charToPrefix.size() << endl;
-            if (charToPrefix.size() > maxCode + 1) {
-                charToPrefix.resize(maxCode + 1);
+            // Map to character codes
+            auto [ retainedPrefixes, charToPrefix] = mapPrefixes(toKeep);
+
+            if (round == 3) {
+                for (size_t i = 0;  i < charToPrefix.size();  ++i) {
+                    cerr << "char " << i << " prefix " << charToPrefix[i] << endl;
+                }
+
+                return { std::move(retainedPrefixes), std::move(charToPrefix) };
             }
 
             // Now let's see how may times they are actually used
             SuffixEncoder encoder;
-            encoder.prefixes = retainedPrefixes;
+
+            encoder.initialize(retainedPrefixes);
 
             std::vector<int> realCounts(charToPrefix.size() + 1);
 
             for (std::string_view s: table) {
-                auto encoded = encoder.encode(s);
+                auto encoded = encoder.encode(s, &prefixCache);
                 for (uint16_t c: encoded) {
                     if (c >= realCounts.size()) {
                         cerr << "character " << c << " size " << realCounts.size() << endl;
@@ -440,12 +504,12 @@ struct SuffixFilter {
             prefixScores.clear();
 
             for (size_t i = 0;  i < retainedPrefixes.size();  ++i) {
-                std::string_view prefix = charToPrefix[i];
+                const std::string & prefix = charToPrefix[i];
                 if (i == 0 || prefix.empty())
                     continue;
                 if (realCounts[i] > MIN_COUNT || prefix.size() == 1) {
                     auto newScore = scorePrefix(prefix, realCounts[i]);
-                    if (newScore > 0 && prefix.size() > 1) {
+                    if (newScore > 0 && prefix.size() > 1 && trace) {
                         cerr << "prefix " << i << " " << prefix
                             /*<< " expected count " << expectedCount*/
                             << " real count " << realCounts[i]
@@ -461,17 +525,6 @@ struct SuffixFilter {
                         continue;
                     }
                 }
-
-                charToPrefix[i] = "";
-                retainedPrefixes.erase(std::string(prefix));
-                excludedPrefixes.insert(prefix);
-            }
-
-            if (round == 2) {
-                for (size_t i = 0;  i < charToPrefix.size();  ++i) {
-                    cerr << "char " << i << " prefix " << charToPrefix[i] << endl;
-                }
-                return { retainedPrefixes, charToPrefix };
             }
 
             prefixCounts = std::move(newPrefixCounts);
@@ -502,7 +555,8 @@ struct SuffixFilter {
 
         writeTime("suffix array");
 
-        auto prefixCounts = countPrefixes(suffixes, 64 /* max len */);
+        auto prefixCountsIn = countPrefixes(suffixes, 64 /* max len */);
+        SuffixFilter::PrefixMap prefixCounts(prefixCountsIn.begin(), prefixCountsIn.end());
 
         writeTime("prefix counts");
 
@@ -515,15 +569,19 @@ struct SuffixFilter {
             charToPrefix.add(s);
         }
 
-        encoder.prefixes = retainedPrefixes;
+        encoder.initialize(retainedPrefixes);
         decoder = { { { charToPrefix } } };
     
         strings.reserve(table.size(), table.characters());
 
         for (std::string_view s: table) {
-            auto encoded = encoder.encode(s);
+            auto encoded = encoder.encode(s, &prefixCache);
             strings.add(encoded);
         }
+
+        ExcAssertEqual(strings.size(), table.size());
+
+        cerr << "encoded " << table.characters() << " 8 bit chars to " << strings.characters() << " 16 bit characters" << endl;
     }
 
     StringTable16 strings;
@@ -635,7 +693,9 @@ struct EntropyCodeFilter {
 
         for (size_t i = 0;  i < table.size();  ++i) {
             std::string storage;
-            auto encoded = encoder.encode(table.get(i), capStyles[i]);
+            auto encoded = encoder.encode(table.get(i), capStyles[i], false /* debug */);
+            //cerr << "encoded " << i << " with " << table.get(i).size() << " 16 bit characters to "
+            //     << encoded.size() << " 8 bit entropy encoded characters" << endl;
             strings.add(encoded);
         }
     }
@@ -647,6 +707,7 @@ struct EntropyCodeFilter {
 OptimizedStringTable optimize_string_table(const StringTable & table)
 {
     using namespace std;
+    bool trace = false;
 
     // 1.  Analyze the capitalization, creating decapitalized strings
     //     and removing redundancy from capitalization patterns
@@ -670,6 +731,21 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
     //     character patterns
     EntropyCodeFilter entropyFilter(compactedStrings, capStyles);
 
+    if (trace) {
+        for (int i = 0;  i < suffixFilter.decoder.charToPrefix.size();  ++i) {
+            auto prefix = suffixFilter.decoder.charToPrefix.get(i);
+            auto range = entropyFilter.encoder.characterCodes.codeRanges[i];
+            cerr << "char " << i << " prefix " << prefix << " length " << prefix.length() << " range " << range << endl;
+            if (i != 0) {
+                if (prefix == "" && suffixFilter.decoder.charToPrefix.size() > 256) {
+                    cerr << "EMPTY PREFIX" << endl;
+                    ExcAssertNotEqual(prefix, "");
+                }
+            }
+        }
+    }
+
+
     OptimizedStringTable result;
     result.encoded = entropyFilter.strings;
     result.capDecoder = capFilter.decoder;
@@ -679,6 +755,7 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
     cerr << "Encoding results: input   size      " << table.characters() << endl;
     cerr << "                  cap enc size      " << decapitalizedStrings.characters() << endl;
     cerr << "                  suffix enc size   " << compactedStrings.characters() << endl;
+    //cerr << "                  lz4 size          " << compressedStrings.characters() << endl;
     cerr << "                  final size        " << entropyFilter.strings.characters() << endl;
     cerr << "                  memusage before   " << memUsage(table) << endl;
     cerr << "                  memusage after    " << memUsage(result) << endl;
@@ -701,7 +778,7 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
                 std::ostringstream s;
                 s << str << "\t";
                 for (auto c: str) {
-                    s << hex << setw(2 * sizeof(c)) << (unsigned char)c << setw(0) << " " << dec;
+                    s << hex << setw(2 * sizeof(c)) << (std::make_unsigned_t<decltype(c)>)c << setw(0) << " " << dec;
                 }
                 return s.str();
             };
@@ -717,10 +794,32 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
                 cerr << "entropyDecoded= " << dump(entropyFilter.decoder.decode(entropyFilter.strings.get(i)).second) << endl;
                 cerr << "fullyEncoded  = " << dump(entropyFilter.strings.get(i)) << endl;
                 cerr << "reconstituted = " << dump(s2) << endl;
+
+                std::vector<RangeCoder64::TraceEntry> trace;
+
+                bool debug = false;
+                std::string encoded = entropyFilter.encoder.encode(compactedStrings.get(i), capStyles[i], debug, &trace);
+
+                bool dumpTrace = true;
+
+                if (dumpTrace) {
+                    suffixFilter.encoder.trie.dump(cerr);
+                    for (size_t i = 0;  i < suffixFilter.encoder.vals.size();  ++i) {
+                        cerr << i << " -> " << suffixFilter.encoder.vals[i] << endl;
+                    }
+                    RangeCoder64::TraceEntry::printHeader();
+                    for (auto & e: trace) {
+                        auto printCh = [&] (int c) -> std::string { return c == EOF ? "EOF" : string{ suffixFilter.decoder.charToPrefix.get(c) }; };
+                        e.print(printCh);
+                    }
+                }
+
+
                 cerr << endl;
             }
 
             errorStrings.push_back(string(s1));
+            abort();
         }
 
         if (!errorStrings.empty()) {
@@ -729,7 +828,17 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
             static int testCaseNum = 0;
             std::string testCaseFileName = "encode-decode-test-" + std::to_string(++testCaseNum) + ".txt";
             std::ofstream testCaseFile(testCaseFileName);
-            testCaseFile << jsonEncodeStr(suffixFilter.encoder.prefixes) << endl;
+            testCaseFile << "[";
+            bool first = true;
+            auto writePrefix = [&] (std::string_view prefix, int val)
+            {
+                if (!first) testCaseFile << ",";
+                else first = false;
+                
+                testCaseFile << "[" << Json::Value(string{prefix}).toStringNoNewLineUtf8() << "," << suffixFilter.encoder.vals[val] << "]";
+            };
+            suffixFilter.encoder.trie.visit(writePrefix);
+            testCaseFile << "]" << endl;
             //for (auto [prefix, ch]: suffixFilter.encoder.prefixes)
             //    testCaseFile << "  " << prefix << " " << (uint32_t)ch << endl;
 

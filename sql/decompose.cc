@@ -274,7 +274,6 @@ Decomposition::apply(SqlRowScope & row,
         else {
             // We don't own the output, so we need to copy
             // things before we record them.
-            
             auto recordAtom = [&] (const Path & columnName_,
                                 const Path & prefix,
                                 const CellValue & value,

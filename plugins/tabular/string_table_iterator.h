@@ -22,6 +22,7 @@ struct StringTableIterator {
     auto operator <=> (const StringTableIterator & other) const = default;
 
     StringTableIterator & operator++() { pos += 1; return *this; }
+    StringTableIterator & operator--() { pos -= 1; return *this; }
     StringTableIterator & operator += (int n) { pos += n;  return *this; }
     StringTableIterator & operator -= (int n) { pos -= n;  return *this; }
 
