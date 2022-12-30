@@ -53,9 +53,9 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
 
     auto jsPutResult = putResult.jsonBody();
     cerr << "jsPutResult = " << jsPutResult << endl;
-    BOOST_CHECK_EQUAL(jsPutResult["details"]["message"].asString(), "Uncaught SyntaxError: Unexpected identifier");
-
     BOOST_CHECK_EQUAL(putResult.code(), 400);
+    BOOST_CHECK_EQUAL(jsPutResult["details"]["message"].asString().find("Uncaught SyntaxError: Unexpected identifier"), 0);
+
 
     auto status = jsonDecode<PolyStatus>(proxy.get("/v1/plugins/jsplugin_nocompile").jsonBody());
 
