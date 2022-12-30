@@ -86,6 +86,7 @@ struct SubprocessMldbRunner {
         messageLoop.start();
 
         vector<string> command = { binDir + "/mldb_runner",
+                                   "-h", "127.0.0.1",
                                    "--credentials-path",
                                    path,
                                    "-p", "13345"};

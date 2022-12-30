@@ -131,15 +131,26 @@ protected:
        "true". */
     virtual bool shouldReturn100Continue(const HttpHeader & header);
 
+#if 0 // for later
+    /* Overridable method used to report an error.  The default simply
+       ignores it, as the connection will eventually be closed anyway
+       and errors may come from the sending side. */
+    virtual void onReceiveError(const boost::system::error_code & ec, size_t bufferSize) override;
+
+    /* Callback used to report an exception in the processing.  This function
+       should not throw as that will simply cause the process to terminate. */
+    virtual void onException(std::exception_ptr exc) override;
+#endif // for later
+
 private:
     virtual void onRequestStart(const char * methodData, size_t methodSize,
                                 const char * urlData, size_t urlSize,
                                 const char * versionData,
                                 size_t versionSize);
-    virtual void onHeader(const char * data, size_t dataSize);
-    virtual bool onExpect100Continue();
-    virtual void onData(const char * data, size_t dataSize);
-    virtual void onDone(bool requireClose);
+    virtual void onHeader(const char * data, size_t dataSize) override;
+    virtual bool onExpect100Continue() override;
+    virtual void onData(const char * data, size_t dataSize) override;
+    virtual void onDone(bool requireClose) override;
 
     void handleExpect100Continue();
 

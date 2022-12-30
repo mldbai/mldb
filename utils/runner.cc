@@ -311,6 +311,7 @@ attemptTaskTermination()
 
         if (stdInSink_) {
             stdInSink_.reset();
+            stdInSink_ = nullptr;
         }
 
         endDate_ = Date::now();

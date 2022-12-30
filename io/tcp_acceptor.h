@@ -62,13 +62,17 @@ struct TcpAcceptor {
        purpose only. */
     void associate(std::shared_ptr<TcpSocketHandler> handler);
 
-    /* Dissociate and the given handler. For internal purpose only. */
-    void dissociate(TcpSocketHandler * handler);
+    /* Dissociate and the given handler. For internal purpose only.  Returns
+       whether it was found and dissociated or not. */
+    bool dissociate(TcpSocketHandler * handler);
 
     /* Associate and retain ownership of the given handler. For internal
-       purpose only. */
-    std::shared_ptr<TcpSocketHandler> findHandlerPtr(TcpSocketHandler
-                                                     * handler) const;
+       purpose only.   Throws if not found. */
+    std::shared_ptr<TcpSocketHandler> findHandlerPtr(TcpSocketHandler * handler) const;
+
+    /* Associate and retain ownership of the given handler. For internal
+       purpose only.   Returns a null pointer if not found. */
+    std::shared_ptr<TcpSocketHandler> tryFindHandlerPtr(TcpSocketHandler * handler) const;
 
 private:
     EventLoop & eventLoop_;

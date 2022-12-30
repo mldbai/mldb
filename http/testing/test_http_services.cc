@@ -30,13 +30,18 @@ TestHttpService(EventLoop & eventLoop)
 TestHttpService::
 ~TestHttpService()
 {
+    std::unique_lock guard { connectionsMutex_ };
+    connections_.clear();
 }
 
 std::shared_ptr<TcpSocketHandler>
 TestHttpService::
 onNewConnection(TcpSocket && socket)
 {
-    return make_shared<TestHttpSocketHandler>(std::move(socket), *this);
+    auto result = make_shared<TestHttpSocketHandler>(std::move(socket), *this);
+    std::unique_lock guard { connectionsMutex_ };
+    connections_.emplace_back(result);
+    return result;
 }
 
 string
