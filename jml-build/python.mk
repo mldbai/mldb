@@ -4,12 +4,23 @@ PYTHON_VERSION_DETECTED := $(shell $(JML_BUILD)/detect_python.sh)
 PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
 PY_SO_EXTENSION?=.so# even on Darwin
 
-#$(warning PYTHON_VERSION_DETECTED=$(PYTHON_VERSION_DETECTED))
+$(warning PYTHON_VERSION_DETECTED=$(PYTHON_VERSION_DETECTED))
 
-PYTHON_INCLUDE_PATH_DETECTED:=$(if $(wildcard $(VIRTUALENV)/include/python$(PYTHON_VERSION)/Python.h),$(VIRTUALENV)/include/python$(PYTHON_VERSION),/usr/include/python$(PYTHON_VERSION))
+PYTHON ?= python$(PYTHON_VERSION)
+
+$(warning PYTHON $(PYTHON))
+
+PYTHON_INCLUDES_DETECTED:=$(sort $(shell python$(PYTHON_VERSION)-config --includes | sed 's/-I//g'))
+
+$(warning PYTHON_INCLUDES_DETECTED $(PYTHON_INCLUDES_DETECTED))
+
+PYTHON_INCLUDE_PATH_DETECTED:=$(if $(PYTHON_INCLUDES_DETECTED),$(PYTHON_INCLUDES_DETECTED),$(if $(wildcard $(VIRTUALENV)/include/python$(PYTHON_VERSION)/Python.h),$(VIRTUALENV)/include/python$(PYTHON_VERSION),/usr/include/python$(PYTHON_VERSION)))
+
+$(warning PYTHON_INCLUDE_PATH_DETECTED=$(PYTHON_INCLUDE_PATH_DETECTED))
 
 PYTHON_INCLUDE_PATH ?= $(PYTHON_INCLUDE_PATH_DETECTED)
-PYTHON ?= python$(PYTHON_VERSION)
+
+
 PIP ?= pip3
 PYFLAKES ?= true
 # Override this to run a cmd before installing python_requirements.txt
