@@ -116,14 +116,18 @@ convertException(const EnterThreadToken & threadToken,
                  const std::string & context)
 {
     try {
-        PyFrameObject* frame = PyEval_GetFrame();
-
+#if 0
         PyThreadState *tstate = PyThreadState_GET();
 
-        if (NULL != tstate && NULL != tstate->frame) {
-            frame = tstate->frame;
+        PyFrameObject * frame = nullptr;
+
+        if (NULL != tstate) {
+            frame = PyThreadState_GetFrame(tstate);
         }
-    
+
+        Scope_Exit(if (frame) Py_DECREF(frame));
+#endif
+
         ScriptException result;
 
         using namespace boost::python;
@@ -172,9 +176,12 @@ convertException(const EnterThreadToken & threadToken,
             while (ptb) {
                 auto frame = ptb->tb_frame;
                 long lineno = PyFrame_GetLineNumber(frame);
-                PyObject *filename = frame->f_code->co_filename;
+                auto code = PyFrame_GetCode(frame);
+                Scope_Exit(Py_DECREF(code));
+                PyObject *filename = code->co_filename;
                 const char * fn = PyUnicode_AsUTF8(filename);
-                const char * func = PyUnicode_AsUTF8(frame->f_code->co_name);
+                const char * func = PyUnicode_AsUTF8(code->co_name);
+
 
                 ScriptStackFrame sframe;
                 sframe.scriptUri = fn;

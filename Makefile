@@ -1,3 +1,4 @@
+JML_BUILD := mldb/jml-build
 include mldb/jml-build/os/os.mk
 
 toolchain ?= $(DEFAULT_TOOLCHAIN)
@@ -48,7 +49,6 @@ ALTROOT := $(BUILD)/$(ARCH)/altroot
 ETC     := $(ALTROOT)/etc
 PLUGINS := $(BUILD)/$(ARCH)/mldb_plugins
 
-JML_BUILD := mldb/jml-build
 INCLUDE := -Imldb
 
 export BIN
