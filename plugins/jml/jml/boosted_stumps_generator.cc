@@ -500,7 +500,7 @@ train_iteration_fair(Thread_Context & context,
 
     /* Work out the weights.  This depends upon the 1/Z score. */
     distribution<float> cl_weights(all_trained.size());
-    float total_z = 0.0;
+    float total_z MLDB_UNUSED = 0.0;
     for (unsigned s = 0;  s < all_trained.size();  ++s) {
         float Z = all_trained[s].Z;
         if (Z < 1e-5) cl_weights[s] = 0.0;

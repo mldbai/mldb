@@ -131,7 +131,7 @@ LIBXML2_INCLUDE_DIR:=/usr/include/libxml2
 LIBARCHIVE_INCLUDE_PATHS:=$(LIBXML2_INCLUDE_DIR) $(LZ4_INCLUDE_PATH) $(LZMA_INCLUDE_PATH) $(ZSTD_INCLUDE_PATH) mldb/ext/zstd/lib
 
 LIBARCHIVE_GCC_FLAGS:=-Wno-maybe-uninitialized -Wno-array-bounds -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow
-LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow -Wno-unknown-warning-option
+LIBARCHIVE_CLANG_FLAGS:=-Wno-maybe-uninitialized -Wno-format-overflow -Wno-stringop-truncation -Wno-stringop-overflow -Wno-unknown-warning-option  -Wno-unused-but-set-variable
 
 LIBARCHIVE_FLAGS= \
 	$(if $(findstring gcc,$(toolchain)),$(LIBARCHIVE_GCC_FLAGS)) \

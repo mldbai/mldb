@@ -221,9 +221,9 @@ struct PathIndexShard: public PathIndexMetadata {
                 return chunk > 0;
             };
      
-        int collisions = 0;
+        int collisions MLDB_UNUSED = 0;
         size_t maxOffset = 0;
-        size_t totalOffset = 0;
+        size_t totalOffset MLDB_UNUSED = 0;
         
         for (size_t idx = 0;  idx < input.size();  ++idx) {
             auto & i = input[idx];
