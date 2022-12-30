@@ -396,7 +396,12 @@ onCurlTimerEvent(long timeoutMs)
 
     timerFd_->setTimeout(std::chrono::milliseconds(timeoutMs));
 
-    if (timeoutMs == 0) {
+    if (timeoutMs == 0 && false) {
+        // https://curl.se/libcurl/c/CURLMOPT_TIMERFUNCTION.html
+        // WARNING: do not call libcurl directly from within the callback itself
+        // when the timeout_ms value is zero, since it risks triggering an unpleasant
+        // recursive behavior that immediately calls another call to the callback with
+        // a zero timeout... 
         int runningHandles;
         CURLMcode rc = ::curl_multi_socket_action(multi_.get(),
                                                   CURL_SOCKET_TIMEOUT, 0,
