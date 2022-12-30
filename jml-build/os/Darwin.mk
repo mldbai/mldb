@@ -18,6 +18,7 @@ PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==21.2.3
 PYFLAKES ?= $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
 J2 ?= $(VIRTUALENV)/bin/j2
 J2ENV ?= $(J2) -f env
+PYTHON_VERSION:=3.11
 export VIRTUALENV
 LIBRT:=
 
@@ -44,15 +45,19 @@ V8_INCLUDE_PATH:=$(HOMEBREW_OPT)/v8/libexec/include
 V8_INCLUDE_FLAGS:=-DV8_COMPRESS_POINTERS=1 -DV8_31BIT_SMIS_ON_64BIT_ARCH=1
 LIB_v8_LINKER_OPTIONS:=-L$(V8_ROOT)
 LIB_v8_DEPS:= 
-PYTHON_INCLUDE_PATH=$(call find_subdirectory,\
+PYTHON_VERSION_DETECTED:=$(if $(PYTHON_VERSION_DETECTED),$(PYTHON_VERSION_DETECTED),$(shell $(JML_BUILD)/detect_python.sh))
+PYTHON_VERSION?=$(PYTHON_VERSION_DETECTED)
+$(warning PYTHON_VERSION=$(PYTHON_VERSION))
+PYTHON_INCLUDE_PATH:=$(call find_subdirectory,\
 	/usr/local/Frameworks/Python.framework/Versions/$(PYTHON_VERSION)/include/python$(PYTHON_VERSION) \
 	/opt/homebrew/opt/python@$(PYTHON_VERSION)/Frameworks/Python.framework/Versions/$(PYTHON_VERSION)/include/python$(PYTHON_VERSION))
-PYTHON_LIB_PATH=$(call find_subdirectory,\
+PYTHON_LIB_PATH:=$(call find_subdirectory,\
 	/usr/local/Frameworks/Python.framework/Versions/$(PYTHON_VERSION)/lib \
 	/opt/homebrew/opt/python@$(PYTHON_VERSION)/Frameworks/Python.framework/Versions/$(PYTHON_VERSION)/lib)
 #$(warning PYTHON_INCLUDE_PATH=$(PYTHON_INCLUDE_PATH))
-LIB_python3.9_LINKER_OPTIONS=-L $(PYTHON_LIB_PATH)
-BOOST_PYTHON_LIBRARY:=boost_python39
+#$(warning PYTHON_LIB_PATH=$(PYTHON_LIB_PATH))
+LIB_python$(PYTHON_VERSION)_LINKER_OPTIONS=-L $(PYTHON_LIB_PATH)
+BOOST_PYTHON_LIBRARY:=boost_python311
 LOCAL_INCLUDE_DIR+= $(HOMEBREW_INCLUDE)
 #CXXFLAGS+= -I$(HOMEBREW_INCLUDE)
 CXXLIBRARYFLAGS+=-L$(ICU_ROOT)/lib -L$(HOMEBREW_LIB)
