@@ -153,7 +153,7 @@ generate(Thread_Context & context,
 
         /* Work out the weights.  This depends upon the 1/Z score. */
         distribution<float> cl_weights(all_trained.size());
-        float total_z = 0.0;
+        float total_z MLDB_UNUSED = 0.0;
         for (unsigned s = 0;  s < all_trained.size();  ++s) {
             float Z = all_trained[s].Z;
             if (Z < 1e-5) cl_weights[s] = 0.0;
@@ -203,7 +203,7 @@ generate(Thread_Context & context,
 
         /* Work out the weights.  This depends upon the 1/Z score. */
         distribution<float> cl_weights(all_trained.size());
-        float total_z = 0.0;
+        float total_z MLDB_UNUSED = 0.0;
         for (unsigned s = 0;  s < all_trained.size();  ++s) {
             float Z = all_trained[s].Z;
             if (Z < 1e-5) cl_weights[s] = 0.0;
@@ -321,7 +321,7 @@ train_all(Thread_Context & context,
     double max_weight = ignore_highest / nx;
 
     distribution<float> example_weights(nx);
-    double kept = 0.0, left = 0.0;
+    double kept MLDB_UNUSED = 0.0, left MLDB_UNUSED = 0.0;
     for (unsigned i = 0;  i < nx;  ++i) {
         //if (i >= ignore_highest * nx) {
         if (reweighted[i].second <= max_weight || ignore_highest <= 1.0) {

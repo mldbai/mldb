@@ -237,7 +237,7 @@ getDistances(const Json::Value & arr1, const Json::Value & arr2,
         result[0][j] = j;
     }
 
-    double minDistLastColumn = 0;
+    double minDistLastColumn MLDB_UNUSED = 0;
     double beamWidth = 1000;
 
     // Now create the table

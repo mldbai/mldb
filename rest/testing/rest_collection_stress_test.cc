@@ -45,8 +45,6 @@ struct FairRWLock
 {
     static constexpr uint64_t Mask = 0xFFFF;
 
-    FairRWLock() { d.all = 0; }
-
     void lock()
     {
         uint16_t ticket = d.split.tickets.fetch_add(1);
@@ -127,7 +125,7 @@ private:
         } split;
         std::atomic<uint32_t> rw;
         std::atomic<uint64_t> all;
-    } d;
+    } d = { .all = 0 };
 };
 
 

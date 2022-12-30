@@ -509,9 +509,6 @@ struct Lz4Decompressor: public Decompressor {
                         }
                     }
                     else {
-                        uint32_t blockSize = blockHeader;
-                        blockSize &= ~lz4::NotCompressedMask;
-
                         blockData = allocate(blockLength());
 
                         setCur(BLOCK_DATA, blockData.get(), blockLength());

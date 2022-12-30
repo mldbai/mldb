@@ -52,7 +52,7 @@ ZSTD_BINARY_SOURCE:= \
 	programs/timefn.c \
 
 ZSTD_GCC_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized
-ZSTD_CLANG_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized -Wno-unknown-warning-option
+ZSTD_CLANG_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized -Wno-unknown-warning-option -Wno-unused-but-set-variable
 
 ZSTD_FLAGS:= \
 	$(if $(findstring gcc,$(toolchain)),$(ZSTD_GCC_FLAGS)) \
