@@ -1180,7 +1180,6 @@ registerMe()
     ADD_METHOD(patch);
     ADD_METHOD(query);
     ADD_METHOD(sqlEscape);
-    ADD_METHOD(patch);
     ADD_METHOD(ls);
     ADD_METHOD(getHttpBoundAddress);
     ADD_METHOD(debugSetPathOptimizationLevel);

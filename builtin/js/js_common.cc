@@ -209,7 +209,7 @@ struct V8MldbPlatform: public v8::Platform {
          */
         virtual void PostNonNestableTask(std::unique_ptr<Task> task) NON_NESTABLE_OVERRIDE
         {
-            throw MLDB::Exception("PostNonNestableTask");
+            PostDelayedTask(std::move(task), 0.0);
         }
 
         /**
@@ -248,7 +248,7 @@ struct V8MldbPlatform: public v8::Platform {
         virtual void PostNonNestableDelayedTask(std::unique_ptr<Task> task,
                                                 double delay_in_seconds) NON_NESTABLE_OVERRIDE
         {
-            throw MLDB::Exception("PostNonNestableDelayedTask");
+            PostDelayedTask(std::move(task), delay_in_seconds);
         }
 
         /**
@@ -520,9 +520,17 @@ struct V8MldbPlatform: public v8::Platform {
     virtual std::unique_ptr<JobHandle> PostJob (
         TaskPriority priority, std::unique_ptr<JobTask> job_task) override
     {
-         return v8::platform::NewDefaultJobHandle(
-             this, priority, std::move(job_task), NumberOfWorkerThreads());
+        return v8::platform::NewDefaultJobHandle(
+            this, priority, std::move(job_task), NumberOfWorkerThreads());
     }
+
+    virtual std::unique_ptr<JobHandle> CreateJob(
+        TaskPriority priority, std::unique_ptr<JobTask> job_task) override
+    {
+        return v8::platform::NewDefaultJobHandle(
+            this, priority, std::move(job_task), NumberOfWorkerThreads());
+    }
+
 #endif // V8_PLATFORM_HAS_TASK_INTERFACE
   
     /**
@@ -638,7 +646,6 @@ V8Init(MldbEngine * engine)
 
     const char * v8_argv[] = {
         "--lazy", "false"
-        ,"--always_opt", "true"
     };
     int v8_argc = sizeof(v8_argv) / sizeof(const char *);
 
