@@ -40,7 +40,7 @@ backcall==0.2.0
 bleach==3.3.0
 blinker==1.4
 bokeh==2.3.3
-bottle==0.12.20
+bottle==0.12.23
 brewer2mpl==1.4.1
 Brlapi==0.7.0
 certifi==2019.11.28
