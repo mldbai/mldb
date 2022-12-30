@@ -101,7 +101,7 @@ accept(TcpAcceptorImpl::Endpoint & endpoint)
     auto nextSocket = make_shared<TcpSocketImpl>(loopService);
     auto onAcceptFn = [&, nextSocket] (const system::error_code & ec) {
         if (ec) {
-            if (acceptor.is_open() || ec != asio::error::operation_aborted) {
+            if (ec != asio::error::operation_aborted) {
                 cerr << "exception in accept: " + ec.message() + "\n";
             }
         }

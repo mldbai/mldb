@@ -481,7 +481,8 @@ BOOST_AUTO_TEST_CASE( test_http_client_connection_closed )
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));    }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
 
     /* response not sent */
     {

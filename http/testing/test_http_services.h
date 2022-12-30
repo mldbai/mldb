@@ -33,6 +33,9 @@ private:
 
     TcpAcceptor::OnNewConnection onNewConnection_;
     TcpAcceptor acceptor_;
+
+    std::mutex connectionsMutex_;
+    std::vector<std::shared_ptr<TcpSocketHandler>> connections_;
 };
 
 struct TestHttpSocketHandler : public HttpLegacySocketHandler

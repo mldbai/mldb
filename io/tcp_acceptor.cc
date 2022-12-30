@@ -91,25 +91,37 @@ TcpAcceptor::
 findHandlerPtr(TcpSocketHandler * handler)
     const
 {
+    auto result = tryFindHandlerPtr(handler);
+    if (result) return result;
+    throw MLDB::Exception("socket handler not found");
+}
+
+std::shared_ptr<TcpSocketHandler>
+TcpAcceptor::
+tryFindHandlerPtr(TcpSocketHandler * handler)
+    const
+{
     std::unique_lock<std::mutex> guard(associatedHandlersLock_);
     for (auto & handlerPtr: associatedHandlers_) {
         if (handlerPtr.get() == handler) {
             return handlerPtr;
         }
     }
-
-    throw MLDB::Exception("socket handler not found");
+    return nullptr;
 }
 
 /* FIXME: inefficient implementation */
-void
+bool
 TcpAcceptor::
 dissociate(TcpSocketHandler * handler)
 {
-    auto handlerPtr = findHandlerPtr(handler);
+    auto handlerPtr = tryFindHandlerPtr(handler);
+    if (!handlerPtr)
+        return false;
     auto doDissociate = [=] {
         std::unique_lock<std::mutex> guard(associatedHandlersLock_);
         associatedHandlers_.erase(handlerPtr);
     };
     eventLoop_.post(doDissociate);
+    return true;
 }

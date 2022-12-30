@@ -115,6 +115,9 @@ void
 HttpSocketHandler::
 onReceiveError(const boost::system::error_code & ec, size_t bufferSize)
 {
+    requestClose();
+    return;
+
     if (ec == boost::system::errc::connection_reset
         || ec == boost::asio::error::eof) {
         requestClose();
