@@ -12,11 +12,12 @@
 #include <iostream>
 #include <signal.h>
 #include <unistd.h>
+#include <atomic>
 
 namespace MLDB {
 
 struct Watchdog {
-    bool finished;
+    std::atomic<bool> finished;
     double seconds;
     std::thread thread;
     std::function<void ()> timeoutFunction;
