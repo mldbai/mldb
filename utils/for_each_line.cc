@@ -486,7 +486,6 @@ void forEachLineBlock(std::istream & stream,
     }
 }
 
-
 /*****************************************************************************/
 /* FOR EACH LINE BLOCK (CONTENT HANDLER)                                     */
 /*****************************************************************************/
@@ -602,7 +601,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     
                 size_t length = mem.length();
                 const char * start = mem.data();
-                const char * current = length == 0 ? start : (const char *)memchr(start, '\n', length);
+                const char * current = (const char *)memchr(start, '\n', length);
                 const char * end = start + length;
                 size_t numLinesInBlock = 0;
                 
@@ -843,7 +842,6 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             }
         }
 #endif
-
     }
     
     // If there was an exception, rethrow it rather than returning
@@ -852,7 +850,6 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
         std::rethrow_exception(exc);
     }
 }
-
 
 
 /*****************************************************************************/

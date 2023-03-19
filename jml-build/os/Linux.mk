@@ -15,7 +15,7 @@ DIST_CODENAME:=$(shell lsb_release -sc)
 MACHINE_NAME:=$(shell uname -n)
 READLINK:=readlink -f
 
-VIRTUALENV ?= virtualenv
+VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
 PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==21.1.3

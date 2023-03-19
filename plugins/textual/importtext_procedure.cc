@@ -7,6 +7,7 @@
 
 #include "importtext_procedure.h"
 #include "mldb/arch/timers.h"
+#include "mldb/arch/demangle.h"
 #include "mldb/utils/csv.h"
 #include "mldb/utils/lightweight_hash.h"
 #include "mldb/base/parallel.h"
@@ -28,6 +29,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/base/hex_dump.h"
 
 
 using namespace std;
@@ -552,13 +554,17 @@ struct ImportTextProcedureWorkInstance
                   MldbEngine * engine,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
-        string filename = config.dataFileUrl.toDecodedString();
+        // Get a handle to this content, which ensures we don't have any
+        // kind of version skew from asking for different parts of the file
+        std::shared_ptr<ContentHandler> content
+            = getDecompressedContent(config.dataFileUrl);
 
-        // Ask for a memory mappable stream if possible
-        filter_istream stream(config.dataFileUrl, { { "mapped", "true" } });
-
-        // Get the file timestamp out
-        ts = stream.info().lastModified;
+        // For some operations, we need a stream.  Get this from the
+        // content handler, so that the underlying data is all shared.
+        filter_istream stream = content->getStream({ { "mapped", true } });
+        
+        // Get the file timestamp out, to be used internally
+        ts = content->getLastModified();
 
         std::string line;
         
@@ -649,12 +655,12 @@ struct ImportTextProcedureWorkInstance
                     }
 
                     try {
-                        ParseContext pcontext(filename,
-                                               header.c_str(), header.length(), 1, 0);
+                        ParseContext pcontext(config.dataFileUrl.getUrlStringUtf8(),
+                                              header.c_str(), header.length(), 1, 0);
                         fields = expect_csv_row(pcontext, -1, separator);
                         break;
                     }
-                    catch (FileFinishInsideQuote & exp) {
+                    catch (const FileFinishInsideQuote & exp) {
                         if(config.allowMultiLines) {
                             prevHeader.assign(std::move(header));
                             continue;
@@ -666,7 +672,8 @@ struct ImportTextProcedureWorkInstance
 
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
-                    stream.open(config.dataFileUrl, { { "mapped", "true" } });
+                    content = getContent(config.dataFileUrl);
+                    stream = content->getStream({ { "mapped", true } });
                     auto nfields = fields.size();
                     for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);
@@ -714,7 +721,7 @@ struct ImportTextProcedureWorkInstance
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
         SqlCsvScope scope(engine, inputColumnNames, ts,
-                          Utf8String(config.dataFileUrl.toDecodedString()));
+                          config.dataFileUrl.getUrlString());
 
         selectBound = config.select.bind(scope);
         whereBound = config.where->bind(scope);
@@ -783,17 +790,33 @@ struct ImportTextProcedureWorkInstance
             << jsonEncodeStr(knownColumnNames);
 
         // Skip those up to the offset now we've done the header
+        // TODO: do this skipping later on
         for (size_t i = 0;  stream && i < config.offset;  ++i, ++lineOffset) {
             getline(stream, line);
         }
 
-        loadTextData(dataset, stream, config, scope, onProgress);
+        if (stream.eof()) {
+            // Empty lines?  EOF
+            return;
+        }
+        
+        auto offset = stream.tellg();
+        if (offset == -1) {
+            cerr << type_name(*stream.rdbuf()) << endl;
+            throw AnnotatedException
+                (400, "Stream for import text must be able to tell its offset",
+                 "streambuf", type_name(*stream.rdbuf()));
+        }
+        
+        loadTextData(dataset, content, offset,
+                     config, scope, onProgress);
     }
 
     /*    Load, filter and format all lines and process them  */
     void
     loadTextData(std::shared_ptr<Dataset> dataset,
-                 std::istream& stream,
+                 std::shared_ptr<ContentHandler> content,
+                 uint64_t offset,
                  const ImportTextConfig& config,
                  SqlCsvScope& scope,
                  const std::function<bool (const Json::Value &)> & onProgress)
@@ -978,6 +1001,11 @@ struct ImportTextProcedureWorkInstance
                 return true;
             }
 
+            cerr << "lineNumber " << lineNumber << endl;
+            cerr << "columnNumber " << columnNumber << endl;
+            cerr << "line " << line << endl;
+            hex_dump(line.data(), line.length());
+            
             throw AnnotatedException(400, "Error parsing CSV row: "
                                       + message,
                                       "lineNumber", lineNumber,
@@ -1007,13 +1035,20 @@ struct ImportTextProcedureWorkInstance
             
             /// Bytes done in this thread
             uint64_t bytesDone = 0;
+
+            /// Number of lines in chunk
+            ssize_t numLinesInChunk = -1;
         };
 
         PerThreadAccumulator<ThreadAccum> accum;
 
-        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        std::atomic<int64_t> deferredEmptyLineNumber(-1);
+        
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber,
+                               ssize_t numLines)
             {
                 auto & threadAccum = accum.get();
+                threadAccum.numLinesInChunk = numLines;
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
                 if (isIdentitySelect || canUseDecomposed)
                     threadAccum.specializedRecorder
@@ -1080,11 +1115,19 @@ struct ImportTextProcedureWorkInstance
                                     config.skipLineRegex))
                         return true;
                 }
-                
+            
                 // MLDB-1111 empty lines are treated as error
-                if (length == 0)
-                    return handleError("empty line", actualLineNum, 0, "");
-
+                if (length == 0) {
+                    if (lineNum == threadAccum.numLinesInChunk - 1
+                        && deferredEmptyLineNumber.exchange(actualLineNum) == -1) {
+                        // may not be an empty line error, since last line in
+                        // chunk
+                        return true; // don't record this row
+                    }
+                    else {
+                        return handleError("empty line", actualLineNum, 0, "");
+                    }
+                }
 
                 // Values that come in from the CSV file
                 PossiblyDynamicBuffer<CellValue> values(inputColumnNames.size());
@@ -1104,20 +1147,20 @@ struct ImportTextProcedureWorkInstance
                                                 config.processExcelFormulas,
                                                 scope.columnsUsed);
 
-                    if (errorMsg) {
-                        if(config.allowMultiLines) {
-                            // check if we hit an error meaning we probably
-                            // have a multiline error
-                            if(errorMsg == unclosedQuoteError ||
-                            errorMsg == notEnoughColsError) {
-                                return false;
-                            }
+                if (errorMsg) {
+                    if(config.allowMultiLines) {
+                        // check if we hit an error meaning we probably
+                        // have a multiline error
+                        if(errorMsg == unclosedQuoteError ||
+                           errorMsg == notEnoughColsError) {
+                            return false;
                         }
-
-                        return handleError(errorMsg, actualLineNum,
-                                            line - lineStart + 1,
-                                            string(line, length));
                     }
+
+                    return handleError(errorMsg, actualLineNum,
+                                           line - lineStart + 1,
+                                           string(line, length));
+                }
 
                 auto row = scope.bindRow(values.data(), ts, actualLineNum,
                                         0 /* todo: chunk ofs */);
@@ -1311,22 +1354,41 @@ struct ImportTextProcedureWorkInstance
 
 
         if(!config.allowMultiLines) {
-            forEachLineBlock(stream, onLine, config.limit,
+            forEachLineBlock(content, offset, onLine, config.limit,
                              numCpus() /* parallelism */,
                              startChunk, doneChunk);
         }
         else {
+
+            auto stream = content->getStream();
+
+            {
+                //stream.seekg(offset, std::ios_base::cur);
+                // not all streams support seeking
+
+                constexpr size_t BUFFER_SIZE = 4096;
+                char buffer[BUFFER_SIZE];
+                size_t currentOffset = 0;
+                
+                while (currentOffset < offset) {
+                    size_t n = std::min<size_t>(offset - currentOffset, BUFFER_SIZE);
+                    stream.read(buffer, n);
+                    currentOffset += stream.gcount();
+                }
+            }
+            
             // very simplistic and not efficient way of doing multi-line. we send
             // lines one by one to the 'onLine' function, and if
             // we get an error that probably is caused by a multi-
             // line string, we concat the current line with the next
             // one and try again. 
-            startChunk(0, 0);
+            startChunk(0, 0, -1 /* num lines is unknown */);
 
             string line;
             string t_line;
             string prevLine;
             int64_t lineNum = 0;
+
             while(getline(stream, line)) {
                 // prepend previous line if we're tagging it along
                 if(!prevLine.empty()) {
@@ -1350,6 +1412,11 @@ struct ImportTextProcedureWorkInstance
             doneChunk(0, lineNum);
         }
 
+        if (deferredEmptyLineNumber != -1
+            && deferredEmptyLineNumber < lineCount - 1) {
+            handleError("empty line", deferredEmptyLineNumber, 0, "");
+        }
+        
         // Accumulate any from the end
         accum.forEach([&] (ThreadAccum * accum)
                       {

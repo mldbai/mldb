@@ -29,13 +29,23 @@
 
 #include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
+#include "mldb/base/exc_assert.h"
 #include "mldb/arch/demangle.h"
+#include "mldb/base/hex_dump.h"
 
 using namespace std;
 namespace fs = std::filesystem;
 using namespace MLDB;
 
 using boost::unit_test::test_suite;
+
+struct OnInit {
+    OnInit()
+    {
+        ExcAssert(getenv("BIN"));
+        ExcAssert(getenv("TMP"));
+    }
+} onInit;
 
 fs::path binDir = std::string(getenv("BIN"));
 fs::path tmpDir = std::string(getenv("TMP"));
@@ -69,14 +79,24 @@ void compress_using_tool(const std::string & input_file,
                          const std::string & output_file,
                          const std::string & command)
 {
-    system("cat " + input_file + " | " + command + " > " + output_file);
+    system(command + " " + input_file + " > " + output_file);
 }
 
 void decompress_using_tool(const std::string & input_file,
                            const std::string & output_file,
                            const std::string & command)
 {
-    system("cat " + input_file + " | " + command + " > " + output_file);
+    try {
+        //system("hexdump -C " + input_file + " | head -n 10");
+        system("cat " + input_file + " | " + command + " > " + output_file);
+    } catch (...) {
+        std::ifstream stream(input_file);
+        constexpr size_t BUF_SIZE = 1024;
+        char buf[BUF_SIZE];
+        size_t n = stream.readsome(buf, BUF_SIZE);
+        hex_dump(buf, n);
+        throw;
+    }
 }
 
 void compress_using_stream(const std::string & input_file,
@@ -86,7 +106,7 @@ void compress_using_stream(const std::string & input_file,
 
     filter_ostream out(output_file);
 
-    char buf[16386];
+    char buf[16384];
 
     while (in) {
         in.read(buf, 16384);
@@ -164,19 +184,19 @@ void test_compress_decompress(const std::string & input_file,
 BOOST_AUTO_TEST_CASE( test_compress_decompress_gz )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    test_compress_decompress(input_file, "gz", "gzip", "gzip -d");
+    test_compress_decompress(input_file, "gz", "gzip -c", "gzip -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_bzip2 )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    test_compress_decompress(input_file, "bz2", "bzip2", "bzip2 -d");
+    test_compress_decompress(input_file, "bz2", "bzip2 -c", "bzip2 -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    test_compress_decompress(input_file, "xz", "xz", "xz -d");
+    test_compress_decompress(input_file, "xz", "xz -c", "xz -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
@@ -189,15 +209,15 @@ BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4_content_size )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    string lz4_cmd = binDir / "lz4cli --content-size";
-    test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
+    string lz4_cmd = binDir / "lz4cli -B7 -BX --content-size";
+    test_compress_decompress(input_file, "csize.lz4", lz4_cmd, lz4_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_zstandard )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
     string zstd_cmd = binDir / "zstd";
-    test_compress_decompress(input_file, "zst", zstd_cmd, zstd_cmd + " -d");
+    test_compress_decompress(input_file, "zst", zstd_cmd + " -c", zstd_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_open_failure )

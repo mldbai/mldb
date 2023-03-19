@@ -13,6 +13,7 @@
 #include <map>
 #include <cstring>
 #include "mldb/base/thread_pool.h"
+#include <deque>
 
 
 using namespace std;
@@ -43,6 +44,20 @@ std::map<std::string, Compressor::Info> compressors;
 std::map<std::string, Decompressor::Info> decompressors;
 
 } // file scope
+
+bool
+Compressor::
+canFixupLength() const
+{
+    return false;
+}
+
+std::string
+Compressor::
+newHeaderForLength(uint64_t lengthWritten) const
+{
+    throw MLDB::Exception("Attempt to call newHeaderForLength for class that doesn't support it");
+}
 
 std::string
 Compressor::
@@ -175,7 +190,23 @@ forEachBlockParallel(size_t requestedBlockSize,
     std::shared_ptr<const char> buf;
 
     ThreadWorkGroup tp(maxParallelism);
-    
+
+    // We queue them up as we want to ensure they run in sequence
+    std::mutex jobsMutex;
+    std::deque<ThreadJob> jobs;
+
+    auto doOne = [&] ()
+    {
+        ThreadJob job;
+        {
+            std::unique_lock guard{jobsMutex};
+            ExcAssert(!jobs.empty());
+            job = std::move(jobs.front());
+            jobs.pop_front();
+        }
+        job();
+    };
+
     while (std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
         auto onData = [&] (std::shared_ptr<const char> data, size_t len) -> size_t
             {
@@ -196,7 +227,11 @@ forEachBlockParallel(size_t requestedBlockSize,
                 };
 
                 if (maxParallelism > 0) {
-                    tp.add(std::move(doBlock));
+                    {
+                        std::unique_lock guard{jobsMutex};
+                        jobs.push_back(std::move(doBlock));
+                    }
+                    tp.add(doOne);
                 }
                 else {
                     doBlock();
