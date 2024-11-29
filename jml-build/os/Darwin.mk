@@ -90,7 +90,7 @@ LIB_$(LLVM_LIB_NAME)_LINKER_OPTIONS+=-L$(LLVM_LIB_PATH)
 
 LLVM_INCLUDE_PATH:=$(HOMEBREW_OPT)/llvm/include/
 LLVM_LIB_PATH:=$(HOMEBREW_OPT)/llvm/lib/
-LLVM_LIB_NAME:=LLVM-13
+LLVM_LIB_NAME:=LLVM-16
 LIB_$(LLVM_LIB_NAME)_LINKER_OPTIONS+=-L$(LLVM_LIB_PATH)
 
 # This provides attributes allowing easier debugability including core files
