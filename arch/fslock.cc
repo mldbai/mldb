@@ -59,7 +59,7 @@ GuardedFsLock(const string & filename)
 GuardedFsLock::
 GuardedFsLock(GuardedFsLock && other)
     noexcept
-  : lockname(move(other.lockname)),
+  : lockname(std::move(other.lockname)),
     locked(other.locked), mutex_(other.mutex_),
     fd_(other.fd_)
 {

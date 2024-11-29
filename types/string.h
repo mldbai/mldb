@@ -504,9 +504,7 @@ Utf8String getUtf8ExceptionString();
 namespace std {
 
 template<>
-struct hash<MLDB::Utf8String>
-    : public std::unary_function<MLDB::Utf8String, size_t>
-{
+struct hash<MLDB::Utf8String> {
     size_t operator()(const MLDB::Utf8String & str) const
     {
         return std::hash<std::string>()(str.rawString());

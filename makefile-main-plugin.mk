@@ -20,7 +20,7 @@ V8_LIB:=v8
 
 
 -include local.mk
-VIRTUALENV ?= virtualenv
+VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
 PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip=18.0

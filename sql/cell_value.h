@@ -594,8 +594,7 @@ std::ostream & operator << (std::ostream & stream, const CellValue::CellType & v
 namespace std {
 
 template<>
-struct hash<MLDB::CellValue> : public std::unary_function<MLDB::CellValue, size_t>
-{
+struct hash<MLDB::CellValue> {
     size_t operator()(const MLDB::CellValue & val) const { return val.hash(); }
 };
 

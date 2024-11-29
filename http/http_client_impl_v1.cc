@@ -201,7 +201,7 @@ popRequests(size_t number)
     requests.reserve(number);
 
     for (size_t i = 0; i < number; i++) {
-        requests.emplace_back(move(queue_.front()));
+        requests.emplace_back(std::move(queue_.front()));
         queue_.pop();
     }
 
@@ -259,7 +259,7 @@ handleWakeupEvent()
         vector<shared_ptr<HttpRequest>> requests = popRequests(numAvail);
         for (auto & request: requests) {
             HttpConnection *conn = getConnection();
-            conn->request_ = move(request);
+            conn->request_ = std::move(request);
             conn->perform(noSSLChecks_, tcpNoDelay_, debug_);
 
             CURLMcode code = ::curl_multi_add_handle(multi_.get(),
@@ -560,7 +560,7 @@ onCurlHeader(const char * data, size_t size)
             }
             int code = stoi(headerLine.substr(oldTokenIdx, tokenIdx));
 
-            cbs->onResponseStart(*request_, move(version), code);
+            cbs->onResponseStart(*request_, std::move(version), code);
         }
         else {
             cbs->onHeader(*request_, data, size);

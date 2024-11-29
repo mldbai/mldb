@@ -63,7 +63,7 @@ loop(int maxEvents, int timeout)
         map<int, OnUnregistered> delayedUnregistrations;
         {
             std::unique_lock<mutex> guard(callbackLock_);
-            delayedUnregistrations = move(delayedUnregistrations_);
+            delayedUnregistrations = std::move(delayedUnregistrations_);
             delayedUnregistrations_.clear();
         }
         for (const auto & unreg: delayedUnregistrations) {

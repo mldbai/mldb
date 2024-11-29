@@ -33,7 +33,7 @@ doRequest(LegacyEventLoop & legacyLoop,
         int & code = get<1>(response);
         code = status;
         string & body_ = get<2>(response);
-        body_ = move(body);
+        body_ = std::move(body);
         HttpClientError & errorCode = get<0>(response);
         errorCode = error;
         done = true;
@@ -93,7 +93,7 @@ doUploadRequest(LegacyEventLoop & loop,
         int & code = get<1>(response);
         code = status;
         string & body_ = get<2>(response);
-        body_ = move(body);
+        body_ = std::move(body);
         HttpClientError & errorCode = get<0>(response);
         errorCode = error;
         done = true;

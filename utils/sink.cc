@@ -9,9 +9,7 @@
 
 
 #include <iostream>
-
 #include "mldb/arch/exception.h"
-
 #include "mldb/utils/sink.h"
 
 
@@ -53,7 +51,7 @@ MLDB::operator >> (std::istream & stream, OutputSink & sink)
     string newData;
 
     stream >> newData;
-    sink.write(move(newData));
+    sink.write(std::move(newData));
 
     return stream;
 }
@@ -65,7 +63,7 @@ bool
 CallbackOutputSink::
 write(std::string && data)
 {
-    return onData_(move(data));
+    return onData_(std::move(data));
 }
 
 
@@ -96,7 +94,7 @@ bool
 AsyncFdOutputSink::
 write(std::string && data)
 {
-    return AsyncWriterSource::write(move(data), nullptr);
+    return AsyncWriterSource::write(std::move(data), nullptr);
 }
 
 void
@@ -140,7 +138,7 @@ void
 CallbackInputSink::
 notifyReceived(std::string && data)
 {
-    onData_(move(data));
+    onData_(std::move(data));
 }
 
 void
@@ -189,7 +187,7 @@ notifyReceived(std::string && data)
 {
     for (std::shared_ptr<InputSink> sink: sinks_) {
         string sinkData(data);
-        sink->notifyReceived(move(sinkData));
+        sink->notifyReceived(std::move(sinkData));
     }
 }
 

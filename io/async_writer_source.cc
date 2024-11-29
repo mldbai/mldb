@@ -111,7 +111,7 @@ write(string data, const OnWriteResult & onWriteResult)
 
     if (queueEnabled()) {
         ExcCheck(data.size() > 0, "attempting to write empty data");
-        result = queue_.push_back(AsyncWrite(move(data), onWriteResult));
+        result = queue_.push_back(AsyncWrite(std::move(data), onWriteResult));
     }
     else {
         throw MLDB::Exception("cannot write while queue is disabled");
@@ -181,7 +181,7 @@ handleWriteResult(int error, AsyncWrite && currentWrite)
     if (currentWrite.onWriteResult) {
         currentWrite.onWriteResult(
             AsyncWriteResult(error,
-                             move(currentWrite.message),
+                             std::move(currentWrite.message),
                              currentWrite.sent)
         );
     }
@@ -249,7 +249,7 @@ flush()
         }
         auto writes = queue_.pop_front(1);
         ExcAssert(writes.size() > 0);
-        currentWrite_ = move(writes[0]);
+        currentWrite_ = std::move(writes[0]);
         return true;
     };
 
@@ -277,7 +277,7 @@ flush()
             bytesSent_ += len;
             if (remaining == 0) {
                 msgsSent_++;
-                handleWriteResult(0, move(currentWrite_));
+                handleWriteResult(0, std::move(currentWrite_));
                 if (!popWrite()) {
                     break;
                 }
@@ -294,7 +294,7 @@ flush()
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
                 break;
             }
-            handleWriteResult(errno, move(currentWrite_));
+            handleWriteResult(errno, std::move(currentWrite_));
             if (errno == EPIPE || errno == EBADF) {
                 handleClosing(true, true);
                 break;
@@ -363,7 +363,7 @@ emptyMessageQueue()
 
     auto writes = queue_.pop_front(0);
     for (auto & write: writes) {
-        messages.emplace_back(move(write.message));
+        messages.emplace_back(std::move(write.message));
     }
 
     return messages;

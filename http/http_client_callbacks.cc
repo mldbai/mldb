@@ -132,7 +132,7 @@ void
 HttpClientSimpleCallbacks::
 onDone(const HttpRequest & rq, HttpClientError error)
 {
-    onResponse(rq, error, statusCode_, move(headers_), move(body_));
+    onResponse(rq, error, statusCode_, std::move(headers_), std::move(body_));
     statusCode_ = 0;
     headers_ = "";
     body_ = "";
@@ -145,6 +145,6 @@ onResponse(const HttpRequest & rq,
            string && headers, string && body)
 {
     if (onResponse_) {
-        onResponse_(rq, error, status, move(headers), move(body));
+        onResponse_(rq, error, status, std::move(headers), std::move(body));
     }
 }

@@ -178,9 +178,9 @@ addSource(const std::string & name,
     //      << endl;
 
     SourceEntry entry(name, source, priority);
-    SourceAction newAction(SourceAction::ADD, move(entry));
+    SourceAction newAction(SourceAction::ADD, std::move(entry));
 
-    return sourceActions_.push_back(move(newAction));
+    return sourceActions_.push_back(std::move(newAction));
 }
 
 bool
@@ -205,8 +205,8 @@ removeSource(AsyncEventSource * source)
 
     std::shared_ptr<AsyncEventSource> unownedPtr(source, Dont_Delete());
     SourceEntry entry("", unownedPtr, 0);
-    SourceAction newAction(SourceAction::REMOVE, move(entry));
-    return sourceActions_.push_back(move(newAction));
+    SourceAction newAction(SourceAction::REMOVE, std::move(entry));
+    return sourceActions_.push_back(std::move(newAction));
 }
 
 bool
@@ -228,8 +228,8 @@ MessageLoop::
 runInMessageLoopThread(std::function<void ()> toRun)
 {
     SourceEntry entry("", toRun, 0);
-    SourceAction newAction(SourceAction::RUN, move(entry));
-    return sourceActions_.push_back(move(newAction));
+    SourceAction newAction(SourceAction::RUN, std::move(entry));
+    return sourceActions_.push_back(std::move(newAction));
 }
 
 void
