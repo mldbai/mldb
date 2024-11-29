@@ -3,14 +3,11 @@
 /* judy_array.h                                                    -*- C++ -*-
    Jeremy Barnes, 18 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-   $Source$
 
    Judy array interface functions.  Makes it look more like a map.
 */
 
-#ifndef __boosting__judy_array_h__
-#define __boosting__judy_array_h__
-
+#pragma once
 
 #include "mldb/ext/judy/Judy.h"
 #include <utility>
@@ -953,9 +950,4 @@ size_t memusage(const judyl_typed<Data, Contained> & array)
     return array.memusage_();
 }
 
-
 } // namespace ML
-
-
-
-#endif /* __boosting__judy_array_h__ */

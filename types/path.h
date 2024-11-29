@@ -319,9 +319,7 @@ inline PathElement stringToKey(const std::string & str, PathElement *)
 
 PREDECLARE_VALUE_DESCRIPTION(PathElement);
 
-struct PathElementNewHasher
-    : public std::unary_function<MLDB::PathElement, size_t>
-{
+struct PathElementNewHasher {
     size_t operator()(const MLDB::PathElement & path) const
     {
         return path.newHash();
@@ -765,9 +763,7 @@ inline Path stringToKey(const std::string & str, Path *)
 
 PREDECLARE_VALUE_DESCRIPTION(Path);
 
-struct PathNewHasher
-    : public std::unary_function<MLDB::Path, size_t>
-{
+struct PathNewHasher {
     size_t operator()(const MLDB::Path & path) const
     {
         return path.newHash();
@@ -785,8 +781,7 @@ inline Path restDecode(const Utf8String & val, Path *)
 namespace std {
 
 template<>
-struct hash<MLDB::PathElement> : public std::unary_function<MLDB::PathElement, size_t>
-{
+struct hash<MLDB::PathElement> {
     size_t operator()(const MLDB::PathElement & path) const
     {
         return path.hash();
@@ -794,8 +789,7 @@ struct hash<MLDB::PathElement> : public std::unary_function<MLDB::PathElement, s
 };
 
 template<>
-struct hash<MLDB::Path> : public std::unary_function<MLDB::Path, size_t>
-{
+struct hash<MLDB::Path> {
     size_t operator()(const MLDB::Path & paths) const
     {
         return paths.hash();

@@ -10,10 +10,7 @@ MLDB on such a machine.
 
 We test building MLDB on:
 
-* OSX Big Sur (11.4) on x86_64 (primary)
-* OSX Big Sur (11.4) on M1 (primary)
-* OSX Big Sur (11.2.3) on x86_64 (occasionally)
-* <strike>OSX High Sierra (10.13.6) on x86_64 (occasionally)</strike>(Homebrew no longer can install the dependencies)
+* OSX Big Sur (14.6.1) on M3 (primary)
 
 We use Homebrew, an OSX package manager, to obtain the dependencies.
 
@@ -36,10 +33,10 @@ automatically available from the system, or installed here.  (We aim to make the
 in particular remove the dependency on `boost` eventually).
 
 ```
-brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.9 snappy v8 xz yaml-cpp libb2
+brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.9 snappy v8 xz yaml-cpp libb2 sccache
 ```
 
-If your're on the Mac M1, some of the Python dependencies also require a Rust compiler to build:
+Some of the Python dependencies also require a Rust compiler to build:
 
 ```
 brew install rust
@@ -54,7 +51,7 @@ pip3 install virtualenv python-dateutil bottle requests
 
 ## Check out MLDB
 
-We first get MLDB from it's Git repository.  There are two ways to do it, depending upon if your machine is
+We first get MLDB from its Git repository.  There are two ways to do it, depending upon if your machine is
 authenticated via its SSH key with GitHub (if you're not sure, choose the first).
 
 ### 1: If you're not on GitHub or your machine isn't authenticated via its SSH key (anyone)
@@ -92,14 +89,13 @@ We ask `git` to do four submodules at a time in parallel in order to speed it up
 git submodule update --init --recursive --jobs=4
 ```
 
-## Install the compilation cache (optional)
+## Configure the compilation cache (optional)
 
 If you plan on doing lots of MLDB development, compilation times can be greatly reduced using a
-compilation cache.  For OSX, we use sccache.
+compilation cache.  For OSX, we use sccache. This was installed via Homebrew above (`brew install sccache`).
 
 ```
-curl -fsSL https://gitlab.com/mldbai/mldb_build/-/raw/main/sccache-`uname -m`-darwin.gz | gzip -d > ./sccache && chmod +x ./sccache
-declare -x COMPILER_CACHE=./sccache
+declare -x COMPILER_CACHE=sccache
 ```
 
 ## Install MLDB's Python dependencies

@@ -1976,8 +1976,7 @@ searchRow(const StructValue & columns,
 namespace std {
 
 template<>
-struct hash<MLDB::ExpressionValue> : public std::unary_function<MLDB::ExpressionValue, size_t>
-{
+struct hash<MLDB::ExpressionValue> {
     size_t operator()(const MLDB::ExpressionValue & val) const { return val.hash(); }
 };
 
