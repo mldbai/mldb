@@ -29,6 +29,22 @@ using namespace MLDB::DB;
 
 namespace ML {
 
+namespace {
+
+template<typename T>
+auto dangerous_shared_pointer_is_unique(shared_ptr<T> && ptr) -> decltype(std::declval<std::shared_ptr<T>>().unique())
+{
+    return ptr.unique();
+}
+
+template<typename T>
+bool dangerous_shared_pointer_is_unique(T&&)
+{
+    return false;
+}
+
+} // file scope
+
 
 /*****************************************************************************/
 /* TRAINING_DATA                                                             */
@@ -238,7 +254,7 @@ std::shared_ptr<Feature_Set> & Training_Data::modify(int example)
 {
     std::shared_ptr<Feature_Set> & fs = data_.at(example);
     dirty_ = true;
-    if (!fs.unique())
+    if (!ML::dangerous_shared_pointer_is_unique(fs))
         fs.reset(fs->make_copy());
     return fs;
 }

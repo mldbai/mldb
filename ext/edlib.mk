@@ -1,6 +1,6 @@
 EDLIB_CC_FILES:= edlib/src/edlib.cpp
 EDLIB_WARNING_OPTIONS:=-Wno-char-subscripts
-$(eval $(call set_compile_option,$(EDLIB_CC_FILES),$(EDLIB_WARNING_OPTIONS)))
+$(eval $(call set_compile_option,$(EDLIB_CC_FILES),-I mldb/ext/edlib/edlib/include $(EDLIB_WARNING_OPTIONS)))
 $(eval $(call library,edlib,$(EDLIB_CC_FILES)))
 
 # Hacky since the test is within a "main", doesn't use boost and is in a cpp

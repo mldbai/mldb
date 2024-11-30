@@ -29,8 +29,23 @@
 using namespace std;
 
 
-
 namespace MLDB {
+
+namespace {
+
+template<typename T>
+auto dangerous_shared_pointer_is_unique(shared_ptr<T> && ptr) -> decltype(std::declval<std::shared_ptr<T>>().unique())
+{
+    return ptr.unique();
+}
+
+template<typename T>
+bool dangerous_shared_pointer_is_unique(T&&)
+{
+    return false;
+}
+
+} // file scope
 
 DEFINE_ENUM_DESCRIPTION(JsonArrayHandling);
 
@@ -3384,7 +3399,7 @@ mergeToRowDestructive(StructValue & row)
     // merging
     switch (type_) {
     case Type::STRUCTURED:
-        if (structured_.unique()) {
+        if (MLDB::dangerous_shared_pointer_is_unique(structured_)) {
             // We have the only reference in the shared pointer, AND we have
             // a non-const version of that expression.  This means that it
             // should be thread-safe to break constness and steal the result,
@@ -3544,7 +3559,7 @@ forEachColumnDestructiveT(Fn && onColumn) const
 {
     switch (type_) {
     case Type::STRUCTURED: {
-        if (structured_.unique()) {
+        if (MLDB::dangerous_shared_pointer_is_unique(structured_)) {
             // We have the only reference in the shared pointer, AND we have
             // a non-const version of that expression.  This means that it
             // should be thread-safe to break constness and steal the result,
@@ -3611,7 +3626,7 @@ forEachAtomDestructiveT(Fn && onAtom)
 {
     switch (type_) {
     case Type::STRUCTURED: {
-        if (structured_.unique()) {
+        if (MLDB::dangerous_shared_pointer_is_unique(structured_)) {
             // We have the only reference in the shared pointer, AND we have
             // a non-const version of that expression.  This means that it
             // should be thread-safe to break constness and steal the result,
@@ -4497,7 +4512,7 @@ asRow(const ExpressionValue & expr)
 }
 
 template <typename T, template <typename> class Compare> 
-typename Compare<T>::result_type 
+auto
 compare_t(const ExpressionValue & left, const ExpressionValue & right)
 {
     T leftRow = asRow(left);

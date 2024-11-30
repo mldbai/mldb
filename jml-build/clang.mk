@@ -24,7 +24,7 @@ NOTHING?=
 SPACE?=$(NOTHING) $(NOTHING)
 SANITIZERS:=$(subst $(COMMA),$(SPACE),$(sanitizers))
 
-CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(CLANGXXWARNINGFLAGS) -pipe -ggdb $(foreach dir,$(LOCAL_INCLUDE_DIR),-I$(dir)) -std=c++20 $(foreach sanitizer,$(SANITIZERS),$(CLANG_SANITIZER_$(sanitizer)_FLAGS) )
+CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(CLANGXXWARNINGFLAGS) -fcolor-diagnostics -pipe -ggdb $(foreach dir,$(LOCAL_INCLUDE_DIR),-I$(dir)) -std=c++20 $(foreach sanitizer,$(SANITIZERS),$(CLANG_SANITIZER_$(sanitizer)_FLAGS) )
 CXXNODEBUGFLAGS := -O3 -DBOOST_DISABLE_ASSERTS -DNDEBUG 
 CXXDEBUGFLAGS := -O0 -g3
 

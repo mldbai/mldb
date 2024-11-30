@@ -97,7 +97,7 @@ template<typename T> struct compare {
 };
 
 template <typename T, typename Compare> 
-typename Compare::result_type compare_sorted( T & x, T & y, Compare comp) {
+decltype(std::declval<Compare>()(std::declval<T>(),std::declval<T>())) compare_sorted( T & x, T & y, Compare comp) {
     std::sort(x.begin(), x.end());
     std::sort(y.begin(), y.end());
     return comp(x,y);

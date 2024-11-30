@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE( test_outputsink_istream )
     bool closed(false);
 
     auto onData = [&] (string && data) {
-        received += move(data);
+        received += std::move(data);
         return true;
     };
     auto onClose = [&] () {
@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE( test_callbackinputsink )
     bool closed(false);
 
     auto onData = [&] (string && data) {
-        received += move(data);
+        received += std::move(data);
     };
     auto onClose = [&] () {
         closed = true;
@@ -184,13 +184,13 @@ BOOST_AUTO_TEST_CASE( test_callbackinputsink )
 
     string data1("I am ");
     string expected1(data1);
-    inputSink.notifyReceived(move(data1));
+    inputSink.notifyReceived(std::move(data1));
     BOOST_CHECK_EQUAL(received, expected1);
     BOOST_CHECK_EQUAL(closed, false);
 
     string data2("sending data.");
     string expected2(data1 + data2);
-    inputSink.notifyReceived(move(data2));
+    inputSink.notifyReceived(std::move(data2));
     BOOST_CHECK_EQUAL(received, expected2);
     BOOST_CHECK_EQUAL(closed, false);
 
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE( test_ostreaminputsink )
 
     string data("I am sending data.");
     string expected(data);
-    outputSink.notifyReceived(move(data));
+    outputSink.notifyReceived(std::move(data));
 
     BOOST_CHECK_EQUAL(received.str(), expected);
 }
@@ -229,7 +229,7 @@ BOOST_AUTO_TEST_CASE( test_chaininputsink )
 
     string data("I am sending data.");
     string expected(data);
-    chainSink.notifyReceived(move(data));
+    chainSink.notifyReceived(std::move(data));
 
     BOOST_CHECK_EQUAL(stream1.str(), expected);
     BOOST_CHECK_EQUAL(stream2.str(), expected);

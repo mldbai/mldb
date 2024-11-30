@@ -376,7 +376,7 @@ BOOST_AUTO_TEST_CASE( test_runner_execute )
 
     string received;
     auto onStdOut = [&] (string && message) {
-        received = move(message);
+        received = std::move(message);
     };
     auto stdOutSink = make_shared<CallbackInputSink>(onStdOut, nullptr);
 

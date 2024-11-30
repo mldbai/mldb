@@ -27,6 +27,37 @@ JsonDiff::Deleted JsonDiff::deleted;
 /* JSON DIFF                                                                 */
 /*****************************************************************************/
 
+JsonDiff::JsonDiff()
+{
+}
+
+JsonDiff::
+JsonDiff(const Json::Value & oldValue,
+            const Json::Value & newValue)
+    : oldValue(new Json::Value(oldValue)),
+        newValue(new Json::Value(newValue))
+{
+}
+
+JsonDiff::
+JsonDiff(const Json::Value & oldValue,
+            const Deleted &)
+    : oldValue(new Json::Value(oldValue))
+{
+}
+
+JsonDiff::
+JsonDiff(const Deleted &,
+            const Json::Value & newValue)
+    : newValue(new Json::Value(newValue))
+{
+}
+
+JsonDiff::
+~JsonDiff()
+{
+}
+
 void
 JsonDiff::
 reverse()

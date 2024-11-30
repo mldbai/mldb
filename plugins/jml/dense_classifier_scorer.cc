@@ -421,7 +421,7 @@ explain(const DataPartition & partition) const
             std::tie(label, user, weight) = partition.getExample(exampleNum);
 
             auto explanation = explainGeneric(user, label).first;
-            return make_pair(move(explanation), weight);
+            return make_pair(std::move(explanation), weight);
         };
 
     auto reduce = [&] (size_t exampleNumber, pair<Explanation, double> x)

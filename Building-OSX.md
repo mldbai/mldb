@@ -10,7 +10,7 @@ MLDB on such a machine.
 
 We test building MLDB on:
 
-* OSX Big Sur (14.6.1) on M3 (primary)
+* OSX Ventura (14.6.1) on M3 (primary)
 
 We use Homebrew, an OSX package manager, to obtain the dependencies.
 
@@ -33,7 +33,7 @@ automatically available from the system, or installed here.  (We aim to make the
 in particular remove the dependency on `boost` eventually).
 
 ```
-brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.9 snappy v8 xz yaml-cpp libb2 sccache
+brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.9 snappy v8 xz yaml-cpp libb2 sccache libgit2
 ```
 
 Some of the Python dependencies also require a Rust compiler to build:

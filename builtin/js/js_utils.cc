@@ -179,7 +179,7 @@ Utf8String utf8str(const JSValue & val)
 
 v8::ScriptOrigin createScriptOrigin(v8::Isolate * isolate, const Utf8String & address)
 {
-    return v8::ScriptOrigin(isolate,
+    return v8::ScriptOrigin(/* isolate, */
                             JS::createString(isolate, address));
 }
 

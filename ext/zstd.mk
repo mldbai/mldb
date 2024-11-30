@@ -50,6 +50,8 @@ ZSTD_BINARY_SOURCE:= \
 	programs/benchzstd.c \
 	programs/benchfn.c \
 	programs/timefn.c \
+	programs/fileio_asyncio.c \
+	programs/lorem.c \
 
 ZSTD_GCC_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized
 ZSTD_CLANG_FLAGS:=-Wno-deprecated-declarations -Wno-maybe-uninitialized -Wno-unknown-warning-option -Wno-unused-but-set-variable

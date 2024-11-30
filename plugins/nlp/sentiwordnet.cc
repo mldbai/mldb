@@ -145,7 +145,7 @@ struct SentiWordNetImporter: public Procedure {
 
         // We now go through our accumulator to compute the final scores
         vector<pair<RowPath, vector<tuple<ColumnPath, CellValue, Date> > > > rows;
-        int64_t numRecorded = 0;
+        int64_t numRecorded MLDB_UNUSED = 0;
         for(const auto & it : accumulator) {
             double sum = 0;
             std::vector<float> scoreAccum(3);

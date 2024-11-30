@@ -102,6 +102,8 @@ LIBARCHIVE_SOURCE:= \
 	libarchive/archive_write_set_format.c \
 	libarchive/archive_write_set_format_cpio.c \
 	libarchive/archive_write_set_format_cpio_newc.c \
+	libarchive/archive_write_set_format_cpio_binary.c \
+	libarchive/archive_write_set_format_cpio_odc.c \
 	libarchive/archive_write_set_format_filter_by_ext.c \
 	libarchive/archive_write_set_format_gnutar.c \
 	libarchive/archive_write_set_format_iso9660.c \
