@@ -64,6 +64,7 @@ LIBMLDB_BUILTIN_BASE_LINK:= \
 
 # Shared_mutex only in C++17
 $(eval $(call set_compile_option,dist_table_procedure.cc,-std=c++1z))
+$(eval $(call set_compile_option,plugin_resource.cc,-Imldb/ext/libgit2/include))
 
 $(eval $(call library,mldb_builtin_base,$(LIBMLDB_BUILTIN_BASE_SOURCES),$(LIBMLDB_BUILTIN_BASE_LINK)))
 

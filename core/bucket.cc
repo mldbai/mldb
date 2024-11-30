@@ -225,7 +225,7 @@ initialize(std::vector<CellValue> values, int numBuckets)
 
     bool hasNulls = false;
     // Bucketize each type.  Strings can't be bucketized.
-    size_t n = 0;
+    size_t n MLDB_UNUSED = 0;
     if (!typeValues[CellValue::EMPTY].empty()) {
         hasNulls = true;
         ++n;  // value zero is for nulls

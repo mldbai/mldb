@@ -31,28 +31,17 @@ struct JsonDiff {
 
     static Deleted deleted;
 
-    JsonDiff()
-    {
-    }
+    JsonDiff();
+    JsonDiff(const Json::Value & oldValue,
+             const Json::Value & newValue);
 
     JsonDiff(const Json::Value & oldValue,
-             const Json::Value & newValue)
-        : oldValue(new Json::Value(oldValue)),
-          newValue(new Json::Value(newValue))
-    {
-    }
-
-    JsonDiff(const Json::Value & oldValue,
-             const Deleted &)
-        : oldValue(new Json::Value(oldValue))
-    {
-    }
+             const Deleted &);
 
     JsonDiff(const Deleted &,
-             const Json::Value & newValue)
-        : newValue(new Json::Value(newValue))
-    {
-    }
+             const Json::Value & newValue);
+
+    ~JsonDiff();
 
     bool empty() const
     {

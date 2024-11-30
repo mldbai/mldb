@@ -368,7 +368,7 @@ struct CompoundExpression : public BooleanExpression {
 
     CompoundExpression(const std::string & separator,
                        std::vector<BoolExprPtr> && exprs)
-        : separator(separator), exprs(move(exprs))
+        : separator(separator), exprs(std::move(exprs))
     {
     }
 

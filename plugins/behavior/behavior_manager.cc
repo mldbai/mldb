@@ -175,7 +175,7 @@ get(const std::vector<std::string> & inputFiles,
 
         parallelMap(0, inputFiles.size(), loadFile);
 
-        int numBadFiles = 0, numGoodFiles = 0;
+        int numBadFiles = 0, numGoodFiles MLDB_UNUSED = 0;
         
         vector<std::shared_ptr<BehaviorDomain> > filtered;
         for (auto f: toMerge) {
@@ -492,7 +492,7 @@ getRemoteCacheEntries()
                                  info.lastAccessed,
                                  info.size};
                                  
-        cacheFiles.emplace_back(move(newFile));
+        cacheFiles.emplace_back(std::move(newFile));
 
         return true;
     };

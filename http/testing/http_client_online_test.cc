@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_chunked_encoding )
                            string && headers, string && newBody) {
         error = newError;
         status = newStatus;
-        body = move(newBody);
+        body = std::move(newBody);
         done = true;
         MLDB::wake_by_address(done);
     };

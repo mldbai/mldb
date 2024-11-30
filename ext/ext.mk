@@ -17,12 +17,13 @@ $(eval $(call include_sub_make,fasttext,fasttext,../fasttext.mk))
 $(eval $(call include_sub_make,pffft,pffft,../pffft.mk))
 $(eval $(call test,pffft_vectorization_test,pffft,boost))
 
+$(eval $(call include_sub_make,abseil,abseil-cpp,../abseil.mk))
 $(eval $(call include_sub_make,s2,s2geometry/src/s2,../../../s2.mk))
 
 EASYEXIF_CC_FILES:= easyexif/exif.cpp
 $(eval $(call set_compile_option,$(EASYEXIF_CC_FILES),$(EASYEXIF_WARNING_OPTIONS)))
 $(eval $(call library,easyexif,$(EASYEXIF_CC_FILES)))
-$(eval $(call include_sub_make,libgit2,libgit2,../libgit2.mk))
+#$(eval $(call include_sub_make,libgit2,libgit2,../libgit2.mk))
 $(eval $(call include_sub_make,cryptopp,cryptopp,../cryptopp.mk))
 $(eval $(call include_sub_make,libarchive,libarchive,../libarchive.mk))
 

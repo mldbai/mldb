@@ -183,6 +183,7 @@ struct V8MldbPlatform: public v8::Platform {
             };
         }
 
+#if V8_HAS_OLD_TASK_RUNNER
         /**
          * Schedules a task to be invoked by this TaskRunner. The TaskRunner
          * implementation takes ownership of |task|.
@@ -281,7 +282,50 @@ struct V8MldbPlatform: public v8::Platform {
          * Returns true if non-nestable delayed tasks are enabled for this TaskRunner.
          */
         virtual bool NonNestableDelayedTasksEnabled() const { return false; }
+#else
+
+        /**
+         * Implementation of above methods with an additional `location` argument.
+         */
+        virtual void PostTaskImpl(std::unique_ptr<Task> task,
+                                    const SourceLocation& location) override
+        {
+            PostDelayedTaskImpl(std::move(task), 0.0, location);
+        }
+
+        virtual void PostNonNestableTaskImpl(std::unique_ptr<Task> task,
+                                            const SourceLocation& location) override
+        {
+            PostDelayedTaskImpl(std::move(task), 0.0, location);
+        }
+        virtual void PostDelayedTaskImpl(std::unique_ptr<Task> task,
+                                        double delay_in_seconds,
+                                        const SourceLocation& location) override
+        {
+            auto deadline = std::chrono::steady_clock::now()
+                + std::chrono::nanoseconds((long long)delay_in_seconds * 1000000000);
+            std::unique_lock<std::mutex> guard(mutex);
+            queue.emplace(deadline, std::move(task));
+            if (queue.empty() || deadline < std::get<0>(queue.top())) {
+                foregroundLoopCondition.notify_one();
+            }
+        }
+        virtual void PostNonNestableDelayedTaskImpl(std::unique_ptr<Task> task,
+                                                    double delay_in_seconds,
+                                                    const SourceLocation& location) override
+        {
+            PostDelayedTaskImpl(std::move(task), delay_in_seconds, location);
+        }
+        virtual void PostIdleTaskImpl(std::unique_ptr<IdleTask> task,
+                                        const SourceLocation& location) override
+        {
+            throw MLDB::Exception("PostIdleTask");
+        }
+
+
+#endif /* V8_HAS_OLD_TASK_RUNNER */
     };
+
 
     std::shared_ptr<MldbTaskRunner> runner;
 
@@ -531,7 +575,7 @@ struct V8MldbPlatform: public v8::Platform {
             this, priority, std::move(job_task), NumberOfWorkerThreads());
     }
 
-#endif // V8_PLATFORM_HAS_TASK_INTERFACE
+#endif // V8_PLATFORM_HAS_JOB_INTERFACE
   
     /**
      * Monotonically increasing time in seconds from an arbitrary fixed point in

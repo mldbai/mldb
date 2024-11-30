@@ -100,3 +100,6 @@
 [submodule "mldb_test_data"]
 	path = mldb_test_data
 	url = https://gitlab.com/mldbai/mldb_test_data.git
+[submodule "ext/abseil-cpp"]
+	path = ext/abseil-cpp
+	url = https://github.com/abseil/abseil-cpp.git

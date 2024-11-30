@@ -381,8 +381,7 @@ PREDECLARE_VALUE_DESCRIPTION(Id);
 namespace std {
 
 template<>
-struct hash<MLDB::Id> : public std::unary_function<MLDB::Id, size_t>
-{
+struct hash<MLDB::Id> {
     size_t operator()(const MLDB::Id & id) const { return id.hash(); }
 };
 

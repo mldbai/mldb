@@ -278,7 +278,7 @@ private:
         void assign(string newData)
         {
             ExcAssertEqual(state, QUERY);
-            data = move(newData);
+            data = std::move(newData);
             setState(RESPONSE);
             MLDB::wake_by_address(state);
         }

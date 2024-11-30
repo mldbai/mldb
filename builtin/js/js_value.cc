@@ -241,8 +241,6 @@ int64_t check_to_int2(const JSValue & val)
         || check(dval) < (double)std::numeric_limits<uint64_t>::min())
         throw MLDB::Exception("Cannot fit " + cstr(val) + " into an integer");
         
-    v8::Local<v8::Number> num;
-
     if (val->IsArray())
         throw Exception("cannot convert array to integer");
 

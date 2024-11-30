@@ -270,7 +270,7 @@ struct TestBase {
         using namespace std;
         gc.getEntry();
         try {
-            uint64_t nErrors = 0;
+            uint64_t nErrors MLDB_UNUSED = 0;
 
             std::atomic<int *> * blocks = allBlocks[threadNum];
 
@@ -332,7 +332,7 @@ struct TestBase {
         using namespace std;
         gc.getEntry();
         try {
-            uint64_t nErrors = 0;
+            uint64_t nErrors MLDB_UNUSED = 0;
 
             std::atomic<int *> * blocks = allBlocks[threadNum];
             int * oldBlocks[nblocks];

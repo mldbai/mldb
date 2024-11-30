@@ -324,7 +324,7 @@ BOOST_AUTO_TEST_CASE( test_http_client_move_constructor )
     /* move assignment operator */
     cerr << "testing move assignment op.\n";
     HttpClient client2(legacyLoop, "http://nowhere", 1);
-    client2 = move(client1);
+    client2 = std::move(client1);
     doGet(client2);
 
     threadPool.shutdown();

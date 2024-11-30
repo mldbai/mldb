@@ -13,13 +13,13 @@
 #include <stdint.h>
 #include <memory>
 #include <vector>
+#include "mldb/sql/cell_value.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/block/memory_region.h"
 #include "mldb/arch/bit_range_ops.h"
 
 namespace MLDB {
 
-struct CellValue;
 struct Utf8String;
 
 /** Holds an array of bucket indexes, efficiently. */

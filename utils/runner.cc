@@ -254,7 +254,7 @@ handleOutputStatus(const EpollEvent & event,
         }
 
         if (data.size() > 0) {
-            sink->notifyReceived(move(data));
+            sink->notifyReceived(std::move(data));
         }
     }
 
@@ -305,8 +305,8 @@ attemptTaskTermination()
         && !stdOutSink_ && !stdErrSink_ && childPid_ < 0
         && (task_.statusState == ProcessState::STOPPED
             || task_.statusState == ProcessState::DONE)) {
-        auto runResult = move(task_.runResult);
-        auto onTerminate = move(task_.onTerminate);
+        auto runResult = std::move(task_.runResult);
+        auto onTerminate = std::move(task_.onTerminate);
         task_.postTerminate(*this);
 
         if (stdInSink_) {

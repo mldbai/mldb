@@ -30,7 +30,7 @@ shellEscape(const std::string & str)
     int numSpecial = 0;
     int numSingleQuotes = 0;
     int numDoubleQuotes = 0;
-    int numNormal = 0;
+    int numNormal MLDB_UNUSED = 0;
     
     for (char c: str) {
         switch (c) {

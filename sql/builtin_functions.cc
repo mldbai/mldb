@@ -2487,8 +2487,6 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
      return {[] (const std::vector<ExpressionValue> & args,
                  const SqlRowScope & scope) -> ExpressionValue
              {
-                using namespace Edlib;
-
                 checkArgsSize(args.size(), 2);
                 if(!args[0].isString() || !args[1].isString())
                     throw MLDB::Exception("The parameters passed to the levenshtein_distance "
