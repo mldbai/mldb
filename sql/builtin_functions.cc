@@ -2480,6 +2480,118 @@ BoundFunction blob_length(const std::vector<BoundSqlExpression> & args)
 
 static RegisterBuiltin registerblob_length(blob_length, "blob_length");
 
+namespace {
+
+template<typename T>
+T min3(T a, T b, T c)
+{
+    return std::min(a, std::min(b, c));
+}
+
+// From edlib, modified to template char & use more idiomatic C++
+template<typename Char>
+std::tuple<int /* status */, int /* score */, std::vector<int> /* positions */>
+calcEditDistanceSimple(const Char* query, int queryLength,
+                           const Char* target, int targetLength,
+                           const EdlibAlignMode mode)
+{
+    int bestScore = -1;
+    vector<int> positions;
+    positions.reserve(targetLength);
+    int score = 0;
+
+    // Handle as a special situation when one of the sequences has length 0.
+    if (queryLength == 0 || targetLength == 0) {
+        if (mode == EDLIB_MODE_NW) {
+            score = std::max(queryLength, targetLength);
+            positions.push_back(targetLength - 1);
+        } else if (mode == EDLIB_MODE_SHW || mode == EDLIB_MODE_HW) {
+            score = queryLength;
+            positions.push_back(-1);
+        } else {
+            return { EDLIB_STATUS_ERROR, -1, {}};
+        }
+        return { EDLIB_STATUS_OK, score, std::move(positions) };
+    }
+
+    std::vector<int> C(queryLength, 0);
+    std::vector<int> newC(queryLength, 0);
+
+    // set first column (column zero)
+    for (int i = 0; i < queryLength; i++) {
+        C[i] = i + 1;
+    }
+    /*
+    for (int i = 0; i < queryLength; i++)
+        printf("%3d ", C[i]);
+    printf("\n");
+    */
+    for (int c = 0; c < targetLength; c++) { // for each column
+        newC[0] = min3((mode == EDLIB_MODE_HW ? 0 : c + 1) + 1, // up
+                       (mode == EDLIB_MODE_HW ? 0 : c)
+                       + (target[c] == query[0] ? 0 : 1), // up left
+                       C[0] + 1); // left
+        for (int r = 1; r < queryLength; r++) {
+            newC[r] = min3(newC[r-1] + 1, // up
+                           C[r-1] + (target[c] == query[r] ? 0 : 1), // up left
+                           C[r] + 1); // left
+        }
+
+        /*  for (int i = 0; i < queryLength; i++)
+            printf("%3d ", newC[i]);
+            printf("\n");*/
+
+        if (mode != EDLIB_MODE_NW || c == targetLength - 1) { // For NW check only last column
+            int newScore = newC[queryLength - 1];
+            if (bestScore == -1 || newScore <= bestScore) {
+                if (newScore < bestScore) {
+                    positions.clear();
+                }
+                bestScore = newScore;
+                positions.push_back(c);
+            }
+        }
+
+        std::swap(C, newC);
+    }
+
+    return std::make_tuple(EDLIB_STATUS_OK, bestScore, std::move(positions));
+}
+
+template<typename Char>
+int calcEditDistance(const Char * query, int queryLength,
+                     const Char * target, int targetLength)
+{
+    auto [status, res, positions] = calcEditDistanceSimple(query, queryLength,
+                                                            target, targetLength,
+                                                            EDLIB_MODE_NW);
+
+    if (status != EDLIB_STATUS_OK)
+        throw MLDB::Exception("Error computing Levenshtein distance");
+
+    return res;
+}
+
+// Overload for 8 bit characters, which can be done using the edlib library
+int calcEditDistance(const char * query, int queryLength,
+                     const char * target, int targetLength)
+{
+    auto conf = edlibDefaultAlignConfig();
+    conf.k = std::max(queryLength, targetLength);
+
+    EdlibAlignResult alignRes = edlibAlign(query, queryLength, target, targetLength, conf);
+
+    int bestScore = alignRes.editDistance;
+    edlibFreeAlignResult(alignRes);
+
+    if(bestScore == -1)
+        throw MLDB::Exception("Error computing Levenshtein distance");
+
+    return bestScore;
+}
+
+} // file scope
+
 BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
 {
     checkArgsSize(args.size(), 2);
@@ -2492,36 +2604,36 @@ BoundFunction levenshtein_distance(const std::vector<BoundSqlExpression> & args)
                     throw MLDB::Exception("The parameters passed to the levenshtein_distance "
                             "function must be strings");
 
-                const auto query = args[0].getAtom().toUtf8String().rawString();
-                const auto target = args[1].getAtom().toUtf8String().rawString();
+                //const auto query = args[0].getAtom().toUtf8String().rawString();
+                //const auto target = args[1].getAtom().toUtf8String().rawString();
 
-                // start by testing easy edge cases
-                int maxSize = max(query.size(), target.size());
-                int bestScore = -1;
-                if(query.size() == 0 && target.size() == 0)
-                    bestScore = 0;
-                else if(query.size() == 0 || target.size() == 0)
-                    bestScore = maxSize;
+                // Test for a given type, returning the best score
+                auto doTest = [&] (const auto & str1, const auto & str2) -> int {
+            
+#if 0
+                    // start by testing easy edge cases
+                    int maxSize = max(query.size(), target.size());
+                    int bestScore = -1;
+                    if(query.size() == 0 && target.size() == 0)
+                        bestScore = 0;
+                    else if(query.size() == 0 || target.size() == 0)
+                        bestScore = maxSize;
+#endif
 
-                if(bestScore != -1)
-                    return ExpressionValue(bestScore,
+                    return calcEditDistance(str1.c_str(), str1.size(), str2.c_str(), str2.size());
+                };
+
+                auto qAtom = args[0].getAtom();
+                auto tAtom = args[1].getAtom();
+
+                if (qAtom.isAsciiString() && tAtom.isAsciiString()) {
+                    return ExpressionValue(doTest(qAtom.toString(), tAtom.toString()),
                                            args[0].getEffectiveTimestamp());
-
-                auto conf = edlibDefaultAlignConfig();
-                conf.k = maxSize;
-
-                EdlibAlignResult alignRes =
-                    edlibAlign(query.c_str(), query.size(),
-                               target.c_str(), target.size(), conf);
-
-                bestScore = alignRes.editDistance;
-                edlibFreeAlignResult(alignRes);
-
-                if(bestScore == -1)
-                    throw MLDB::Exception("Error computing Levenshtein distance");
-
-                return ExpressionValue(bestScore,
-                                       args[0].getEffectiveTimestamp());
+                }
+                else {
+                    return ExpressionValue(doTest(qAtom.toWideString(), tAtom.toWideString()),
+                                           args[0].getEffectiveTimestamp());
+                }
             },
             std::make_shared<IntegerValueInfo>()
     };
