@@ -111,6 +111,8 @@ class MldbV8TracingController: public v8::TracingController {
   virtual void RemoveTraceStateObserver(TraceStateObserver*) override {}
 };
 
+#define ONCE_WAS_OVERRIDE 
+
 /**
  * V8 Platform abstraction layer.
  *
@@ -321,9 +323,11 @@ struct V8MldbPlatform: public v8::Platform {
         {
             throw MLDB::Exception("PostIdleTask");
         }
-
-
 #endif /* V8_HAS_OLD_TASK_RUNNER */
+        virtual bool IdleTasksEnabled() ONCE_WAS_OVERRIDE
+        {
+            return false;
+        }
     };
 
 
@@ -382,7 +386,7 @@ struct V8MldbPlatform: public v8::Platform {
      * error.
      * Embedder overrides of this function must NOT call back into V8.
      */
-    virtual void OnCriticalMemoryPressure() override {
+    virtual void OnCriticalMemoryPressure() ONCE_WAS_OVERRIDE {
         // TODO(bbudge) Remove this when embedders override the following method.
         // See crbug.com/634547.
     }
@@ -396,7 +400,7 @@ struct V8MldbPlatform: public v8::Platform {
      *
      * Embedder overrides of this function must NOT call back into V8.
      */
-    virtual bool OnCriticalMemoryPressure(size_t length) override { return false; }
+    virtual bool OnCriticalMemoryPressure(size_t length) ONCE_WAS_OVERRIDE { return false; }
 
     /**
      * Gets the number of worker threads used by
@@ -424,7 +428,7 @@ struct V8MldbPlatform: public v8::Platform {
     /**
      * Schedules a task to be invoked on a worker thread.
      */
-    virtual void CallOnWorkerThread(std::unique_ptr<Task> task) override
+    virtual void CallOnWorkerThread(std::unique_ptr<Task> task) ONCE_WAS_OVERRIDE
     {
         std::shared_ptr<Task> taskPtr(task.release());
         auto lambda = [taskPtr] ()
@@ -438,7 +442,7 @@ struct V8MldbPlatform: public v8::Platform {
      * Schedules a task that blocks the main thread to be invoked with
      * high-priority on a worker thread.
      */
-    virtual void CallBlockingTaskOnWorkerThread(std::unique_ptr<Task> task) override {
+    virtual void CallBlockingTaskOnWorkerThread(std::unique_ptr<Task> task) ONCE_WAS_OVERRIDE {
         std::shared_ptr<Task> taskPtr(task.release());
         auto lambda = [taskPtr] ()
             {
@@ -450,7 +454,7 @@ struct V8MldbPlatform: public v8::Platform {
     /**
      * Schedules a task to be invoked with low-priority on a worker thread.
      */
-    virtual void CallLowPriorityTaskOnWorkerThread(std::unique_ptr<Task> task) NON_NESTABLE_OVERRIDE {
+    virtual void CallLowPriorityTaskOnWorkerThread(std::unique_ptr<Task> task) ONCE_WAS_OVERRIDE {
         // Embedders may optionally override this to process these tasks in a low
         // priority pool.
         std::shared_ptr<Task> taskPtr(task.release());
@@ -466,7 +470,7 @@ struct V8MldbPlatform: public v8::Platform {
      * expires.
      */
     virtual void CallDelayedOnWorkerThread(std::unique_ptr<Task> task,
-                                            double delay_in_seconds) NON_NESTABLE_OVERRIDE
+                                            double delay_in_seconds) ONCE_WAS_OVERRIDE
     {
         // TODO: don't create so many threads...
         std::shared_ptr<Task> sharedTask(task.release());
@@ -562,14 +566,14 @@ struct V8MldbPlatform: public v8::Platform {
      * }
      */
     virtual std::unique_ptr<JobHandle> PostJob (
-        TaskPriority priority, std::unique_ptr<JobTask> job_task) override
+        TaskPriority priority, std::unique_ptr<JobTask> job_task) ONCE_WAS_OVERRIDE
     {
         return v8::platform::NewDefaultJobHandle(
             this, priority, std::move(job_task), NumberOfWorkerThreads());
     }
 
     virtual std::unique_ptr<JobHandle> CreateJob(
-        TaskPriority priority, std::unique_ptr<JobTask> job_task) override
+        TaskPriority priority, std::unique_ptr<JobTask> job_task) ONCE_WAS_OVERRIDE
     {
         return v8::platform::NewDefaultJobHandle(
             this, priority, std::move(job_task), NumberOfWorkerThreads());
@@ -616,6 +620,37 @@ struct V8MldbPlatform: public v8::Platform {
      * but non-critical scenario.
      */
     virtual void DumpWithoutCrashing() NON_NESTABLE_OVERRIDE {}
+
+    /**
+     * Creates and returns a JobHandle associated with a Job.
+     */
+    virtual std::unique_ptr<JobHandle> CreateJobImpl(
+        TaskPriority priority, std::unique_ptr<JobTask> job_task,
+        const SourceLocation& location)
+    {
+        throw MLDB::Exception("CreateJobImpl");
+    }
+
+    /**
+     * Schedules a task with |priority| to be invoked on a worker thread.
+     */
+    virtual void PostTaskOnWorkerThreadImpl(TaskPriority priority,
+                                            std::unique_ptr<Task> task,
+                                            const SourceLocation& location)
+    {
+        throw MLDB::Exception("PostTaskOnWorkerThreadImpl");
+    }
+
+    /**
+     * Schedules a task with |priority| to be invoked on a worker thread after
+     * |delay_in_seconds| expires.
+     */
+    virtual void PostDelayedTaskOnWorkerThreadImpl(
+        TaskPriority priority, std::unique_ptr<Task> task,
+        double delay_in_seconds, const SourceLocation& location)
+    {
+        throw MLDB::Exception("PostDelayedTaskOnWorkerThreadImpl");
+    }
 };
 
 void

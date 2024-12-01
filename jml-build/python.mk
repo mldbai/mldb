@@ -10,7 +10,7 @@ PYTHON_INCLUDE_PATH_DETECTED:=$(if $(wildcard $(VIRTUALENV)/include/python$(PYTH
 
 PYTHON_INCLUDE_PATH ?= $(PYTHON_INCLUDE_PATH_DETECTED)
 PYTHON ?= python$(PYTHON_VERSION)
-PIP ?= pip3
+PIP ?= $(PYTHON) -m pip
 PYFLAKES ?= true
 # Override this to run a cmd before installing python_requirements.txt
 PYTHON_DEPENDENCIES_PRE_CMD ?= true  
@@ -32,7 +32,7 @@ export PYTHONPATH
 ifdef VIRTUALENV
 
 $(VIRTUALENV)/bin/activate:
-	virtualenv --python=python$(PYTHON_VERSION) $(VIRTUALENV)
+	$(PYTHON) -m venv $(VIRTUALENV)
 
 python_dependencies: $(VIRTUALENV)/bin/activate
 
@@ -47,10 +47,7 @@ endif
 
 # Assume pip > 7.1.0 (2015) when constraints file support was added
 python_dependencies:
-	if [ -f python_requirements_$(OSNAME).txt ]; then \
-		$(PYTHON_DEPENDENCIES_PRE_CMD); \
-		$(PIP) install -r python_requirements_$(OSNAME).txt -c python_constraints.txt; \
-	fi
+	VIRTUALENV=$(VIRTUALENV) OSNAME=$(OSNAME) bash $(JML_BUILD)/install_dependencies.sh
 
 # Loop over the python_extra_requirements.txt file and install packages in
 # order. We did that because the package "statsmodels" does not handle
