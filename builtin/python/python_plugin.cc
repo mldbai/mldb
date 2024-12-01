@@ -393,10 +393,10 @@ std::string pyObjectToString(PyObject * pyObj)
     namespace bp = boost::python;
 
     if(PyLong_Check(pyObj)) {
-        return boost::lexical_cast<std::string>(bp::extract<long>(pyObj));
+        return boost::lexical_cast<std::string>(long(bp::extract<long>(pyObj)));
     }
     else if(PyFloat_Check(pyObj)) {
-        return boost::lexical_cast<std::string>(bp::extract<float>(pyObj));
+        return boost::lexical_cast<std::string>(float(bp::extract<float>(pyObj)));
     }
     else if(PyBytes_Check(pyObj)) {
         return bp::extract<std::string>(pyObj);
