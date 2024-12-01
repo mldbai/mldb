@@ -511,7 +511,7 @@ endef
 # directives, and things to run in the command line.
 # $(1): the options
 
-TEST_PRE_PRE_OPTIONS_ = $(w arning TEST_PRE_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),. $(VIRTUALENV)/bin/activate; )
+TEST_PRE_PRE_OPTIONS_ = $(w arning TEST_PRE_PRE_OPTIONS $(1))$(if $(findstring virtualenv,$(1)),$(JML_BUILD)/run_in_virtualenv.sh $(VIRTUALENV) )
 
 TEST_PRE_OPTIONS_ = $(w arning TEST_PRE_OPTIONS $(1))$(if $(findstring timed,$(1)),$(GNU_TIME) )$(if $(findstring virtualenv,$(1)),/usr/bin/env PYTHONPATH=$(BIN) )$(if $(sanitizers),,$(if $(findstring valgrind,$(1)),$(VALGRIND) $(VALGRINDFLAGS) ))
 

@@ -27,7 +27,7 @@ namespace MLDB {
 
 namespace {
 
-  const string tmpDir = Environment::instance()["TMP"];
+const fs::path tmpDir = Environment::instance()["TMP"];
 const string prefixDir = "./../../../../";
 
 };
@@ -38,7 +38,7 @@ TestFolderFixture::
 TestFolderFixture(const string& name) :
     name(name)
 {
-    path = tmpDir + name + "_" + to_string(testCount++);
+    path = tmpDir / (name + "_" + to_string(testCount++));
 
     if (fs::is_directory(path)) {
         try {

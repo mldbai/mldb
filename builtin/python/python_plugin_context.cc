@@ -827,5 +827,12 @@ getHttpBoundAddress()
     return this->getPyContext()->engine->getHttpBoundAddress();
 }
 
+string
+MldbPythonContext::
+getPythonExecutable()
+{
+    return this->getPyContext()->engine->getPythonExecutable();
+}
+
 
 } // namespace MLDB

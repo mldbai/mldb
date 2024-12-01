@@ -498,6 +498,10 @@ PythonInterpreter(InitializationContext context)
                 };
         }
         else {
+            //if (auto venv_path = std::getenv("MLDB_VIRTUAL_ENV")) {
+            //    setenv("PYTHONHOME", venv_path, true);
+            //}
+
             Py_Initialize();
             PyEval_InitThreads();
             st = PyEval_SaveThread();

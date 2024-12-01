@@ -1099,6 +1099,17 @@ struct MldbJS::Methods {
     }
 
     static void
+    getPythonExecutable(const v8::FunctionCallbackInfo<v8::Value> & args)
+    {
+        v8::Isolate* isolate = args.GetIsolate();
+        v8::EscapableHandleScope scope(isolate);
+        try {
+            MldbEngine * engine = MldbJS::getShared(args.This());
+            args.GetReturnValue().Set(scope.Escape(JS::toJS(engine->getPythonExecutable())));
+        } HANDLE_JS_EXCEPTIONS(args);
+    }
+
+    static void
     debugSetPathOptimizationLevel(const v8::FunctionCallbackInfo<v8::Value> & args)
     {
         using namespace v8;
@@ -1182,6 +1193,7 @@ registerMe()
     ADD_METHOD(sqlEscape);
     ADD_METHOD(ls);
     ADD_METHOD(getHttpBoundAddress);
+    ADD_METHOD(getPythonExecutable);
     ADD_METHOD(debugSetPathOptimizationLevel);
 #undef ADD_METHOD
     

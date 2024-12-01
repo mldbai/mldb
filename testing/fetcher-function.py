@@ -161,7 +161,9 @@ class FetcherFunction(MldbUnitTest):  # noqa
                 prctl.set_pdeathsig(signal.SIGTERM)
             os.setpgid(0, 0)
 
-        proc = subprocess.Popen(['/usr/bin/env', 'python',
+        python = mldb.get_python_executable()
+
+        proc = subprocess.Popen([python,
                                  'mldb/testing/test_server.py', str(port)],
                                 preexec_fn=None)
 

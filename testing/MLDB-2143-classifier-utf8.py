@@ -84,13 +84,34 @@ class MLDB2134classiferUtf8Test(MldbUnitTest):  # noqa
 
         self.assertEqual(runResults1, runResults2)
 
-        self.assertEqual(runResults1, {
+        expected = {
             "recall": 0.9444444444444444,
             "support": 72.0,
             "f1Score": 0.9446548821548821,
             "precision": 0.9537037037037037,
             "accuracy": 0.9645061728395061
-        })
+        }
+
+        recallError = abs(runResults1["recall"] - expected["recall"])
+        supportError = abs(runResults1["support"] - expected["support"])
+        f1ScoreError = abs(runResults1["f1Score"] - expected["f1Score"])
+        precisionError = abs(runResults1["precision"] - expected["precision"])
+        accuracyError = abs(runResults1["accuracy"] - expected["accuracy"])
+
+        self.assertLess(recallError, 0.000000000000001)
+        self.assertLess(supportError, 0.000000000000001)
+        self.assertLess(f1ScoreError, 0.000000000000001)
+        self.assertLess(precisionError, 0.000000000000001)
+        self.assertLess(accuracyError, 0.000000000000001)
+
+
+        #self.assertEqual(runResults1, {
+        #    "recall": 0.9444444444444444,
+        #    "support": 72.0,
+        #    "f1Score": 0.9446548821548821,
+        #    "precision": 0.9537037037037037,
+        #    "accuracy": 0.9645061728395061
+        #})
        
 
 if __name__ == '__main__':

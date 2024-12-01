@@ -514,6 +514,7 @@ void pythonLoaderInit(const EnterThreadToken & thread)
     mldb.def("read_lines", &MldbPythonContext::readLines1);
     mldb.def("ls", &MldbPythonContext::ls);
     mldb.def("get_http_bound_address", &MldbPythonContext::getHttpBoundAddress);
+    mldb.def("get_python_executable", &MldbPythonContext::getPythonExecutable);
 
 
     mldb.def("create_dataset",

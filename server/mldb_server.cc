@@ -679,7 +679,20 @@ getHttpBoundAddress() const
 {
     return this->httpBoundAddress;
 }
-    
+
+std::string
+MldbServer::
+getPythonExecutable() const
+{
+    if (auto mldb_venv = getenv("MLDB_VIRTUAL_ENV")) {
+        return std::string(mldb_venv) + "/bin/python";
+    }
+    else if (auto venv = getenv("VIRTUALENV")) {
+        return std::string(venv) + "/bin/python";
+    }
+    return "python3";
+}
+
 void
 MldbServer::
 addEntity(Utf8String name,

@@ -328,6 +328,11 @@ struct V8MldbPlatform: public v8::Platform {
         {
             return false;
         }
+
+        /**
+         * Returns true if non-nestable tasks are enabled for this TaskRunner.
+         */
+        virtual bool NonNestableTasksEnabled() const override { return true; }
     };
 
 
@@ -491,8 +496,8 @@ struct V8MldbPlatform: public v8::Platform {
      */
     virtual void CallOnForegroundThread(v8::Isolate* isolate, v8::Task* task)
     {
-	std::unique_ptr<Task> pTask(task);
-	return getIsolateRunner(isolate)->PostTask(std::move(pTask));
+        std::unique_ptr<Task> pTask(task);
+	    return getIsolateRunner(isolate)->PostTask(std::move(pTask));
     }
 
     /**
@@ -628,7 +633,8 @@ struct V8MldbPlatform: public v8::Platform {
         TaskPriority priority, std::unique_ptr<JobTask> job_task,
         const SourceLocation& location)
     {
-        throw MLDB::Exception("CreateJobImpl");
+        return v8::platform::NewDefaultJobHandle(
+            this, priority, std::move(job_task), NumberOfWorkerThreads());
     }
 
     /**
@@ -638,7 +644,12 @@ struct V8MldbPlatform: public v8::Platform {
                                             std::unique_ptr<Task> task,
                                             const SourceLocation& location)
     {
-        throw MLDB::Exception("PostTaskOnWorkerThreadImpl");
+        std::shared_ptr<Task> taskPtr(task.release());
+        auto lambda = [taskPtr] ()
+            {
+                taskPtr->Run();
+            };
+        ThreadPool::instance().add(std::move(lambda));
     }
 
     /**

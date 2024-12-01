@@ -66,7 +66,10 @@ BOOST_FIXTURE_TEST_CASE(inputFileTest, FixtureTest)
 {
     // To access a file outside our sandbox just invoke resolvePath with your
     // input file.
+    //cerr << "resolvePath(inputFile) = " << resolvePath(inputFile) << endl;
+    //cerr << "pwd = " << std::filesystem::current_path() << endl;
     ifstream ifs(resolvePath(inputFile));
+    BOOST_REQUIRE(ifs.good());
     BOOST_CHECK_EQUAL(readLine(ifs), "Hello World!");
 }
 

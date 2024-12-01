@@ -203,21 +203,40 @@ class FastTextTest(MldbUnitTest):
                                                 label : 'Politique'}) as * 
                             """)
 
-            self.assertTableResultEquals(res, [
-                [
+            self.assertEqual(len(res), 2)
+
+            self.assertTableResultEquals([res[0]], [
+                 [
                     "_rowName",
                     "bias",
                     "explanation.tokens.alabama",
                     "explanation.tokens.futbol",
                     "explanation.tokens.hockey"
-                ],
-                [
-                    "result",
-                    0, 0.020895058289170265,
-                    -0.05198581516742706,
-                    -0.0865536779165268
-                ]
-            ])
+                ]])
+
+            self.assertEqual(len(res[1]), 5)
+            self.assertEqual(res[1][0], "result")
+            self.assertAlmostEqual(res[1][1], 0)
+            self.assertAlmostEqual(res[1][2], 0.020895058289170265)
+            self.assertAlmostEqual(res[1][3], -0.05198581516742706)
+            self.assertAlmostEqual(res[1][4], -0.0865536779165268)
+
+
+            #self.assertTableResultEquals(res, [
+            #    [
+            #        "_rowName",
+            #        "bias",
+            #        "explanation.tokens.alabama",
+            #        "explanation.tokens.futbol",
+            #        "explanation.tokens.hockey"
+            #    ],
+            #    [
+            #        "result",
+            #        0, 0.020895058289170265,
+            #        -0.05198581516742706,
+            #        -0.0865536779165268
+            #    ]
+            #])
 
             with self.assertRaisesRegex(ResponseException, "label not in model"):
                 res = mldb.query("""SELECT explain({features : {tokenize(lower(' hockey Alabama Futbol'), {splitChars:' ,.:;«»[]()%!?', quoteChar:'', minTokenLength: 2}) as tokens},

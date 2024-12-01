@@ -101,6 +101,11 @@ struct MldbEngine {
     /** Return the URL on which MLDB can be reached. */
     virtual std::string getHttpBoundAddress() const = 0;
 
+    /** Return the python executable that is compatible with this
+        MLDB server.
+    */
+    virtual std::string getPythonExecutable() const = 0;
+
     /** Get the documentation path for the given package.  This will look
         at the working directory of the package that loaded it.
     */
