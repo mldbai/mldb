@@ -5,6 +5,7 @@
 
 var mldb = require('mldb')
 var unittest = require('mldb/unittest')
+var python_executable = mldb.getPythonExecutable();
 
 var pluginConfig = {
     id: 'external1',
@@ -16,7 +17,7 @@ var pluginConfig = {
                 command: {
                     commandLine: [
                         /*'/usr/bin/strace', '-ftttT', '-o', 'test_server.strace', */
-                        './virtualenv/bin/python', 'mldb/testing/MLDB-684-test-server.py'
+                        python_executable, 'mldb/testing/MLDB-684-test-server.py'
                     ]
                 }
             }

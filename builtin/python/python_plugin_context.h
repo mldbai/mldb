@@ -269,6 +269,7 @@ struct MldbPythonContext {
     ls(const std::string & path);
 
     std::string getHttpBoundAddress();
+    std::string getPythonExecutable();
 
 private:
     void setPlugin(std::shared_ptr<PythonPluginContext> pluginCtx);

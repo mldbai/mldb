@@ -88,7 +88,9 @@ run(const ProcedureRunConfig & run,
         throw MLDB::Exception("Main script element does not exist");
 
     // TODO fix this. MLDB-874
-    string python_executable;
+    string python_executable = this->engine->getPythonExecutable();
+
+#if 0
     // we're running in docker
     if(fs::exists(fs::path("/mldb_data/"))) {
         python_executable = "/usr/bin/env python";
@@ -97,6 +99,7 @@ run(const ProcedureRunConfig & run,
     else {
         python_executable = "./virtualenv/bin/python";
     }
+#endif
 
     string cmd = python_executable + " " + pluginRes->getElementLocation(MAIN);
     RunResult runRes = execute(MLDB::split(cmd, ' '), stdout_sink,

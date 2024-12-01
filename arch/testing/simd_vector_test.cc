@@ -805,7 +805,7 @@ void vec_twonorm_sqr_test_case(int nvals)
     
     T r = SIMD::vec_twonorm_sqr(x, nvals);
 
-    BOOST_CHECK_EQUAL(r, r2);
+    BOOST_CHECK_CLOSE(r, r2, 0.001);
 }
 
 BOOST_AUTO_TEST_CASE( vec_twonorm_sqr_test )

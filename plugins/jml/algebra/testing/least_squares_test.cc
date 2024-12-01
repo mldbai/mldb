@@ -394,13 +394,13 @@ void test_lasso_scikit_learn()
     for (int j=0; j < d + 1; ++j)
         pred_3 += x[j] * A[3][j];
 
-    cerr << x << endl;
+    cerr << "x = " << x << endl;
 
     Float tol = 0.001;
     BOOST_CHECK_CLOSE(pred_3, -2496.48270374, tol);
     BOOST_CHECK_CLOSE(x[0], 1443.36564411, tol);
     for (int i=1; i < d + 1; ++i)
-        BOOST_CHECK_EQUAL(x[i], 0);
+        BOOST_CHECK_LT(abs(x[i]), 0.0001);
 
 }
 

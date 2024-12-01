@@ -181,6 +181,8 @@ struct MldbServer: public MldbEngine, public ServicePeer, public EventRecorder {
 
     virtual std::string getHttpBoundAddress() const override;
     
+    virtual std::string getPythonExecutable() const override;
+
     virtual void addEntity(Utf8String name,
                            std::shared_ptr<RestEntity> entity) override;
     

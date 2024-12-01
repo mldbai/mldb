@@ -40,7 +40,7 @@ perf.data.old
 secondPartyBehaviours
 blueKaiBehaviours
 platform.kdev4
-/virtualenv
+/virtualenv*
 /tags
 models
 mldb_data
@@ -53,3 +53,5 @@ file::test*
 *.DS_Store
 airlines
 airlines.*
+*.orig
+*.rej

@@ -155,6 +155,9 @@ class mldb_wrapper(object):
         def get_http_bound_address(self):
             return self._mldb.get_http_bound_address()
 
+        def get_python_executable(self):
+            return self._mldb.get_python_executable()
+
         def get(self, url, data=None, **kwargs):
             query_string = []
             for k, v in list(kwargs.items()):

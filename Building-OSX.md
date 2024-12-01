@@ -33,7 +33,7 @@ automatically available from the system, or installed here.  (We aim to make the
 in particular remove the dependency on `boost` eventually).
 
 ```
-brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.11 snappy v8 xz yaml-cpp libb2 sccache libgit2
+brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.12 snappy v8 xz yaml-cpp libb2 sccache libgit2
 ```
 
 Some of the Python dependencies also require a Rust compiler to build:
@@ -43,10 +43,14 @@ brew install rust
 ```
 
 We also need Python's `virtualenv` command, and a couple of other system-wide Python packages
-that can't easily be installed into a virtualenv for various reasons:
+that can't easily be installed into a virtualenv for various reasons. Note that currently the MLDB server
+will get its Python packages from the system, so these need to be installed system-wide. The
+`--break-system-packages` option allows this behavior (this will be fixed at some point by making
+MLDB initialize its python environment from a virtual environment, but it's way more complex
+than it should be).
 
 ```
-pip3 install virtualenv python-dateutil bottle requests
+pip3 install virtualenv python-dateutil bottle requests --break-system-packages
 ```
 
 ## Check out MLDB
