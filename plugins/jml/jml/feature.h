@@ -9,6 +9,7 @@
 #pragma once
 
 #include <ostream>
+#include <cstdint>
 #include "mldb/compiler/compiler.h"
 
 namespace ML {

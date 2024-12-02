@@ -20,6 +20,8 @@
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
 #include <boost/timer/timer.hpp>
+#include "mldb/utils/possibly_dynamic_buffer.h"
+
 
 #include <random>
 #include <mutex>
@@ -908,7 +910,7 @@ struct TreeTrainer {
         W default_w(nl);
 
         /* Check for zero impurity, and return a leaf if we have it. */
-        double class_weights[nl];
+        PossiblyDynamicBuffer<float> class_weights(nl);
 
         // What would we have as a leaf if we were to stop splitting here?
         Tree::Leaf leaf;

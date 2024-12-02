@@ -30,6 +30,7 @@
 #include "googleurl/src/url_canon_ip.h"
 
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "googleurl/base/basictypes.h"
 #include "googleurl/base/logging.h"

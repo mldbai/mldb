@@ -17,7 +17,7 @@ $(eval $(call include_sub_make,embedding))
 $(eval $(call include_mldb_plugin,html))
 $(eval $(call include_mldb_plugin,pro))
 
-ifeq ($(OSNAME),Linux)
+ifeq ($(OSNAME),NotSupportedAnymore)
 $(eval $(call include_mldb_plugin,av))
 endif
 #$(eval $(call include_mldb_plugin,tensorflow))

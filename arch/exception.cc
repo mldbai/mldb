@@ -14,16 +14,25 @@
 #include <string.h>
 #include <cxxabi.h>
 #include "demangle.h"
+#include "mldb/compiler/stdlib.h"
 
 using namespace std;
 
 
 namespace MLDB {
 
+namespace {
+// Ensure that the c_str() of the string can execute, returning a null, without mutating the string behind the scenes
+// Some standard libraries will only add the null termination on the first call of c_str() which can cause issues
+// with multithreading.
+template<typename Char>
+inline void ensure_null_termintated_c_str(std::basic_string<Char> & str) { auto res __attribute__((unused)) = str.c_str(); }
+} // file scope
+
 Exception::Exception(const std::string & msg)
     : message(msg)
 {
-    message.c_str();  // make sure we have a null terminator
+    ensure_null_termintated_c_str(message);
 }
 
 Exception::Exception(const char * msg, ...)
@@ -32,7 +41,7 @@ Exception::Exception(const char * msg, ...)
     va_start(ap, msg);
     try {
         message = vformat(msg, ap);
-        message.c_str();
+        ensure_null_termintated_c_str(message);
         va_end(ap);
     }
     catch (...) {
@@ -44,7 +53,7 @@ Exception::Exception(const char * msg, ...)
 Exception::Exception(const char * msg, va_list ap)
 {
     message = vformat(msg, ap);
-    message.c_str();
+    ensure_null_termintated_c_str(message);
 }
 
 Exception::
@@ -62,7 +71,7 @@ Exception(int errnum, const std::string & msg, const char * function)
 
     message += error;
 
-    message.c_str();
+    ensure_null_termintated_c_str(message);
 }
 
 Exception::~Exception() throw()

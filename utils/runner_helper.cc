@@ -24,6 +24,8 @@
 
 #include "runner_common.h"
 #include "mldb/base/scope.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
+
 
 using namespace std;
 using namespace MLDB;
@@ -168,7 +170,7 @@ int main(int argc, char * argv[])
     fds.dupToStdStreams();
     fds.closeRemainingFds();
 
-    char * execArgs[argc - 1];
+    PossiblyDynamicBuffer<char *> execArgs(argc - 1);
     for (int i = 2; i < argc; i++) {
         execArgs[i - 2] = argv[i];
     }
@@ -206,7 +208,7 @@ int main(int argc, char * argv[])
 
     int childPid = fork();
     if (childPid == 0) {
-        runChild(execArgs, childLaunchStatusFd, fds);
+        runChild(execArgs.data(), childLaunchStatusFd, fds);
         /* there is no possible way this code could be executed, because
          * "runChild" calls "execv" */
         throw MLDB::Exception("The Alpha became the Omega.");

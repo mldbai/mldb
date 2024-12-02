@@ -37,9 +37,9 @@ struct RingBufferBase {
         ring = std::move(other.ring);
         bufferSize = other.bufferSize;
         other.bufferSize = 0;
-        readPosition = other.readPosition;
+        readPosition = other.readPosition.load();
         other.readPosition = 0;
-        writePosition = other.writePosition;
+        writePosition = other.writePosition.load();
         other.writePosition = 0;
 
         return *this;

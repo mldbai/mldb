@@ -8,6 +8,7 @@
 #pragma once
 
 #include "mldb/ext/jsoncpp/json.h"
+#include <cstdint>
 
 namespace MLDB {
 

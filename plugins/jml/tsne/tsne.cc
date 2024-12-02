@@ -11,6 +11,7 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/distribution_simd.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/utils/lightweight_hash.h"
@@ -690,7 +691,8 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     if (P.shape()[0] != n || P.shape()[1] != n)
         throw Exception("P has wrong shape");
 
-    double d_totals[n];
+    PossiblyDynamicBuffer<double> d_totals_storage(n);
+    double * d_totals = d_totals_storage.data();
 
     int chunk_size = 256;
         
@@ -707,7 +709,8 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     t_D += t.elapsed().wall;  t.start();
     
     // Cost accumulated for each row
-    double row_costs[n];
+    PossiblyDynamicBuffer<double> row_costs_storage(n);
+    double * row_costs = row_costs_storage.data();
 
     // Q matrix: q_{i,j} = d_{ij} / sum_{k != l} d_{kl}
     float qfactor = 1.0 / d_total_offdiag;
@@ -940,7 +943,8 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
     int d = Y.shape()[1];
 
     // Recenter Y values about the origin
-    double Y_means[d];
+    PossiblyDynamicBuffer<double> Y_means_storage(d);
+    double * Y_means = Y_means_storage.data();
     std::fill(Y_means, Y_means + d, 0.0);
     for (unsigned i = 0;  i < n;  ++i)
         for (unsigned j = 0;  j < d;  ++j)
@@ -1175,7 +1179,8 @@ double sqr(double d)
 
 float pythag_dist(const float * d1, const float * d2, int nd)
 {
-    float diff[nd];
+    PossiblyDynamicBuffer<float> diff_storage(nd);
+    float * diff = diff_storage.data();
     SIMD::vec_add(d1, -1.0f, d2, diff, nd);
     return sqrtf(SIMD::vec_dotprod_dp(diff, diff, nd));
 }
@@ -1554,8 +1559,8 @@ struct CalcRepContext {
               bool inside,
               const std::vector<int> & pointsInside)
     {
-
-        float com[nd];
+        PossiblyDynamicBuffer<float> com_storage(nd);
+        float * com = com_storage.data();
 
         ++nodesTouched;
 
@@ -1841,11 +1846,11 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 
         // This accumulates the sum_j p[x][j] log Z*q[x][j] for each example.  From this and
         // Z, we can calculate the cost of each example.  Only relevant if calcC is true.
-        double exampleCFactor[nx];
-        std::fill(exampleCFactor, exampleCFactor + nx, 0.0);
+        PossiblyDynamicBuffer<double> exampleCFactor(nx);
+        std::fill(exampleCFactor.data(), exampleCFactor.data() + nx, 0.0);
         
         // clang 3.4: lambda can't capture a variable length array
-        auto * exampleCFactorPtr = exampleCFactor;
+        auto * exampleCFactorPtr = exampleCFactor.data();
         
 
         // Do we calculate the cost?
@@ -2342,8 +2347,8 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
             timer.restart();
         }
         
-        float maxAbsCoord[nd];
-        std::fill(maxAbsCoord, maxAbsCoord + nd, 0.0);
+        PossiblyDynamicBuffer<float> maxAbsCoord(nd);
+        std::fill(maxAbsCoord.data(), maxAbsCoord.data() + nd, 0.0);
 
         boost::multi_array<float, 2> normalizedY(boost::extents[nx][nd]);
         for (unsigned x = 0;  x < nx;  ++x) {
@@ -2464,12 +2469,12 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
     for (unsigned iter = 0;  iter < params.max_iter;  ++iter) {
 
         // Y gradients
-        double dy[nd];
-        std::fill(dy, dy + nd, 0.0);
+        PossiblyDynamicBuffer<double> dy(nd);
+        std::fill(dy.begin(), dy.end(), 0.0);
 
         // Y gradients
-        double Fattr[nd];
-        std::fill(Fattr, Fattr + nd, 0.0);
+        PossiblyDynamicBuffer<double> Fattr(nd);
+        std::fill(Fattr.begin(), Fattr.end(), 0.0);
 
         // Approximate solution to the repulsive force
         bool calcC = iter % 20 == 0;
@@ -2477,8 +2482,8 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
         double C = 0.0;
 
         double ZApprox = 0.0;
-        double FrepZApprox[nd];
-        std::fill(FrepZApprox, FrepZApprox + nd, 0.0);
+        PossiblyDynamicBuffer<double> FrepZApprox(nd);
+        std::fill(FrepZApprox.begin(), FrepZApprox.end(), 0.0);
 
         int poiDone = 0;
         int nodesTouched = 0;
@@ -2568,18 +2573,19 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
                     nullptr, {}, nullptr, params.min_distance_ratio);
         }
 
-
-        double FrepApprox[nd];
+        PossiblyDynamicBuffer<double> FrepApprox(nd);
         for (unsigned i = 0;  i < nd;  ++i) {
             FrepApprox[i] = FrepZApprox[i] / ZApprox;
         }
 
-        double FattrApprox[nd];
-        std::fill(FattrApprox, FattrApprox + nd, 0.0);
+        PossiblyDynamicBuffer<double> FattrApprox(nd);
+        std::fill(FattrApprox.begin(), FattrApprox.end(), 0.0);
+
+        // Difference in each dimension
+        PossiblyDynamicBuffer<float> d_storage(nd);
+        float * d = d_storage.data();
 
         for (unsigned q = 0;  q < neighbours.indexes.size();  ++q) {
-            // Difference in each dimension
-            float d[nd];
 
             // Square of total distance
             double D = 0.0;

@@ -17,6 +17,7 @@
 #include "mldb/io/epoller.h"
 
 #include "async_writer_source.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 using namespace std;
 using namespace MLDB;
@@ -124,14 +125,14 @@ void
 AsyncWriterSource::
 handleReadReady()
 {
-    char buffer[readBufferSize_];
+    PossiblyDynamicBuffer<char, 16384> buffer(readBufferSize_);
 
     errno = 0;
     while (1) {
-        ssize_t s = ::read(fd_, buffer, readBufferSize_);
+        ssize_t s = ::read(fd_, buffer.data(), readBufferSize_);
         if (s > 0) {
             bytesReceived_ += s;
-            onReceivedData(buffer, s);
+            onReceivedData(buffer.data(), s);
         }
         else if (s == 0) {
             /* according to read(2), a value of 0 indicates eof. */

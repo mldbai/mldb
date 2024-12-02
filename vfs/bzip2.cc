@@ -64,7 +64,7 @@ struct BzlibStreamCommon: public bz_stream {
         //cerr << "pump " << len << " bytes with flush level "
         //     << flushLevel << endl;
 
-        size_t bufSize = 131072;
+        constexpr size_t bufSize = 131072;
         char output[bufSize];
         next_in = (char *)data;
         avail_in = len;

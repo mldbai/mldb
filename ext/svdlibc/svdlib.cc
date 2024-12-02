@@ -38,6 +38,8 @@ POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <cmath>
 
+#include "mldb/utils/possibly_dynamic_buffer.h"
+
 using namespace std;
 
 const char *SVDVersion = "1.4";
@@ -241,7 +243,8 @@ void svd_opb(SMat A, double *x, double *y) {
   double *value = A->value;
   long n = A->cols;
 
-  double temp[A->rows];
+  MLDB::PossiblyDynamicBuffer<double> tempStorage(A->rows);
+  double * temp = tempStorage.data();
 
   //cerr << "svd_opb: x = " << distribution<float>(x, x + A->cols) << endl;
 

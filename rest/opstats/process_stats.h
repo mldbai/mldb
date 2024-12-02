@@ -7,14 +7,12 @@
    Gathers process and system stats from the proc files.
 */
 
-
-#ifndef __logger__process_stats_h__
-#define __logger__process_stats_h__
+#pragma once
 
 #include "mldb/ext/jsoncpp/json.h"
 #include <string>
 #include <functional>
-
+#include <cstdint>
 
 namespace MLDB {
 
@@ -81,7 +79,3 @@ private:
 
 
 } // namespace MLDB
-
-#endif // __logger__process_stats_h__
-
-

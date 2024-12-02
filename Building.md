@@ -33,6 +33,7 @@ For C++ code to compile and the Python modules to install correctly, the followi
 sudo apt install -y \
   make \
   time \
+  sccache \
   lsb-release \
   git \
   autoconf \
@@ -67,7 +68,8 @@ sudo apt install -y \
   libavcodec-dev \
   libavformat-dev \
   libavdevice-dev \
-  libv8-dev
+  libv8-dev \
+  libgit2-dev
 ```
 ## Installing Docker
 

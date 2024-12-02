@@ -20,6 +20,7 @@
 #include "mldb/arch/demangle.h"
 #include "thread_context.h"
 #include <boost/timer/timer.hpp>
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -334,7 +335,7 @@ fixup_grouping_features(const std::vector<Feature> & group_features,
 
     size_t nf = group_features.size();
 
-    bool ignore[nf];
+    PossiblyDynamicBuffer<bool> ignore(nf);
 
     /* Categorical and string features can't be fixed up; we don't try to
        do it. */

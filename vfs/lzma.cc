@@ -62,7 +62,7 @@ struct LzmaStreamCommon: public lzma_stream {
         //cerr << "pump " << len << " bytes with flush level "
         //     << flushLevel << endl;
 
-        size_t bufSize = 131072;
+        constexpr size_t bufSize = 131072;
         char output[bufSize];
         next_in = (uint8_t *)data;
         avail_in = len;

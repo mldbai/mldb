@@ -15,6 +15,7 @@
 #include "fast_float_parsing.h"
 #include <cassert>
 #include <fstream>
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -631,17 +632,10 @@ read_new_buffer()
     if (stream_->bad() || stream_->fail())
         exception("stream is bad/has failed 1");
     
-    static const size_t MAX_STACK_CHUNK_SIZE = 65536;
+    constexpr size_t MAX_STACK_CHUNK_SIZE = 65536;
+    PossiblyDynamicBuffer<char, MAX_STACK_CHUNK_SIZE> buf(chunk_size_);
 
-    //char tmpbuf_stack[chunk_size_];
-    char tmpbuf_stack[std::min(chunk_size_, MAX_STACK_CHUNK_SIZE)];
-    char * tmpbuf = tmpbuf_stack;
-    std::shared_ptr<char> tmpbuf_dynamic;
-
-    if (chunk_size_ > MAX_STACK_CHUNK_SIZE) {
-        tmpbuf_dynamic.reset(new char[chunk_size_], [] (char *p) { delete[] p; });
-        tmpbuf = tmpbuf_dynamic.get();
-    }
+    char * tmpbuf = buf.data();
     
     stream_->read(tmpbuf, chunk_size_);
     size_t read = stream_->gcount();

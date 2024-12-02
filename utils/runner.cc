@@ -36,6 +36,7 @@
 
 #include "mldb/utils/sink.h"
 #include "mldb/utils/runner.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 #include <future>
 
@@ -692,7 +693,9 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
     // Set up the arguments before we fork, as we don't want to call malloc()
     // from the fork, and it can be called from c_str() in theory.
     auto len = command.size();
-    char * argv[len + 3 + preArgs.size()];
+
+    PossiblyDynamicBuffer<char *> argvBuffer(len + 3 + preArgs.size());    
+    char ** argv = argvBuffer.data();
 
     for (unsigned i = 0;  i < preArgs.size();  ++i)
         argv[i] = (char *)preArgs[i].c_str();
@@ -701,7 +704,7 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
 
     argv[idx++] = (char *) runnerHelper.c_str();
 
-    size_t channelsSize = 4*2*4+3+1;
+    constexpr size_t channelsSize = 4*2*4+3+1;
     char channels[channelsSize];
     fds.encodeToBuffer(channels, channelsSize);
     argv[idx++] = channels;

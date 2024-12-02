@@ -16,6 +16,8 @@
 #include <iostream>
 #include <unistd.h>
 #include "mldb/types/date.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
+
 
 using namespace std;
 
@@ -152,7 +154,8 @@ handleEvents(int usToWait, int nEvents,
         nEvents = MaxEvents;
 
     for (;;) {
-        EpollEvent events[nEvents];
+        constexpr size_t EPOLL_STACK_BYTES = 131072;
+        PossiblyDynamicBuffer<EpollEvent, EPOLL_STACK_BYTES> events(nEvents);
                 
         if (beforeSleep)
             beforeSleep();
@@ -173,7 +176,7 @@ handleEvents(int usToWait, int nEvents,
             if (res == 0) return 0;
         }
 
-        int res = epoll_wait(epoll_fd, events, nEvents, timeout_);
+        int res = epoll_wait(epoll_fd, events.data(), nEvents, timeout_);
 
         if (afterSleep)
             afterSleep();

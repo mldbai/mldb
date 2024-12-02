@@ -21,11 +21,13 @@
 #include <sys/time.h>
 #include <time.h>
 #include "mldb/arch/cpu_info.h"
+#include "mldb/base/exc_check.h"
 #include "mldb/base/scope.h"
 #include <dirent.h>
 #include "mldb/arch/format.h"
 #include <string.h>
 #include <sys/stat.h>
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 #ifdef __APPLE__
 #include <libproc.h>
@@ -42,14 +44,28 @@ int userid()
     return getuid();
 }
 
+
+
+namespace {
+static constexpr size_t MAX_SUPPORTED_PAGE_SIZE = 16384;
+struct OnInit {
+    OnInit()
+    {
+        size_t sys_page_len = sysconf(_SC_GETPW_R_SIZE_MAX);
+        if (sys_page_len > MAX_SUPPORTED_PAGE_SIZE) {
+            throw Exception("Page size is too large; increase MAX_SUPPORTED_PAGE_SIZE in info.cc");
+        }
+    }
+} onInit;
+} // file scope
+
 std::string userid_to_username(int userid)
 {
     struct passwd pwbuf;
-    size_t buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
-    char buf[buflen];
+    char buf[MAX_SUPPORTED_PAGE_SIZE];
     struct passwd * result = 0;
 
-    int res = getpwuid_r(userid, &pwbuf, buf, buflen, &result);
+    auto res = getpwuid_r(userid, &pwbuf, buf, MAX_SUPPORTED_PAGE_SIZE, &result);
 
     if (res != 0)
         throw Exception(errno, "userid_to_username()", "getpwuid_r");
@@ -132,13 +148,13 @@ std::string fd_to_filename(int fd)
     if (fd == -1)
         throw Exception("fd_to_filename(): invalid filename");
 
-    size_t buffer_size = 256;
+    size_t buffer_size = 1024;
 
     string fn = format("/proc/self/fd/%d", fd);
 
     for (;;) {
-        char buf[buffer_size];
-        ssize_t ret = readlink(fn.c_str(), buf, buffer_size);
+        PossiblyDynamicBuffer<char> buf(buffer_size);
+        auto ret = readlink(fn.c_str(), buf.data(), buffer_size);
         if (ret == -1 && errno == -ENOENT)
             throw Exception("fd_to_filename(): fd is unknown");
         if (ret == -1)
@@ -151,8 +167,9 @@ std::string fd_to_filename(int fd)
             continue;
         }
 
-        buf[ret] = 0;
-        return buf;
+        ExcCheckGreater(ret, 0, "fd_to_filename readlink");
+        ExcCheckLessEqual(ret, buf.size(), "fd_to_filename readlink");
+        return std::string(buf.data(), buf.data() + ret);
     }
 #elif __APPLE__
     // Get the buffer size needed
@@ -178,16 +195,19 @@ static std::string get_link_target(const std::string & link)
     
     /* Loop over, making the buffer successively larger if it is too small. */
     while (true) {  // break in loop
-        char buf[bufsize];
-        int res = readlink(link.c_str(), buf, bufsize);
+        PossiblyDynamicBuffer<char> buf(bufsize);
+
+        auto res = readlink(link.c_str(), buf.data(), bufsize);
         if (res == -1)
             throw MLDB::Exception(errno, "readlink", "get_link_name()");
         if (res == bufsize) {
             bufsize *= 2;
             continue;
         }
-        buf[res] = 0;
-        return buf;
+
+        ExcCheckGreater(res, 0, "readlink get_link_target");
+        ExcCheckLessEqual(res, buf.size(), "readlink get_link_target");
+        return std::string(buf.data(), buf.data() + res);
     }
 }
 #endif

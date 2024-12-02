@@ -28,6 +28,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/sql_expression_operations.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -276,10 +277,10 @@ parseFixedWidthCsvRow(const char * & line,
             }
 
             if (!eightBit) {
-                char buf[len];
+                PossiblyDynamicBuffer<char> buf(len);
                 if (replaceInvalidCharactersWith >= 0) {
                     ExcAssert(replaceInvalidCharactersWith < 256);
-                    start = findInvalidAscii(start, len, buf, (char)replaceInvalidCharactersWith);
+                    start = findInvalidAscii(start, len, buf.data(), (char)replaceInvalidCharactersWith);
                 }
                 return CellValue::parse(start, len, STRING_IS_VALID_ASCII);
             }
@@ -297,12 +298,13 @@ parseFixedWidthCsvRow(const char * & line,
                         return CellValue(start, len, STRING_UNKNOWN);
                     else {
                         static constexpr int BUF_PADDING = 64; // defensive; only 5 chars should be needed
-                        char buf[len + BUF_PADDING];
+
+                        PossiblyDynamicBuffer<char> buf(len + BUF_PADDING);
                         char * end
-                            = utf8::replace_invalid(start, start + len, buf,
+                            = utf8::replace_invalid(start, start + len, buf.data(),
                                                     replaceInvalidCharactersWith);
 
-                        if (end < buf || end > buf + len + BUF_PADDING) {
+                        if (end < buf.begin() || end > buf.end()) {
                             // Abort immediately without unwinding as stack has
                             // been smashed
                             ::fprintf(stderr, "Replace invalid smashed stack");
