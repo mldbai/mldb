@@ -193,5 +193,8 @@ endif
 ABSEIL_COMPILE_OPTIONS:=-Imldb/ext/abseil-cpp
 
 $(eval $(call set_compile_option,$(ABSEIL_CC_FILES),$(ABSEIL_COMPILE_OPTIONS) $(ABSEIL_WARNING_OPTIONS)))
+ifeq ($(os),Darwin)
+ABSEIL_PLATFORM_LIBS:=CoreFoundation
+endif
 
-$(eval $(call library,abseil,$(ABSEIL_CC_FILES),crypto CoreFoundation))
+$(eval $(call library,abseil,$(ABSEIL_CC_FILES),crypto $(ABSEIL_PLATFORM_LIBS)))

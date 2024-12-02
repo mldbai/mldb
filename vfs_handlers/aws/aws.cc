@@ -43,7 +43,7 @@ AwsApi::
 hmacDigest(const std::string & stringToSign,
            const std::string & accessKey)
 {
-    size_t digestLen = Hash::DIGESTSIZE;
+    constexpr size_t digestLen = Hash::DIGESTSIZE;
     byte digest[digestLen];
     CryptoPP::HMAC<Hash> hmac((byte *)accessKey.c_str(), accessKey.length());
     hmac.CalculateDigest(digest,
@@ -75,7 +75,7 @@ AwsApi::
 sha256Digest(const std::string & stringToSign)
 {
     typedef CryptoPP::SHA256 Hash;
-    size_t digestLen = Hash::DIGESTSIZE;
+    constexpr size_t digestLen = Hash::DIGESTSIZE;
     byte digest[digestLen];
     Hash h;
     h.CalculateDigest(digest,

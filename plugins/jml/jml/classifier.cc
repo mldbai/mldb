@@ -21,6 +21,7 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/xdiv.h"
 #include "mldb/vfs/filter_streams.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -451,10 +452,10 @@ predict(const Feature_Set & features,
 {
     if (!predict_is_optimized() || !info) return predict(features, context);
 
-    float fv[info.features_out()];
-    info.apply(features, fv);
+    MLDB::PossiblyDynamicBuffer<float> fv(info.features_out());
+    info.apply(features, fv.data());
 
-    return optimized_predict_impl(fv, info, context);
+    return optimized_predict_impl(fv.data(), info, context);
 }
 
 Label_Dist
@@ -463,10 +464,10 @@ predict(const std::vector<float> & features,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    float fv[info.features_out()];
-    info.apply(features, fv);
+    MLDB::PossiblyDynamicBuffer<float> fv(info.features_out());
+    info.apply(features, fv.data());
 
-    return optimized_predict_impl(fv, info, context);
+    return optimized_predict_impl(fv.data(), info, context);
 }
 
 Label_Dist
@@ -475,10 +476,10 @@ predict(const float * features,
         const Optimization_Info & info,
         PredictionContext * context) const
 {
-    float fv[info.features_out()];
-    info.apply(features, fv);
+    MLDB::PossiblyDynamicBuffer<float> fv(info.features_out());
+    info.apply(features, fv.data());
 
-    return optimized_predict_impl(fv, info, context);
+    return optimized_predict_impl(fv.data(), info, context);
 }
 
 float
@@ -490,11 +491,11 @@ predict(int label,
 {
     if (!predict_is_optimized() || !info) return predict(label, features, context);
 
-    float fv[info.features_out()];
+    MLDB::PossiblyDynamicBuffer<float> fv(info.features_out());
 
-    info.apply(features, fv);
+    info.apply(features, fv.data());
 
-    return optimized_predict_impl(label, fv, info, context);
+    return optimized_predict_impl(label, fv.data(), info, context);
 }
 
 float
@@ -513,11 +514,11 @@ predict(int label,
         return predict(label, fset);
     }
 
-    float fv[info.features_out()];
+    MLDB::PossiblyDynamicBuffer<float> fv(info.features_out());
 
-    info.apply(features, fv);
+    info.apply(features, fv.data());
 
-    return optimized_predict_impl(label, fv, info, context);
+    return optimized_predict_impl(label, fv.data(), info, context);
 }
 
 float
@@ -536,11 +537,11 @@ predict(int label,
         return predict(label, fset, context);
     }
 
-    float fv[info.features_out()];
+    MLDB::PossiblyDynamicBuffer<float> fv(info.features_out());
 
-    info.apply(features, fv);
+    info.apply(features, fv.data());
 
-    return optimized_predict_impl(label, fv, info, context);
+    return optimized_predict_impl(label, fv.data(), info, context);
 }
 
 bool

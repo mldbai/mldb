@@ -21,6 +21,8 @@
 #include <functional>
 #include <cmath>
 
+#include "mldb/utils/possibly_dynamic_buffer.h"
+
 using namespace std;
 
 void svdParallelMapNaive(size_t first, size_t last,
@@ -562,7 +564,8 @@ long ritvec(long n, SVDRec R, double kappa, double *ritz, double *bnd,
       auto doOutput = [&] (int x)
           {
               /* multiply by matrix B first */
-              double xv2[n];
+              MLDB::PossiblyDynamicBuffer<double> xv2Storage(n);
+              double * xv2 = xv2Storage.data();
               params.opb(R->Vt->value[x], xv2);
               double tmp0 = svd_ddot(n, R->Vt->value[x], 1, xv2, 1);
               svd_daxpy(n, -tmp0, R->Vt->value[x], 1, xv2, 1);

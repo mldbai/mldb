@@ -360,9 +360,9 @@ BOOST_AUTO_TEST_CASE( test_vantage_point_tree )
     auto dist = [&] (int x1, int x2)
         {
             numCalls += 1;
-            float diff[nd];
-            SIMD::vec_add(&data[x1][0], -1.0f, &data[x2][0], diff, nd);
-            return sqrtf(SIMD::vec_dotprod_dp(diff, diff, nd));
+            std::vector<float> diff(nd);
+            SIMD::vec_add(&data[x1][0], -1.0f, &data[x2][0], diff.data(), nd);
+            return sqrtf(SIMD::vec_dotprod_dp(diff.data(), diff.data(), nd));
         };
 
     BOOST_CHECK_EQUAL(dist(0, 0), 0.0);

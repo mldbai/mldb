@@ -67,7 +67,7 @@ std::string md5HashToHex(const std::string & str)
 std::string md5HashToHex(const char * buf, size_t nBytes)
 {
     typedef CryptoPP::Weak::MD5 Hash;
-    size_t digestLen = Hash::DIGESTSIZE;
+    constexpr size_t digestLen = Hash::DIGESTSIZE;
     byte digest[digestLen];
     Hash hash;
     hash.CalculateDigest(digest, (byte *)buf, nBytes);
@@ -88,7 +88,7 @@ std::string md5HashToBase64(const std::string & str)
 std::string md5HashToBase64(const char * buf, size_t nBytes)
 {
     typedef CryptoPP::Weak::MD5 Hash;
-    size_t digestLen = Hash::DIGESTSIZE;
+    constexpr size_t digestLen = Hash::DIGESTSIZE;
     byte digest[digestLen];
     Hash hash;
     hash.CalculateDigest(digest, (byte *)buf, nBytes);
@@ -112,7 +112,7 @@ std::string hmacSha1Base64(const std::string & stringToSign,
 {
     typedef CryptoPP::SHA1 Hash;
     
-    size_t digestLen = Hash::DIGESTSIZE;
+    constexpr size_t digestLen = Hash::DIGESTSIZE;
     byte digest[digestLen];
     CryptoPP::HMAC<Hash> hmac((byte *)privateKey.c_str(), privateKey.length());
     hmac.CalculateDigest(digest,
@@ -136,7 +136,7 @@ std::string hmacSha256Base64(const std::string & stringToSign,
 {
     typedef CryptoPP::SHA256 Hash;
     
-    size_t digestLen = Hash::DIGESTSIZE;
+    constexpr size_t digestLen = Hash::DIGESTSIZE;
     byte digest[digestLen];
     CryptoPP::HMAC<Hash> hmac((byte *)privateKey.c_str(), privateKey.length());
     hmac.CalculateDigest(digest,

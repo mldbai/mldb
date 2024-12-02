@@ -14,6 +14,7 @@
 #include <cmath>
 #include <iostream>
 #include "mldb/ext/jsoncpp/value.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -107,32 +108,17 @@ jsonEscape(const std::string & str)
     // No character can expand to more than two, so this should be
     // enough.
     size_t sz = str.size() * 2 + 4;
+    PossiblyDynamicBuffer<char, MAX_STACK_CHARS> buf(sz);
 
-    if (sz <= MAX_STACK_CHARS) {
-        char buf[sz];
-        char * p = buf, * end = buf + sz;
+    char * p = buf.data(), * end = buf.data() + sz;
 
-        p = jsonEscapeCore(str.data(), str.length(), p, end);
-        
-        if (p == BUFFER_TOO_SMALL)
-            throw MLDB::Exception("To fix: logic error in JSON escaping");
-        else if (p == NO_ESCAPING)
-            return str;
-        return string(buf, p);
-    }
-    else {
-        std::string heap_buf(sz, 0);
-        char * p = (char *)heap_buf.data(), * end = p + sz;
-
-        p = jsonEscapeCore(str.data(), str.length(), p, end);
-        
-        if (p == BUFFER_TOO_SMALL)
-            throw MLDB::Exception("To fix: logic error in JSON escaping");
-        else if (p == NO_ESCAPING)
-            return str;
-        heap_buf.resize(p - heap_buf.data());
-        return heap_buf;
-    }
+    p = jsonEscapeCore(str.data(), str.length(), p, end);
+    
+    if (p == BUFFER_TOO_SMALL)
+        throw MLDB::Exception("To fix: logic error in JSON escaping");
+    else if (p == NO_ESCAPING)
+        return str;
+    return string(buf.data(), p);
 }
 
 void jsonEscape(const std::string & str, std::ostream & stream)
@@ -140,24 +126,18 @@ void jsonEscape(const std::string & str, std::ostream & stream)
     // No character can expand to more than two, so this should be
     // enough.
     size_t sz = str.size() * 2 + 4;
+    PossiblyDynamicBuffer<char, MAX_STACK_CHARS> buf(sz);
 
-    if (sz <= MAX_STACK_CHARS) {
-        char buf[sz];
-        char * p = buf, * end = buf + sz;
+    char * p = buf.data(), * end = p + sz;
 
-        p = jsonEscapeCore(str.data(), str.length(), p, end);
+    p = jsonEscapeCore(str.data(), str.length(), p, end);
 
-        if (p == BUFFER_TOO_SMALL)
-            throw MLDB::Exception("To fix: logic error in JSON escaping");
-        else if (p == NO_ESCAPING)
-            p = buf + str.size();
+    if (p == BUFFER_TOO_SMALL)
+        throw MLDB::Exception("To fix: logic error in JSON escaping");
+    else if (p == NO_ESCAPING)
+        p = buf.data() + str.size();
 
-        stream.write(buf, p - buf);
-    }
-    else {
-        // We need an allocation anyway, so use the simple solution
-        stream << jsonEscape(str);
-    }
+    stream.write(buf.data(), p - buf.data());
 }
 
 void jsonEscape(const char * str, size_t len, std::ostream & stream)
@@ -165,24 +145,18 @@ void jsonEscape(const char * str, size_t len, std::ostream & stream)
     // No character can expand to more than two, so this should be
     // enough.
     size_t sz = len * 2 + 4;
+    PossiblyDynamicBuffer<char, MAX_STACK_CHARS> buf(sz);
 
-    if (sz <= MAX_STACK_CHARS) {
-        char buf[sz];
-        char * p = buf, * end = buf + sz;
+    char * p = buf.data(), * end = p + sz;
 
-        p = jsonEscapeCore(str, len, p, end);
+    p = jsonEscapeCore(str, len, p, end);
 
-        if (p == BUFFER_TOO_SMALL)
-            throw MLDB::Exception("To fix: logic error in JSON escaping");
-        else if (p == NO_ESCAPING)
-            p = buf + len;
+    if (p == BUFFER_TOO_SMALL)
+        throw MLDB::Exception("To fix: logic error in JSON escaping");
+    else if (p == NO_ESCAPING)
+        p = buf.data() + len;
 
-        stream.write(buf, p - buf);
-    }
-    else {
-        // We need an allocation anyway, so use the simple solution
-        stream << jsonEscape(string(str, str + len));
-    }
+    stream.write(buf.data(), p - buf.data());
 }
 
 void jsonEscape(const std::string & str, std::string & out)
@@ -190,25 +164,18 @@ void jsonEscape(const std::string & str, std::string & out)
     // No character can expand to more than two, so this should be
     // enough.
     size_t sz = str.size() * 2 + 4;
+    PossiblyDynamicBuffer<char, MAX_STACK_CHARS> buf(sz);
 
-    if (sz <= MAX_STACK_CHARS) {
-        char buf[sz];
-        char * p = buf, * end = buf + sz;
+    char * p = buf.data(), * end = p + sz;
 
-        p = jsonEscapeCore(str.data(), str.length(), p, end);
+    p = jsonEscapeCore(str.data(), str.length(), p, end);
 
-        if (p == BUFFER_TOO_SMALL)
-            throw MLDB::Exception("To fix: logic error in JSON escaping");
-        else if (p == NO_ESCAPING)
-            p = buf + str.size();
+    if (p == BUFFER_TOO_SMALL)
+        throw MLDB::Exception("To fix: logic error in JSON escaping");
+    else if (p == NO_ESCAPING)
+        p = buf.data() + str.size();
 
-        out.append(buf, p - buf);
-    } else {
-        // We need an allocation anyway, so use the simple solution
-        if (out.empty())
-            out = jsonEscape(str);
-        else out += jsonEscape(str);
-    }
+    out.append(buf.data(), p - buf.data());
 }
 
 void jsonEscape(const char * str, size_t len, std::string & out)
@@ -216,25 +183,18 @@ void jsonEscape(const char * str, size_t len, std::string & out)
     // No character can expand to more than two, so this should be
     // enough.
     size_t sz = len * 2 + 4;
+    PossiblyDynamicBuffer<char, MAX_STACK_CHARS> buf(sz);
 
-    if (sz <= MAX_STACK_CHARS) {
-        char buf[sz];
-        char * p = buf, * end = buf + sz;
+    char * p = buf.data(), * end = buf.data() + sz;
 
-        p = jsonEscapeCore(str, len, p, end);
+    p = jsonEscapeCore(str, len, p, end);
 
-        if (p == BUFFER_TOO_SMALL)
-            throw MLDB::Exception("To fix: logic error in JSON escaping");
-        else if (p == NO_ESCAPING)
-            p = buf + len;
+    if (p == BUFFER_TOO_SMALL)
+        throw MLDB::Exception("To fix: logic error in JSON escaping");
+    else if (p == NO_ESCAPING)
+        p = buf.data() + len;
 
-        out.append(buf, p - buf);
-    } else {
-        // We need an allocation anyway, so use the simple solution
-        if (out.empty())
-            out = jsonEscape(string(str, str + len));
-        else out += jsonEscape(string(str, str + len));
-    }
+    out.append(buf.data(), p - buf.data());
 }
 
 void

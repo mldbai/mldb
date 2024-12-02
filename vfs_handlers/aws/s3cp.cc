@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 
     Date start = Date::now();
     size_t bytesDone = 0;
-    size_t bufSize = 4096 * 1024;
+    constexpr size_t bufSize = 4096 * 1024;
     char buf[bufSize];
 
     while (in) {

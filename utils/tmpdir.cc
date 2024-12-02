@@ -12,6 +12,8 @@
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
 #include <errno.h>
+#include "mldb/utils/possibly_dynamic_buffer.h"
+
 
 namespace MLDB {
 
@@ -28,7 +30,8 @@ make_unique_directory(const std::filesystem::path & current)
 	path.pop_back();
     ExcAssert(!path.empty());
 
-    char filename[path.length() + 8];
+    PossiblyDynamicBuffer<char> buf(path.size() + 8);
+    char * filename = buf.data();
     std::copy(path.begin(), path.end(), filename);
     filename[path.length()] = '/';
     std::fill(filename + path.length() + 1,

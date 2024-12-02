@@ -18,6 +18,7 @@
 #include "mldb/arch/simd_vector.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/arch/cache.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 namespace boost {
 
@@ -307,7 +308,8 @@ multiply_r(const boost::multi_array<Float1, 2> & A,
         throw MLDB::Exception("Incompatible matrix sizes");
 
     boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][B.shape()[1]]);
-    Float2 bentries[A.shape()[1]];
+    PossiblyDynamicBuffer<Float2> bentries_storage(A.shape()[1]);
+    Float2 * bentries = bentries_storage.data();
     for (unsigned j = 0;  j < B.shape()[1];  ++j) {
         for (unsigned k = 0;  k < A.shape()[1];  ++k)
             bentries[k] = B[k][j];

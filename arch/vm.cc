@@ -310,7 +310,7 @@ update(ssize_t first_page, ssize_t last_page)
     // Counts the number of modified page map entries
     size_t result = 0;
 
-    size_t CHUNK = 1024;  // pages at a time
+    constexpr size_t CHUNK = 1024;  // pages at a time
 
     // Buffer to read them into
     Pagemap_Entry buf[CHUNK];

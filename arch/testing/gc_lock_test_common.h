@@ -14,6 +14,7 @@
 #include <chrono>
 #include "mldb/arch/tick_counter.h"
 #include "mldb/arch/spinlock.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 #pragma once
 
@@ -301,8 +302,7 @@ struct TestBase {
                 //gc.exitCS();
             }
 
-
-            int * oldBlocks[nblocks];
+            MLDB::PossiblyDynamicBuffer<int *> oldBlocks(nblocks);
 
             for (unsigned i = 0;  i < nblocks;  ++i) {
                 oldBlocks[i] = blocks[i];
@@ -335,7 +335,7 @@ struct TestBase {
             uint64_t nErrors MLDB_UNUSED = 0;
 
             std::atomic<int *> * blocks = allBlocks[threadNum];
-            int * oldBlocks[nblocks];
+            MLDB::PossiblyDynamicBuffer<int *> oldBlocks(nblocks);
 
             while (!finished) {
 

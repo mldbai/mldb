@@ -151,7 +151,7 @@ char32_t expectUtf8Char(ParseContext & context)
     if (c >= 0xf0) ++n;
 
     // Get a maximum of 64 chars
-    unsigned char buf[n];
+    unsigned char buf[4];
     for (unsigned i = 0;  i < n;  ++i)
         buf[i] = *context++;
 

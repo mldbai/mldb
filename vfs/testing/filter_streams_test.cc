@@ -37,6 +37,8 @@ using namespace MLDB;
 
 using boost::unit_test::test_suite;
 
+#pragma clang diagnostic ignored "-Wvla-cxx-extension"
+
 fs::path binDir = std::string(getenv("BIN"));
 fs::path tmpDir = std::string(getenv("TMP"));
 

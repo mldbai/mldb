@@ -24,6 +24,8 @@
 #include <exception>
 #include "mldb/base/scope.h"
 #include <mutex>
+#include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/base/exc_check.h"
 
 
 using namespace std;
@@ -56,16 +58,18 @@ std::string get_link_target(const std::string & link)
     
     /* Loop over, making the buffer successively larger if it is too small. */
     while (true) {  // break in loop
-        char buf[bufsize];
-        int res = readlink(link.c_str(), buf, bufsize);
+        PossiblyDynamicBuffer<char> buf(bufsize);
+        int res = readlink(link.c_str(), buf.data(), bufsize);
         if (res == -1)
             throw Exception(errno, "readlink", "get_link_name()");
         if (res == bufsize) {
             bufsize *= 2;
             continue;
         }
-        buf[res] = 0;
-        return buf;
+
+        ExcCheckGreater(res, 0, "readlink get_link_target");
+        ExcCheckLessEqual(res, buf.size(), "readlink get_link_target");
+        return std::string(buf.data(), buf.data() + res);
     }
 }
 

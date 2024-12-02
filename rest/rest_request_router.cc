@@ -768,7 +768,7 @@ updateFromValueDescription(Json::Value & v, const ValueDescription * vd) const {
         v["type"] = "string";
     }
     else if (kind == ValueKind::ENUM) {
-        v["description"].asString() + " (cppType: " + vd->typeName + ")";
+        v["description"].asString() = " (cppType: " + vd->typeName + ")";
         v["type"] = "string";
         vector<string> keys = vd->getEnumKeys();
         stringstream pattern;
@@ -783,7 +783,7 @@ updateFromValueDescription(Json::Value & v, const ValueDescription * vd) const {
     }
     else if (kind == ValueKind::LINK) {
         cerr << "Got link field as final value: " << vd->typeName << endl;
-        v["description"].asString() + " (cppType: " + vd->typeName + ")";
+        v["description"].asString() = " (cppType: " + vd->typeName + ")";
         const ValueDescription * subVdPtr = &(vd->contained());
         cerr << subVdPtr->typeName << endl;
         v["type"] = "string";
@@ -797,12 +797,12 @@ updateFromValueDescription(Json::Value & v, const ValueDescription * vd) const {
         updateFromValueDescription(v["items"], subVdPtr);
     }
     else if (kind == ValueKind::STRUCTURE) {
-        v["description"].asString() + " (cppType: " + vd->typeName + ")";
+        v["description"].asString() = " (cppType: " + vd->typeName + ")";
         v["type"] = "object";
     }
     else if (kind == ValueKind::ATOM) {
         v["description"] =
-            v["description"].asString() + " (cppType: " + vd->typeName + ")";
+            v["description"].asString() = " (cppType: " + vd->typeName + ")";
         if (vd->typeName == "MLDB::TimePeriod") {
             v["type"] = "string";
             v["pattern"] = "^[\\d]+(s|m|h|d)$";

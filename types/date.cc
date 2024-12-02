@@ -20,6 +20,7 @@
 #include <regex>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <errno.h>
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 
@@ -35,7 +36,7 @@ matchFixedWidthInt(ParseContext & context,
 {
     ParseContext::Revert_Token token(context);
 
-    char buf[maxLength + 1];
+    PossiblyDynamicBuffer<char> buf(maxLength + 1);
     unsigned i = 0;
     for (;  i < maxLength && context;  ++i, ++context) {
         char c = *context;
@@ -53,9 +54,9 @@ matchFixedWidthInt(ParseContext & context,
 
     char * endptr = 0;
     errno = 0;
-    int result = strtol(buf, &endptr, 10);
+    auto result = strtol(buf.data(), &endptr, 10);
     
-    if (errno || *endptr != 0 || endptr != buf + i)
+    if (errno || *endptr != 0 || endptr != buf.data() + i)
         context.exception("expected fixed width int");
 
     // This WILL bite us some time.  640k anyone?
@@ -451,7 +452,7 @@ Date::
 print(const std::string & format) const
 {
     size_t buffer_size = format.size() + 1024;
-    char buffer[buffer_size];
+    PossiblyDynamicBuffer<char> buffer(buffer_size);
 
     if (secondsSinceEpoch() >= 100000000000) {
         return "Inf";
@@ -469,13 +470,13 @@ print(const std::string & format) const
         cerr << secondsSinceEpoch() << endl;
         throw Exception("problem with gmtime_r");
     }
-    size_t nchars = strftime(buffer, buffer_size, format.c_str(),
+    size_t nchars = strftime(buffer.data(), buffer_size, format.c_str(),
                              &time);
     
     if (nchars == 0)
         throw Exception("couldn't print date format " + format);
     
-    return string(buffer, buffer + nchars);
+    return string(buffer.data(), buffer.data() + nchars);
 }
 
 int

@@ -6,6 +6,12 @@
 #
 # Date library for MLDB.
 
+JSONCPP_SOURCES := \
+	../ext/jsoncpp/json_reader.cpp \
+	../ext/jsoncpp/json_writer.cpp \
+	../ext/jsoncpp/json_value.cpp \
+
+
 LIBVALUE_DESCRIPTION_SOURCES := \
 	string.cc \
 	value_description.cc \
@@ -16,14 +22,15 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	dtoa.c \
 	meta_value_description.cc \
 	distribution_description.cc \
-	../ext/jsoncpp/json_reader.cpp \
-	../ext/jsoncpp/json_writer.cpp \
-	../ext/jsoncpp/json_value.cpp
 
 LIBVALUE_DESCRIPTION_LINK := \
 	arch base icui18n icuuc icudata
 
-$(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
+JSONCPP_COMPILER_FLAGS := -Wno-unused-result
+
+$(eval $(call set_compile_option,$(JSONCPP_SOURCES),$(JSONCPP_COMPILER_FLAGS)))
+
+$(eval $(call library,value_description,$(LIBVALUE_DESCRIPTION_SOURCES) $(JSONCPP_SOURCES),$(LIBVALUE_DESCRIPTION_LINK)))
 
 $(eval $(call library,any,any.cc,value_description arch base))
 

@@ -7,6 +7,7 @@
 
 #include "dense_classifier.h"
 #include "mldb/utils/vector_utils.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace ML;
@@ -156,14 +157,14 @@ float
 DenseClassifier::
 score(const distribution<float> & features) const
 {
-    float mapper_output[mapping_.num_vars_expected_];
+    PossiblyDynamicBuffer<float> mapper_output(mapping_.num_vars_expected_);
 
     classifier_fs_->encode(&features[0],
-                           mapper_output,
+                           mapper_output.data(),
                            *input_fs_,
                            mapping_);
 
-    return classifier_->predict(1, mapper_output, opt_info_);
+    return classifier_->predict(1, mapper_output.data(), opt_info_);
 }
 
 float
@@ -171,28 +172,28 @@ DenseClassifier::
 scoreUnbiased(const distribution<float> & features,
               PipelineExecutionContext & context) const
 {
-    float mapper_output[mapping_.num_vars_expected_];
+    PossiblyDynamicBuffer<float> mapper_output(mapping_.num_vars_expected_);
 
     classifier_fs_->encode(&features[0],
-                           mapper_output,
+                           mapper_output.data(),
                            *input_fs_,
                            mapping_);
 
-    return classifier_->predict(1, mapper_output, opt_info_, &context);
+    return classifier_->predict(1, mapper_output.data(), opt_info_, &context);
 }
 
 ML::Label_Dist
 DenseClassifier::
 labelScores(const distribution<float> & features) const
 {
-    float mapper_output[mapping_.num_vars_expected_];
+    PossiblyDynamicBuffer<float> mapper_output(mapping_.num_vars_expected_);
 
     classifier_fs_->encode(&features[0],
-                           mapper_output,
+                           mapper_output.data(),
                            *input_fs_,
                            mapping_);
 
-    return classifier_->predict(mapper_output, opt_info_);
+    return classifier_->predict(mapper_output.data(), opt_info_);
 }
 
 ML::Label_Dist
@@ -200,14 +201,14 @@ DenseClassifier::
 labelScoresUnbiased(const distribution<float> & features,
                     PipelineExecutionContext & context) const
 {
-    float mapper_output[mapping_.num_vars_expected_];
+    PossiblyDynamicBuffer<float> mapper_output(mapping_.num_vars_expected_);
 
     classifier_fs_->encode(&features[0],
-                           mapper_output,
+                           mapper_output.data(),
                            *input_fs_,
                            mapping_);
 
-    return classifier_->predict(mapper_output, opt_info_, &context);
+    return classifier_->predict(mapper_output.data(), opt_info_, &context);
 }
 
 std::pair<ML::Explanation, std::shared_ptr<Mutable_Feature_Set> >

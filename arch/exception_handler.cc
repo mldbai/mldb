@@ -170,7 +170,7 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
 
     if (exc && dynamic_cast<const MLDB::SilentException *>(exc)) return;
 
-    size_t bufferSize(1024*64);
+    constexpr size_t bufferSize(1024*64);
     char buffer[bufferSize];
     char datetime[128];
     size_t totalWritten(0), written, remaining(bufferSize);

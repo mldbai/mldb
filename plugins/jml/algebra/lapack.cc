@@ -14,6 +14,7 @@
 #include "mldb/arch/threads.h"
 #include "mldb/arch/exception.h"
 #include <iostream>
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -463,7 +464,8 @@ int gesdd(const char * jobz, int m, int n,
     int workspace_size = -1;
     float ws_return;
     
-    int iwork[8 * std::min(m, n)];
+    MLDB::PossiblyDynamicBuffer<int> iwork_storage(8 * std::min(m, n));
+    int * iwork = iwork_storage.data();
 
     /* Find out how much to allocate. */
     sgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, &ws_return,
@@ -489,7 +491,8 @@ int gesdd(const char * jobz, int m, int n,
     int workspace_size = -1;
     double ws_return;
     
-    int iwork[8 * std::min(m, n)];
+    MLDB::PossiblyDynamicBuffer<int> iwork_storage(8 * std::min(m, n));
+    int * iwork = iwork_storage.data();
 
     /* Find out how much to allocate. */
     dgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, &ws_return,

@@ -12,6 +12,7 @@
 #include <memory>
 #include "mldb/utils/string_functions.h"
 #include "mldb/types/db/persistent.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 #include "classifier_persist_impl.h"
 #include <set>
@@ -122,17 +123,17 @@ optimized_predict_impl(const float * features,
 {
     int nl = bias.size();
 
-    double accum[nl];
-    std::copy(&bias[0], &bias[0] + nl, accum);
+    PossiblyDynamicBuffer<double> accum(nl);
+    std::copy(&bias[0], &bias[0] + nl, accum.data());
 
     for (unsigned i = 0;  i < classifiers.size();  ++i) {
         if (weights[i] == 0.0) continue;
 
         classifiers[i]
-            ->optimized_predict_impl(features, info, accum, weights[i], context);
+            ->optimized_predict_impl(features, info, accum.data(), weights[i], context);
     }
 
-    return Label_Dist(accum, accum + nl);
+    return Label_Dist(accum.data(), accum.data() + nl);
 }
 
 void

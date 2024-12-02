@@ -19,6 +19,7 @@
 #include "mldb/utils/string_functions.h"
 #include "mldb/arch/simd_vector.h"
 #include "mldb/base/parallel.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -145,7 +146,9 @@ least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Fl
         /* Rank-deficient matrix.  Use the more efficient routine. */
         int rank;
         Float rcond = -1.0;
-        Float sv[std::min(m, n)];
+
+        PossiblyDynamicBuffer<Float> sv_buf(std::min(m, n));
+        Float * sv = sv_buf.data();
         std::fill(sv, sv + std::min(m, n), 0.0);
 
         // Rebuild A2, transposed this time
@@ -208,7 +211,8 @@ void doDiagMultColumn(const boost::multi_array<Float, 2> & U,
 {
     size_t m = U.shape()[0], x = d.size();
 
-    Float Vj_values[x];
+    PossiblyDynamicBuffer<Float> Vj_values_storage(x);
+    Float * Vj_values = Vj_values_storage.data();
     for (unsigned k = 0;  k < x;  ++k) {
         Vj_values[k] = V[k][j];
     }

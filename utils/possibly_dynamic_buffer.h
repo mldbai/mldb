@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <memory>
+
 namespace MLDB {
 
 // Made to init and hold a non POD array of dynamic size in a memory safe
@@ -42,6 +44,10 @@ struct PossiblyDynamicBuffer {
     T * data() { return onStack() ? stackEntries: heapEntries; }
     const T * data() const { return onStack() ? stackEntries: heapEntries; }
     size_t size() const { return size_; }
+    T * begin() { return data(); }
+    T * end() { return data() + size(); }
+
+    operator T * () { return data(); }
 
     T & operator [] (size_t el)
     {

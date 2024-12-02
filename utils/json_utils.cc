@@ -14,6 +14,7 @@
 #include "mldb/types/json_printing.h"
 #include "mldb/base/exc_assert.h"
 #include <cstring>
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -146,14 +147,14 @@ uint64_t jsonHashObject(const Json::Value & val,
 
     std::sort(keys.begin(), keys.end());
 
-    uint64_t subHashes[keys.size() * 2];
+    PossiblyDynamicBuffer<uint64_t> subHashes(keys.size() * 2);
 
     for (unsigned i = 0;  i < keys.size();  ++i) {
         subHashes[i * 2] = highwayhash(keys[i], seed);
         subHashes[i * 2 + 1] = jsonHash(val[keys[i]], seed);
     }
 
-    return highwayhash(subHashes, 16 * keys.size(), seed);
+    return highwayhash(subHashes.data(), 16 * keys.size(), seed);
 }
 
 uint64_t jsonHashArray(const Json::Value & val,
@@ -161,13 +162,13 @@ uint64_t jsonHashArray(const Json::Value & val,
 {
     ExcAssertEqual(val.type(), Json::arrayValue);
 
-    uint64_t subHashes[val.size()];
+    PossiblyDynamicBuffer<uint64_t> subHashes(val.size());
 
     for (unsigned i = 0;  i < val.size();  ++i) {
         subHashes[i] = jsonHash(val[i], seed);
     }
 
-    return highwayhash(subHashes, 8 * val.size(), seed);
+    return highwayhash(subHashes.data(), 8 * val.size(), seed);
 }
 
 uint64_t jsonHash(const Json::Value & val,

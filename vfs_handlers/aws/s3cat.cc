@@ -91,7 +91,7 @@ int main(int argc, char* argv[])
     for (auto f: outputFiles)
         outStreams.emplace_back(f);
 
-    size_t bufSize = 4096 * 16;
+    constexpr size_t bufSize = 4096 * 16;
     char buf[bufSize];
 
     for (auto f: inputFiles) {

@@ -16,6 +16,7 @@
 
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 
 
 using namespace std;
@@ -185,8 +186,9 @@ predict(const Feature_Set & features,
 {
     StandardGetFeatures get_features(features);
     int nl = label_count();
-    double accum[nl];
-    DistResults results(accum, nl);
+
+    PossiblyDynamicBuffer<double> accum(nl);
+    DistResults results(accum.data(), nl);
 
     predict_recursive_impl(get_features, results, tree.root);
     return results;
@@ -240,8 +242,9 @@ optimized_predict_impl(const float * features,
     OptimizedGetFeatures get_features(features);
 
     int nl = label_count();
-    double accum[nl];
-    DistResults results(accum, nl);
+
+    PossiblyDynamicBuffer<double> accum(nl);
+    DistResults results(accum.data(), nl);
 
     predict_recursive_impl(get_features, results, tree.root);
     return results;

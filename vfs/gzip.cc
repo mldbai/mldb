@@ -13,6 +13,7 @@
 #include <iostream>
 
 
+
 using namespace std;
 
 
@@ -39,7 +40,7 @@ struct ZlibStreamCommon: public z_stream {
     size_t pump(const char * data, size_t len, const OnData & onData,
                 int flushLevel)
     {
-        size_t bufSize = 131072;
+        constexpr size_t bufSize = 131072;
         char output[bufSize];
         next_in = (Bytef *)data;
         avail_in = len;
