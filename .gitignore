@@ -55,3 +55,4 @@ airlines
 airlines.*
 *.orig
 *.rej
+/scratch
