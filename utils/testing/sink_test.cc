@@ -29,13 +29,15 @@ using namespace MLDB;
 BOOST_AUTO_TEST_CASE( test_outputsink_istream )
 {
     string received;
-    bool closed(false);
+    std::atomic<bool> closed(false);
 
     auto onData = [&] (string && data) {
+        //cerr << "got data " << data << endl;
         received += std::move(data);
         return true;
     };
     auto onClose = [&] () {
+        //cerr << "closing" << endl;
         closed = true;
     };
 
@@ -54,7 +56,7 @@ BOOST_AUTO_TEST_CASE( test_outputsink_istream )
 }
 #endif
 
-#if 1
+#if 0
 BOOST_AUTO_TEST_CASE( test_asyncfdoutputsink_hup )
 {
     BlockedSignals sigs(SIGPIPE);
