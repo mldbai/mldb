@@ -15,6 +15,7 @@
 #include "mldb/utils/string_functions.h"
 #include "mldb/compiler/compiler.h"
 #include "mldb/types/annotated_exception.h"
+#include "mldb_v8_platform.h"
 
 using namespace std;
 using namespace v8;
@@ -179,8 +180,13 @@ Utf8String utf8str(const JSValue & val)
 
 v8::ScriptOrigin createScriptOrigin(v8::Isolate * isolate, const Utf8String & address)
 {
+#if V8_MAJOR_VERSION <= 11
+    return v8::ScriptOrigin(isolate,
+                            JS::createString(isolate, address));
+#else
     return v8::ScriptOrigin(/* isolate, */
                             JS::createString(isolate, address));
+#endif
 }
 
 v8::Handle<v8::Value>

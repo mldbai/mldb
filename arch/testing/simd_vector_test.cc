@@ -22,6 +22,7 @@
 #include <iostream>
 #include <cmath>
 
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wvla-cxx-extension"
 
 using namespace MLDB;

@@ -56,6 +56,7 @@ sudo apt install -y \
   libtool \
   libyaml-cpp-dev \
   python3-virtualenv \
+  python3.12-venv \
   python3-pip \
   unzip \
   valgrind \

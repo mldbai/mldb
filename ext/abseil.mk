@@ -193,7 +193,7 @@ endif
 ABSEIL_COMPILE_OPTIONS:=-Imldb/ext/abseil-cpp
 
 $(eval $(call set_compile_option,$(ABSEIL_CC_FILES),$(ABSEIL_COMPILE_OPTIONS) $(ABSEIL_WARNING_OPTIONS)))
-ifeq ($(os),Darwin)
+ifeq ($(OSNAME),Darwin)
 ABSEIL_PLATFORM_LIBS:=CoreFoundation
 endif
 

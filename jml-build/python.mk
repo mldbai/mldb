@@ -32,7 +32,7 @@ export PYTHONPATH
 ifdef VIRTUALENV
 
 $(VIRTUALENV)/bin/activate:
-	$(PYTHON) -m venv $(VIRTUALENV)
+	$(SYSTEM_PYTHON) -m venv $(VIRTUALENV)
 
 python_dependencies: $(VIRTUALENV)/bin/activate
 

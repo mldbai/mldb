@@ -12,7 +12,7 @@ linker_rpath=
 SO_EXTENSION:=.dylib
 
 VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
-PYTHON ?= python$(PYTHON_VERSION)
+SYSTEM_PYTHON ?= python$(PYTHON_VERSION)
 PIP ?= pip$(PYTHON_VERSION)
 PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==24.2
 PYFLAKES ?= true # $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
