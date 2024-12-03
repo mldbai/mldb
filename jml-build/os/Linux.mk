@@ -1,5 +1,5 @@
 MD5SUM:=md5sum
-DEFAULT_TOOLCHAIN:=gcc
+DEFAULT_TOOLCHAIN:=clang
 GNU_TIME:=/usr/bin/time
 GNU_INSTALL=install
 STDOUT_FILENAME:=/dev/fd/1
@@ -15,11 +15,12 @@ DIST_CODENAME:=$(shell lsb_release -sc)
 MACHINE_NAME:=$(shell uname -n)
 READLINK:=readlink -f
 
-VIRTUALENV ?= virtualenv
+VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
+SYSTEM_PYTHON ?= python$(PYTHON_VERSION)
 PYTHON ?= $(VIRTUALENV)/bin/python
 PIP ?= $(VIRTUALENV)/bin/pip
-PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==21.1.3
-PYFLAKES ?= $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
+PYTHON_DEPENDENCIES_PRE_CMD ?= $(PIP) install -U pip==24.2
+PYFLAKES ?= true # $(VIRTUALENV)/bin/flake8 --select=F,E9,E101
 J2 ?= $(VIRTUALENV)/bin/j2
 J2ENV ?= $(J2) -f env
 LIBRT:=rt

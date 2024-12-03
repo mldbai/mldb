@@ -20,6 +20,7 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/utils/string_functions.h"
 
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wvla-cxx-extension"
 
 using namespace std;

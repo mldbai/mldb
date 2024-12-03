@@ -20,6 +20,7 @@
 #include "mldb/io/message_loop.h"
 #include "mldb/server/mldb_server.h"
 #include "mldb/http/http_rest_proxy.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #include "mldb/compiler/filesystem.h"
 #include <boost/test/unit_test.hpp>
@@ -105,6 +106,7 @@ struct TestServer {
 
 BOOST_AUTO_TEST_CASE( test_error_codes )
 {
+    MLDB::Watchdog watchdog(60);
     for (auto code: {400, 404, 500}) {
         streambuf* oldCerrStreamBuf = cerr.rdbuf();
         ostringstream strCerr;
@@ -136,6 +138,7 @@ BOOST_AUTO_TEST_CASE( test_error_codes )
 
 BOOST_AUTO_TEST_CASE( test_infinite_redirect )
 {
+    MLDB::Watchdog watchdog(60);
     streambuf* oldCerrStreamBuf = cerr.rdbuf();
     ostringstream strCerr;
     cerr.rdbuf( strCerr.rdbuf() );
@@ -166,6 +169,7 @@ BOOST_AUTO_TEST_CASE( test_infinite_redirect )
 
 BOOST_AUTO_TEST_CASE( test_fetcher_error )
 {
+    MLDB::Watchdog watchdog(60);
     //MLDB-2150
     MldbServer server;
     server.init();

@@ -71,6 +71,10 @@ JS_PLUGIN_SOURCE := \
 	procedure_js.cc \
 	mldb_js.cc \
 	sensor_js.cc \
+	mldb_v8_platform_common.cc \
+	mldb_v8_platform_v11.cc \
+	mldb_v8_platform_v12.cc \
+
 
 $(eval $(call set_compile_option,$(JS_PLUGIN_SOURCE),-I$(V8_INCLUDE_PATH) $(V8_INCLUDE_FLAGS)))
 

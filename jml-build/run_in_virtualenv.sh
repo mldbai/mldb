@@ -8,6 +8,6 @@ set -e
 venv=$1
 shift
 source $venv/bin/activate
-echo "PYTHONPATH=" $PYTHONPATH
+#echo "PYTHONPATH=" $PYTHONPATH
 
 $@
