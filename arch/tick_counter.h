@@ -11,8 +11,29 @@
 #include "mldb/compiler/compiler.h"
 #include <stdint.h>
 #include "mldb/arch/arch.h"
+#include "cpuid.h"
+
+
 
 namespace MLDB {
+
+namespace {
+
+#if defined(MLDB_INTEL_ISA)
+bool supports_rdtsc = false;
+bool supports_rdtscp = false;
+
+struct AtInit {
+    AtInit() {
+        CPU_Info info;
+        get_cpu_info(info);
+        supports_rdtsc = info.tsc;
+        supports_rdtscp = info.rdtscp;
+    }
+};
+#endif
+
+} // file scope
 
 /** Return the number of CPU clock ticks since some epoch. */
 MLDB_ALWAYS_INLINE uint64_t ticks()
@@ -23,15 +44,25 @@ MLDB_ALWAYS_INLINE uint64_t ticks()
     asm volatile ("rdtsc\n\t" : "=A" (result));
     return result;
 # else
-    uint64_t result, procid;
-    asm volatile ("rdtsc                  \n\t"
-                  "shl     $32, %%rdx     \n\t"
-                  "or      %%rdx, %%rax   \n\t"
-                  : "=a" (result), "=c" (procid) : : "%rdx" );
-
-    //std::cerr << "procid = " << procid << std::endl;
-
-    return result;
+    if (MLDB_LIKELY(supports_rdtscp)) {
+        uint64_t result, procid;
+        asm volatile ("rdtscp                 \n\t"
+                      "shl     $32, %%rdx     \n\t"
+                      "or      %%rdx, %%rax   \n\t"
+                      : "=a" (result), "=c" (procid) : : "%rdx" );
+        return result;
+    }
+    else if (supports_rdtsc) {
+        uint64_t result, procid;
+        asm volatile ("rdtsc                  \n\t"
+                      "shl     $32, %%rdx     \n\t"
+                      "or      %%rdx, %%rax   \n\t"
+                      : "=a" (result), "=c" (procid) : : "%rdx" );
+        return result;
+    }
+    else {
+        return 0;
+    }
 # endif // 32/64 bits
 #elif (defined(__APPLE__) && defined(MLDB_ARM_ISA)) // not accessible from user space 
     uint64_t result;
@@ -39,7 +70,7 @@ MLDB_ALWAYS_INLINE uint64_t ticks()
     asm volatile ("mrs %0, cntpct_el0" : "=r"(result));
     return result;
 #else // non-intel
-    return 0;  
+    return 0;
 #endif
 }
 
