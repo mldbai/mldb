@@ -17,6 +17,7 @@
 # include "simd_vector_avx.h"
 # include "sse2.h"
 # include <immintrin.h>
+# include "mldb/utils/possibly_dynamic_buffer.h"
 #endif
 
 using namespace std;
@@ -679,7 +680,7 @@ double vec_euclid(const float * x, const float * y, size_t n)
         return Avx::vec_euclid(x, y, n);
     }
     else if (true) /* sse2 */ {
-        float tmp[n];
+        PossiblyDynamicBuffer<float> tmp(n);
         vec_minus(x, y, tmp, n);
         return vec_dotprod(tmp, tmp, n);
     }

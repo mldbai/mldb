@@ -7,6 +7,8 @@ from mldb import mldb, MldbUnitTest, ResponseException
 import os
 
 tmp_dir=os.getenv("TMP")
+if tmp_dir[-1] != os.sep:
+    tmp_dir += os.sep
 
 class ClassifierTestErrorWhenNoDataTest(MldbUnitTest):  # noqa
 

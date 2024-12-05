@@ -12,6 +12,8 @@ PYTHON_INTERPRETER_LINK := \
 	arch \
 	value_description \
 	types \
+	utils \
+	runner \
 
 
 $(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH)))

@@ -22,7 +22,7 @@ If you want to use a different toolchain (if you're not sure, you don't),
 you will need to install it:
 
 ```bash
-apt-get install -y clang-12 g++ rustc # To compile with clang version 12 using toolchain=clang
+apt-get install -y clang g++ rustc # To compile with clang using toolchain=clang
 ```
 
 ## Installing system dependencies via `apt`
