@@ -20,11 +20,16 @@
 #include "mldb/base/scope.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/annotated_exception.h"
+#include "mldb/types/value_description.h"
+#include "mldb/arch/info.h"
+#include "mldb/utils/runner.h"
+#include "mldb/utils/string_functions.h"
 
 #include <thread>
 #include <iostream>
 #include <mutex>
 #include <atomic>
+#include <filesystem>
 
 using namespace std;
 
@@ -498,11 +503,130 @@ PythonInterpreter(InitializationContext context)
                 };
         }
         else {
-            //if (auto venv_path = std::getenv("MLDB_VIRTUAL_ENV")) {
-            //    setenv("PYTHONHOME", venv_path, true);
-            //}
+            cerr << "*******\n\n INITIALIZING PYTHON\n\n********" << endl;
 
-            Py_Initialize();
+            PyConfig config;
+            PyConfig_InitPythonConfig(&config);
+            Scope_Exit(PyConfig_Clear(&config));
+
+            auto checkStatus = [&] (PyStatus status)
+                {
+                    if (PyStatus_Exception(status)) {
+                        cerr << "Error initializing Python: "
+                             << status.err_msg << endl;
+                        throw MLDB::Exception("Error initializing Python: " + string(status.err_msg));
+                    }
+                };
+
+            std::filesystem::path exe_path = get_exe_name();
+
+
+
+            const char * virtualenv_path = std::getenv("MLDB_VIRTUAL_ENV");
+            if (!virtualenv_path)
+                virtualenv_path = "";
+
+            // 
+            std::basic_string<wchar_t> wideVirtualEnv;
+            if (auto venv_path = std::getenv("MLDB_VIRTUAL_ENV")) {
+                wideVirtualEnv.append(venv_path, venv_path + strlen(venv_path));
+            }
+
+            std::string pythonMajorDotMinor = std::to_string(PY_MAJOR_VERSION) +  "." + std::to_string(PY_MINOR_VERSION);
+            std::string pythonMajorMinor = std::to_string(PY_MAJOR_VERSION) + std::to_string(PY_MINOR_VERSION);
+
+            // Contains the PATH that the system Python interpreter uses
+            std::vector<std::string> system_python_path;
+            if (const char * mldb_python_system_path = std::getenv("MLDB_PYTHON_SYSTEM_PATH")) {
+                system_python_path = MLDB::split(mldb_python_system_path, ':');
+            }
+            else {
+                // Find the python executable
+                std::string python_executable = "python" + pythonMajorDotMinor;
+
+                // look for it in the path
+                std::vector<std::string> system_path;
+                if (const char * path = ::getenv("PATH")) {
+                    system_path = MLDB::split(path, ':');
+                }
+
+                std::string python_executable_full_path;
+                for (auto && p: system_path) {
+                    struct stat st;
+                    std::string this_executable = p + "/" + python_executable;
+                    int res = ::stat(this_executable.c_str(), &st);
+                    if (res == 0 && S_ISREG(st.st_mode) /*&& S_ISEXEC(st.st_mode)*/) {
+                        python_executable_full_path = this_executable;
+                        break;
+                    }
+                }
+
+                if (python_executable_full_path.empty()) {
+                    throw MLDB::Exception("Couldn't find Python executable '" + python_executable + "' in PATH");
+                }
+
+                // Run the system Python executable so it can tell us what its path is
+                std::vector<std::string> cmdline = { python_executable_full_path, "-c", "import sys; print(':'.join(sys.path))" };
+                std::ostringstream output;
+                auto stdout = std::make_shared<OStreamInputSink>(&output);
+                MLDB::RunResult result = MLDB::execute(cmdline, stdout);
+                if (result.state != RunResult::RETURNED) {
+                    std::string cmdlinestr;
+                    for (auto && arg: cmdline) {
+                        if (!cmdlinestr.empty())
+                            cmdlinestr += " ";
+                        cmdlinestr += arg;
+                    }
+                    throw MLDB::Exception("Error running Python to get path with '" + cmdlinestr + "': " + jsonEncodeStr(result));
+                }
+                cerr << "result = " << jsonEncodeStr(result) << endl;
+                cerr << "output = " << output.str() << endl;
+                system_python_path = MLDB::split(output.str(), ':');
+            }
+
+            config.module_search_paths_set = 1;
+
+            for (auto && path: system_python_path) {
+                std::basic_string<wchar_t> widePath(path.begin(), path.end());
+                checkStatus(PyWideStringList_Append(&config.module_search_paths, widePath.c_str()));
+            }
+
+            //std::filesystem::path python_path = exe_path.parent_path();
+            //python_path.wstring();
+
+            if (auto venv_path = std::getenv("MLDB_VIRTUAL_ENV")) {
+                std::wstring venv(venv_path, venv_path + strlen(venv_path));
+                venv += L"/bin";
+                //venv += L"/lib/python" + std::wstring(pythonMajorMinor.begin(), pythonMajorMinor.end()) + L"/site-packages";
+                checkStatus(PyWideStringList_Append(&config.module_search_paths, venv.c_str()));
+            }
+
+            //checkStatus(PyConfig_SetString(&config, &config.home, L"/usr"));
+            //checkStatus(PyConfig_SetString(&config, &config.executable, L"/usr/bin/python3.12"));
+
+            //checkStatus(PyWideStringList_Append(&config.module_search_paths, (wideVirtualEnv + L"/bin").c_str()));
+            //checkStatus(PyWideStringList_Append(&config.module_search_paths, L"/opt/homebrew/bin"));
+            //checkStatus(PyWideStringList_Append(&config.module_search_paths, L"build/aarch64/bin"));
+            //for (auto && path: {L"/usr/lib/python3.12", L"/usr/lib/python3.12/lib-dynload", L"/usr/local/lib/python3.12/dist-packages", L"/usr/lib/python3/dist-packages"}) {
+            //    checkStatus(PyWideStringList_Append(&config.module_search_paths, path));
+            //}
+            //checkStatus(PyWideStringList_Append(&config.module_search_paths, L"/usr/lib/python3.12"));
+            //checkStatus(PyWideStringList_Append(&config.module_search_paths, L"/usr/lib/python3.12/lib-dynload"));
+
+            //['', '/usr/lib/python312.zip', '/usr/lib/python3.12', '/usr/lib/python3.12/lib-dynload', '/usr/local/lib/python3.12/dist-packages', '/usr/lib/python3/dist-packages']            
+
+            //checkStatus(PyConfig_SetString(&config, &config.base_prefix, wideVirtualEnv.c_str()));
+
+            //checkStatus(PyConfig_SetString(&config, &config.base_prefix, wideVirtualEnv.c_str()));
+            //checkStatus(PyConfig_SetString(&config, &config.prefix, wideVirtualEnv.c_str()));
+
+            //checkStatus(PyWideStringList_Append(&config.module_search_paths, L"/path/to/stdlib/again"));
+            //auto exe_path = get_exe_name();
+            //const std::basic_string<wchar_t> wideExePath(exe_path.begin(), exe_path.end());
+            //checkStatus(PyConfig_SetString(&config, &config.executable, wideExePath.c_str()));
+
+            checkStatus(Py_InitializeFromConfig(&config));
+
             PyEval_InitThreads();
             st = PyEval_SaveThread();
 

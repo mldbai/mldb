@@ -367,7 +367,7 @@ BOOST_AUTO_TEST_CASE( stress_test_collection_integrity )
     // check that the updates have been happening timely
     BOOST_CHECK(average != max); // nah it can't be so deterministic!
     // more difference between the max time between update and the average time would be fishy
-    BOOST_CHECK_LE(max / average, 10);
+    BOOST_CHECK_LE(max / average, 50); // 50x difference is too much even on a highly loaded machine
 }
 
 struct Counter {

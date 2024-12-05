@@ -25,6 +25,10 @@
 #include <sys/time.h>
 #include "mldb/utils/floating_point.h"
 
+#pragma clang diagnostic ignored "-Wunknown-warning-option"
+#pragma clang diagnostic ignored "-Wvla-cxx-extension"
+
+
 using namespace std;
 using namespace MLDB;
 using namespace MLDB::SIMD;

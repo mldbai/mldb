@@ -8,6 +8,9 @@ import random, datetime, os
 from mldb import mldb
 
 tmp_dir = os.getenv("TMP")
+if tmp_dir[-1] != os.sep:
+    tmp_dir += os.sep
+
 
 ## Create toy dataset
 dataset_config = {
