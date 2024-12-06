@@ -103,7 +103,7 @@ struct TlsThread
 {
     TlsThread(Tls& tls) : tls(tls), done(false)
     {
-        th = thread([=] { this->run(); });
+        th = thread([=,this] { this->run(); });
     }
 
     ~TlsThread()

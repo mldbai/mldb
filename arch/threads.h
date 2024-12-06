@@ -7,8 +7,7 @@
    Catch-all include for architecture dependent threading constructions.
 */
 
-#ifndef __arch__threads_h__
-#define __arch__threads_h__ 1
+#pragma once
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -27,6 +26,3 @@ inline pid_t gettid()
 {
     return (pid_t) syscall(SYS_gettid);
 }
-
-
-#endif /* __arch__threads_h__ */
