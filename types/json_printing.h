@@ -209,6 +209,8 @@ struct StringJsonPrintingContext
     virtual void writeBool(bool b);
 
 protected:
+    template<typename Int, size_t N> void writeIntImpl(Int i, const char (&format)[N]);
+
     void write(char c);
     void write(char c1, char c2);
     void write(const char * str);

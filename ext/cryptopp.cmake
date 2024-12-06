@@ -74,7 +74,7 @@ if(ISARM)
 endif()
 
 # Add the cryptopp library
-add_library(cryptopp ${CRYPTOPP_FILES})
+add_library(cryptopp STATIC ${CRYPTOPP_FILES})
 
 # Include directory
 target_include_directories(cryptopp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/mldb/ext)

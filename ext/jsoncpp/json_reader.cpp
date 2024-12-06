@@ -922,8 +922,9 @@ Reader::getLocationLineAndColumn( Location location ) const
 {
    int line, column;
    getLocationLineAndColumn( location, line, column );
-   char buffer[18+16+16+1];
-   sprintf( buffer, "Line %d, Column %d", line, column );
+   constexpr size_t BUFFER_SIZE=18+16+16+1;
+   char buffer[BUFFER_SIZE];
+   snprintf( buffer, BUFFER_SIZE, "Line %d, Column %d", line, column );
    return buffer;
 }
 

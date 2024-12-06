@@ -672,58 +672,56 @@ writeNull()
     write("null");
 }
 
+template<typename Int, size_t N>
+void
+StringJsonPrintingContext::writeIntImpl(Int i, const char (&format)[N])
+{
+    constexpr size_t MAX_INT_CHARS = 64;
+    char buffer[MAX_INT_CHARS];
+    int chars = snprintf(buffer, MAX_INT_CHARS, format, i);
+    this->write(buffer, chars);
+}
+
 void
 StringJsonPrintingContext::
 writeInt(int i)
 {
-    char buffer[128];
-    int chars = sprintf(buffer, "%i", i);
-    write(buffer, chars);
+    writeIntImpl(i, "%i");
 }
 
 void
 StringJsonPrintingContext::
 writeUnsignedInt(unsigned int i)
 {
-    char buffer[128];
-    int chars = sprintf(buffer, "%u", i);
-    write(buffer, chars);
+    writeIntImpl(i, "%u");
 }
 
 void
 StringJsonPrintingContext::
 writeLong(long int i)
 {
-    char buffer[128];
-    int chars = sprintf(buffer, "%li", i);
-    write(buffer, chars);
+    writeIntImpl(i, "%li");
 }
 
 void
 StringJsonPrintingContext::
 writeUnsignedLong(unsigned long int i)
 {
-    char buffer[128];
-    int chars = sprintf(buffer, "%lu", i);
-    write(buffer, chars);
+    writeIntImpl(i, "%lu");
 }
 
 void
 StringJsonPrintingContext::
 writeLongLong(long long int i)
 {
-    char buffer[128];
-    int chars = sprintf(buffer, "%lli", i);
-    write(buffer, chars);
+    writeIntImpl(i, "%lli");
 }
 
 void
 StringJsonPrintingContext::
 writeUnsignedLongLong(unsigned long long int i)
 {
-    char buffer[128];
-    int chars = sprintf(buffer, "%llu", i);
-    write(buffer, chars);
+    writeIntImpl(i, "%llu");
 }
 
 void

@@ -14,15 +14,3 @@
 #include <sys/types.h>
 #include <mutex>
 
-typedef std::recursive_mutex Lock;
-typedef std::unique_lock<Lock> Guard;
-
-// c++14
-//typedef std::shared_lock<Lock> Read_Guard;
-//typedef std::unique_lock<Lock> Read_Guard;
-//typedef std::unique_lock<Lock> Write_Guard;
-
-inline pid_t gettid()
-{
-    return (pid_t) syscall(SYS_gettid);
-}

@@ -9,6 +9,7 @@
 #include <cxxabi.h>
 #include <cstring>
 #include <fstream>
+#include <thread>
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/utils/environment.h"
@@ -194,7 +195,10 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
     }
 
     auto pid = getpid();
-    auto tid = gettid();
+    auto tid_id = std::this_thread::get_id();
+    std::ostringstream tid_stream;
+    tid_stream << tid_id;
+    auto tid = tid_stream.str();
 
     written = ::snprintf(buffer, remaining,
                          "\n"
@@ -202,8 +206,8 @@ void default_exception_tracer(void * object, const std::type_info * tinfo)
                          "---------------------------\n"
                          "time:   %s\n"
                          "type:   %s\n"
-                         "pid:    %d; tid: %d\n",
-                         datetime, demangled, pid, tid);
+                         "pid:    %d; tid: %s\n",
+                         datetime, demangled, pid, tid.c_str());
     if (heapDemangled) {
         free(heapDemangled);
     }
@@ -249,8 +253,8 @@ end:
 
     char const * reports = getenv("ENABLE_EXCEPTION_REPORTS");
     if (!noAlloc && reports) {
-        std::string path = MLDB::format("%s/exception-report-%s-%d-%d.log",
-                                      reports, datetime, pid, tid);
+        std::string path = MLDB::format("%s/exception-report-%s-%d-%s.log",
+                                      reports, datetime, pid, tid.c_str());
 
         std::ofstream file(path, std::ios_base::app);
         if (file) {

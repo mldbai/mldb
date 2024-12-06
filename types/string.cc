@@ -159,8 +159,14 @@ Utf8String::Utf8String(const wchar_t * str)
     *this = std::move(result);
 }
 
+Utf8String::Utf8String(const const_iterator & first, const const_iterator & last)
+    : data_(first.base(), last.base())
+{
+    // No need to check, since it comes from an Utf8String where it must
+    // have been checked already.
+}
 
-Utf8String::Utf8String(const_iterator first, const const_iterator & last)
+Utf8String::Utf8String(const iterator & first, const iterator & last)
     : data_(first.base(), last.base())
 {
     // No need to check, since it comes from an Utf8String where it must
@@ -387,11 +393,54 @@ rfind(const std::string & s) const
     return rfind(Utf8String(s));
 }
 
+namespace { // file scope
+
+template<typename String>
+auto do_rfind(String && haystack, const Utf8String & s) -> decltype(declval<String>().end())
+{
+    if (s.empty() || haystack.empty())
+        return haystack.end();
+
+    int pivot = *s.begin();
+
+    // Point to the first place it could match
+    auto it = haystack.end();
+    for (size_t i = 0;  i < s.length();  ++i) {
+        if (it == haystack.begin())
+            return haystack.end();
+        --it;
+    }
+    
+    // Check each character for a match
+    while (1) {
+        // Is there a match here?
+
+        if (*it == pivot) {
+            // potential match.  Look forwards to see if the whole thing matches
+            bool found = true;
+            auto itb = std::next(it);
+            for (auto it2 = std::next(s.begin()), end2 = s.end();  it2 != end2 && found;
+                 ++it2, ++itb) {
+                found = *it2 == *itb;
+            }
+            if (found)
+                return it;
+        }
+
+        if (it == haystack.begin())
+            return haystack.end();  // not found
+
+        --it;
+    }
+}
+
+} // file scope
+
 Utf8String::const_iterator
 Utf8String::
 rfind(const Utf8String & s) const
 {
-    return const_cast<Utf8String &>(*this).rfind(s);
+    return do_rfind(*this, s);
 }
 
 Utf8String::iterator
@@ -439,40 +488,7 @@ Utf8String::iterator
 Utf8String::
 rfind(const Utf8String & s)
 {
-    if (s.empty() || empty())
-        return end();
-
-    int pivot = *s.begin();
-
-    // Point to the first place it could match
-    auto it = end();
-    for (size_t i = 0;  i < s.length();  ++i) {
-        if (it == begin())
-            return end();
-        --it;
-    }
-    
-    // Check each character for a match
-    while (1) {
-        // Is there a match here?
-
-        if (*it == pivot) {
-            // potential match.  Look forwards to see if the whole thing matches
-            bool found = true;
-            auto itb = std::next(it);
-            for (auto it2 = std::next(s.begin()), end2 = s.end();  it2 != end2 && found;
-                 ++it2, ++itb) {
-                found = *it2 == *itb;
-            }
-            if (found)
-                return it;
-        }
-
-        if (it == begin())
-            return end();  // not found
-
-        --it;
-    }
+    return do_rfind(*this, s);
 }
 
 bool Utf8String::startsWith(const Utf8String & prefix) const

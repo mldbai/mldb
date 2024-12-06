@@ -806,14 +806,14 @@ multiplex(Watch && other)
     // Bind it in so that we get the events
     auto recursiveTrigger = std::make_shared<bool>(true);
         
-    auto onEvent = [=] (const T &... args)
+    auto onEvent = [=,this] (const T &... args)
         {
             if (*recursiveTrigger)
                 this->triggerLocked(args...);
             else this->trigger(args...);
         };
 
-    auto errorFn = [=] (const WatchError & error)
+    auto errorFn = [=,this] (const WatchError & error)
         {
             if (*recursiveTrigger)
                 this->errorLocked(error);

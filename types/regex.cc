@@ -318,7 +318,7 @@ struct Regex::Impl {
 
         try {
             return std::shared_ptr<RE2>(result,
-                                        [=] (RE2 * ptr) { returnRe2(ptr); });
+                                        [=,this] (RE2 * ptr) { returnRe2(ptr); });
         } catch (...) {
             delete result;
             throw;
