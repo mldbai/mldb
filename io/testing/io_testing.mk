@@ -2,7 +2,7 @@
 
 $(eval $(call test,asio_timer_test,io_base watch types,boost))
 $(eval $(call test,async_writer_bench,io_base arch types,boost manual))
-$(eval $(call test,epoll_test,io_base,boost))
+$(eval $(call test,epoll_test,io_base arch base,boost))
 $(eval $(call test,epoller_test,io_base,boost))
 $(eval $(call test,timerfd_test,io_base,boost))
 $(eval $(call test,message_channel_test,io_base arch types,boost))

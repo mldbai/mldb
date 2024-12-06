@@ -239,9 +239,19 @@ Value::CZString::operator<( const CZString &other ) const
 bool
 Value::CZString::operator==( const CZString &other ) const
 {
-   if ( cstr_ )
-      return strcmp( cstr_, other.cstr_ ) == 0;
-   return index_ == other.index_;
+   if ( cstr_ ) {
+      if (other.cstr_) {
+         return strcmp( cstr_, other.cstr_ ) == 0;
+      }
+      return false;
+   }
+
+   if (other.cstr_) {
+      return false;
+   }
+   else {
+      return index_ == other.index_;
+   }
 }
 
 

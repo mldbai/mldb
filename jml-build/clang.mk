@@ -2,10 +2,14 @@
 
 find_command=$(foreach command,$(firstword $(1)),$(if $(shell which $(command)),$(command),$(call find_command,$(wordlist 2,10000,$(1)))))
 
-CLANGXX?=$(call find_command,clang++ clang++-13 clang++-12 clang++-11 clang++-10 clang++-9 clang++-8)
-CLANG?=$(call find_command,clang clang-13 clang-12 clang-11 clang-10 clang-9 clang-8)
+CLANGXX?=$(call find_command,clang++ clang++-19 clang++-18 clang++-17 clang++-16 clang++-15 clang++-14 clang++-13 clang++-12 clang++-11 clang++-10 clang++-9 clang++-8)
+CLANG?=$(call find_command,clang clang-19 clang-18 clang-17 clang-16 clang-15 clang-14 clang-13 clang-12 clang-11 clang-10 clang-9 clang-8)
 
 CLANG_VERSION:=$(shell $(CLANGXX) --version | head -n1 | awk '{ print $$4; }' | sed 's/-*//g')
+#$(warning CLANG_VERSION=$(CLANG_VERSION))
+CLANG_VERSION_MAJOR?=$(strip $(shell $(CLANGXX) -dM -E - < /dev/null | grep __clang_major__ | sed 's/.* //g'))
+#$(warning CLANG_MAJOR=$(CLANG_VERSION_MAJOR))
+
 CXX_VERSION?=$(CLANG_VERSION)
 CXX := $(COMPILER_CACHE) $(CLANGXX)
 BUILDING_WITH_CLANG:=1

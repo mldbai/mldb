@@ -1,7 +1,7 @@
 DEFAULTGXX:=aarch64-linux-gnu-g++
 DEFAULTGCC:=aarch64-linux-gnu-gcc
 toolchain?=clang
-ARCHFLAGS:=-fPIC -fno-omit-frame-pointer -I$(BUILD)/$(ARCH)/osdeps/usr/include -march=armv8.2-a -mcpu=neoverse-n1 --target=aarch64-unknown-linux-gnu
+ARCHFLAGS:=-fPIC -fno-omit-frame-pointer -I$(BUILD)/$(ARCH)/osdeps/usr/include -march=armv8.4-a # --target=aarch64-unknown-linux-gnu
 
 # Valgrind has illegal instructions on aarch64
 VALGRIND:=
