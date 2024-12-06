@@ -408,7 +408,7 @@ run(const vector<string> & command,
        child process. This is to avoid problems when the thread we're calling
        run from exits, and since it's the parent process of the fork, causes
        the subprocess to exit to due to PR_SET_DEATHSIG being set .*/
-    auto toRun = [=] () {
+    auto toRun = [=,this] () {
         try {
             MLDB_TRACE_EXCEPTIONS(false);
             this->doRunImpl(command, onTerminate, stdOutSink, stdErrSink);
@@ -554,14 +554,14 @@ doRunImpl(const vector<string> & command,
         addFd(task_.statusFd, true, false, statusCb);
         if (stdOutSink) {
             MLDB::set_file_flag(task_.stdOutFd, O_NONBLOCK);
-            auto outputCb = [=] (const EpollEvent & event) {
+            auto outputCb = [=,this] (const EpollEvent & event) {
                 handleOutputStatus(event, task_.stdOutFd, stdOutSink_);
             };
             addFd(task_.stdOutFd, true, false, outputCb);
         }
         if (stdErrSink) {
             MLDB::set_file_flag(task_.stdErrFd, O_NONBLOCK);
-            auto outputCb = [=] (const EpollEvent & event) {
+            auto outputCb = [=,this] (const EpollEvent & event) {
                 handleOutputStatus(event, task_.stdErrFd, stdErrSink_);
             };
             addFd(task_.stdErrFd, true, false, outputCb);

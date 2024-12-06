@@ -564,7 +564,7 @@ struct TabularDataset::TabularDataStore
         }
 
         virtual std::shared_ptr<MatrixView>
-        getMatrixView() const
+        getMatrixView() const override
         {
             auto thisPtr = this->shared_from_this();
             std::shared_ptr<const MatrixView> viewPtr
@@ -573,7 +573,7 @@ struct TabularDataset::TabularDataStore
         }
 
         virtual std::shared_ptr<ColumnIndex>
-        getColumnIndex() const
+        getColumnIndex() const override
         {
             auto thisPtr = this->shared_from_this();
             std::shared_ptr<const ColumnIndex> indexPtr
@@ -782,7 +782,7 @@ struct TabularDataset::TabularDataStore
 
         // TODO: we know more than this...
         virtual KnownColumn
-        getKnownColumnInfo(const ColumnPath & columnName) const
+        getKnownColumnInfo(const ColumnPath & columnName) const override
         {
             auto it = columnIndex.find(columnName.oldHash());
             if (it == columnIndex.end()) {
@@ -959,7 +959,7 @@ struct TabularDataset::TabularDataStore
             return result;
         }
 
-        virtual ExpressionValue getRowExpr(const RowPath & rowName) const
+        virtual ExpressionValue getRowExpr(const RowPath & rowName) const override
         {
             int chunkNumber;
             int rowInChunk;
@@ -1037,7 +1037,7 @@ struct TabularDataset::TabularDataStore
             return columns.size();
         }
 
-        virtual std::pair<Date, Date> getTimestampRange() const
+        virtual std::pair<Date, Date> getTimestampRange() const override
         {
             return { earliestTs, latestTs };
         }
@@ -1047,7 +1047,7 @@ struct TabularDataset::TabularDataStore
                           const Utf8String& alias,
                           const SqlExpression & where,
                           ssize_t offset,
-                          ssize_t limit) const
+                          ssize_t limit) const override
         {
             GenerateRowsWhereFunction result;
             return result;
@@ -2179,9 +2179,9 @@ struct TabularDataset::TabularDataStore
                needing to do any manipulation of column names at all.
             */
 
-            return [=] (RowPath rowName, Date timestamp,
-                        CellValue * vals, size_t numVals,
-                        std::vector<std::pair<ColumnPath, CellValue> > extra)
+            return [=,this] (RowPath rowName, Date timestamp,
+                             CellValue * vals, size_t numVals,
+                             std::vector<std::pair<ColumnPath, CellValue> > extra)
                 {
                     if (!chunk) {
                         {
@@ -2335,7 +2335,7 @@ struct TabularDataset::TabularDataStore
             return;
 
         ColumnFreezeParameters params;
-        auto job = [=] ()
+        auto job = [=,this] ()
             {
                 Scope_Exit(--this->backgroundJobsActive);
                 auto frozen = chunk->freeze(*serializer, params);
@@ -2601,13 +2601,13 @@ TabularDataset::
 getChunkRecorder()
 {
     MultiChunkRecorder result;
-    result.newChunk = [=] (size_t)
+    result.newChunk = [=,this] (size_t)
         {
             return std::unique_ptr<Recorder>
                 (new TabularDataStore::ChunkRecorder(itl.get()));
         };
 
-    result.commit = [=] () { this->commit(); };
+    result.commit = [this] () { this->commit(); };
     return result;
 }
 

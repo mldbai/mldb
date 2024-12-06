@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <iostream>
 
@@ -25,8 +25,8 @@ namespace MLDB {
 
 /** Simple class to allow access to environment variables. */
 
-class Environment : public std::map<std::string, std::string> {
-    typedef std::map<std::string, std::string> base_type;
+class Environment : public std::unordered_map<std::string, std::string> {
+    typedef std::unordered_map<std::string, std::string> base_type;
 
 public:
     Environment();
@@ -67,6 +67,35 @@ inline bool from_string(const std::string & s, bool *)
 /* ENV_OPTION                                                                */
 /*****************************************************************************/
 
+template<bool Trace> struct EnvOptionTracer;
+
+template<>
+struct EnvOptionTracer<true> {
+
+    static std::ostream & start_trace(const std::string & var_name);
+    static std::ostream & end_trace(std::ostream & stream);
+#if 0
+    {
+        using namespace std;
+        cerr << "Environment option " << var_name << " set to ";
+    }
+#endif
+
+    template<typename T>
+    static void trace(const std::string & var_name, const T & t)
+    {
+        end_trace(start_trace(var_name) << t);
+    }
+};
+
+template<>
+struct EnvOptionTracer<false> {
+    template<typename T>
+    static void trace(const std::string & var_name, const T & t)
+    {
+    }
+};
+
 /** An environment option variable */
 
 template<typename T, bool Trace = false>
@@ -75,16 +104,11 @@ public:
     EnvOption(const std::string & var_name, const T & def)
         : t_(def), specified_(false)
     {
-        const Environment & env = Environment::instance();
-        if (env.count(var_name)) {
-            using MLDB::from_string;
-            t_ = from_string(env[var_name], (T*)0);
+        const char * p = getenv(var_name.c_str());
+        if (p) {
+            t_ = from_string(p, (T*)0);
             specified_ = true;
-            if (Trace) {
-                using namespace std;
-                cerr << "Environment option " << var_name << " set to "
-                     << t_ << endl;
-            }
+            EnvOptionTracer<Trace>::trace(var_name, t_);
         }
     }
 

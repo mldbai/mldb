@@ -12,6 +12,7 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
 #include "mldb/utils/smart_ptr_utils.h"
+#include <mutex>
 
 
 namespace ML {
@@ -56,7 +57,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
         total = 0.0;
 
-        Lock lock;
+        std::mutex lock;
 
         auto doJob = [&] (size_t x0, size_t x1)
             {
@@ -65,7 +66,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
                     (stump, opt_info, cl_weight, weights, data,
                      x0, x1);
 
-                Guard guard(lock);
+                std::unique_lock<std::mutex> guard(lock);
                 total += subtotal;
             };
 
@@ -95,7 +96,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
 
         total = 0.0;
 
-        Lock lock;
+        std::mutex lock;
         
         auto doJob = [&] (size_t x0, size_t x1)
             {
@@ -104,7 +105,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
                     (classifier, opt_info, cl_weight, weights, data,
                      x0, x1);
 
-                Guard guard(lock);
+                std::unique_lock<std::mutex> guard(lock);
                 total += subtotal;
             };
 
@@ -145,7 +146,7 @@ struct Update_Scores_Parallel
         Joint_Index index;
         const std::vector<Label> & labels;
 
-        Lock lock;
+        std::mutex lock;
         double & correct;
 
         const Updater & updater;
@@ -177,7 +178,7 @@ struct Update_Scores_Parallel
                           cl_weight, output, data, example_weights,
                           x_begin, x_end);
 
-            Guard guard(lock);
+            std::unique_lock<std::mutex> guard(lock);
             correct += subtotal;
         }
     };
@@ -244,7 +245,7 @@ struct Update_Scores_Parallel
 
         const std::vector<Label> & labels;
 
-        Lock lock;
+        std::mutex lock;
         double & correct;
 
         const Updater & updater;
@@ -274,7 +275,7 @@ struct Update_Scores_Parallel
                           cl_weight, output, data, example_weights,
                           x_begin, x_end);
 
-            Guard guard(lock);
+            std::unique_lock<std::mutex> guard(lock);
             correct += subtotal;
         }
     };
@@ -363,7 +364,7 @@ struct Update_Weights_And_Scores_Parallel
         const Training_Data & data;
         const distribution<float> & example_weights;
 
-        Lock lock;
+        std::mutex lock;
         double & correct;
         double & total;
 
@@ -420,7 +421,7 @@ struct Update_Weights_And_Scores_Parallel
             //if (timer.elapsed() > 0.1)
 #endif
 
-            Guard guard(lock);
+            std::unique_lock<std::mutex> guard(lock);
             total += subtotal;
             correct += sub_correct;
         }
@@ -490,7 +491,7 @@ struct Update_Weights_And_Scores_Parallel
         const Training_Data & data;
         const distribution<float> & example_weights;
 
-        Lock lock;
+        std::mutex lock;
         double & correct;
         double & total;
 
@@ -523,7 +524,7 @@ struct Update_Weights_And_Scores_Parallel
                           cl_weight, weights, output, data,
                           example_weights, sub_correct, x_begin, x_end);
 
-            Guard guard(lock);
+            std::unique_lock<std::mutex> guard(lock);
             total += subtotal;
             correct += sub_correct;
         }

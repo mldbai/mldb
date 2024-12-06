@@ -103,3 +103,6 @@
 [submodule "ext/abseil-cpp"]
 	path = ext/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp.git
+[submodule "ext/utfcpp"]
+	path = ext/utfcpp
+	url = https://github.com/nemtrif/utfcpp.git

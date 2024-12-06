@@ -193,7 +193,7 @@ ProcessFds::
 encodeToBuffer(char * buffer, size_t bufferSize)
     const
 {
-    int written = ::sprintf(buffer, "%.8x/%.8x/%.8x/%.8x",
+    int written = ::snprintf(buffer, bufferSize, "%.8x/%.8x/%.8x/%.8x",
                             stdIn, stdOut, stdErr, statusFd);
     if (written < 0) {
         throw MLDB::Exception("encoding failed");

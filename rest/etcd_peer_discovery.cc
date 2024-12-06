@@ -97,7 +97,7 @@ publish(PeerInfo info)
         throw MLDB::Exception("couldn't set our address");
 
     discoveryThread.reset
-        (new std::thread([=] () { this->runDiscoveryThread(); }));
+        (new std::thread([this] () { this->runDiscoveryThread(); }));
 }
 
 void

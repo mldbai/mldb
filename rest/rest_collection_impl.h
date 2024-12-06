@@ -578,7 +578,7 @@ addBackgroundJobInThread(Key key,
         std::shared_ptr<WatchT<bool> > cancelledPtr
             (new WatchT<bool>(task->cancelledWatches.add()));
 
-        auto toRun = [=] ()
+        auto toRun = [=,this] ()
             {
                 MLDB_TRACE_EXCEPTIONS(false);
                 try {
@@ -1490,9 +1490,9 @@ addPutRoute()
 
 
     RestRequestRouter::OnProcessRequest putAsyncRoute
-        = [=] (RestConnection & connection,
-               const RestRequest & req,
-               const RestRequestParsingContext & cxt)
+        = [=,this] (RestConnection & connection,
+                    const RestRequest & req,
+                    const RestRequestParsingContext & cxt)
         {
             try {
                 if (!validater(connection, req, cxt))
@@ -1530,9 +1530,9 @@ addPutRoute()
                               putAsyncRoute, help);
 
     RestRequestRouter::OnProcessRequest putSyncRoute
-        = [=] (RestConnection & connection,
-               const RestRequest & req,
-               const RestRequestParsingContext & cxt)
+        = [=,this] (RestConnection & connection,
+                    const RestRequest & req,
+                    const RestRequestParsingContext & cxt)
         {
             try {
                 if (!validater(connection, req, cxt))
@@ -1595,9 +1595,9 @@ addPostRoute()
     auto validater = createRequestValidater(help, {});
 
     RestRequestRouter::OnProcessRequest postSyncRoute
-        = [=] (RestConnection & connection,
-               const RestRequest & req,
-               const RestRequestParsingContext & cxt)
+        = [=,this] (RestConnection & connection,
+                    const RestRequest & req,
+                    const RestRequestParsingContext & cxt)
         {
             try {
                 if (!validater(connection, req, cxt))
@@ -1631,9 +1631,9 @@ addPostRoute()
         };
 
     RestRequestRouter::OnProcessRequest postAsyncRoute
-        = [=] (RestConnection & connection,
-               const RestRequest & req,
-               const RestRequestParsingContext & cxt)
+        = [=,this] (RestConnection & connection,
+                    const RestRequest & req,
+                    const RestRequestParsingContext & cxt)
         {
             try {
                 if (!validater(connection, req, cxt))
@@ -1688,9 +1688,9 @@ addDeleteRoute()
     auto validater = createRequestValidater(help, {});
 
     RestRequestRouter::OnProcessRequest deleteRoute
-        = [=] (RestConnection & connection,
-               const RestRequest & req,
-               const RestRequestParsingContext & cxt)
+        = [=,this] (RestConnection & connection,
+                    const RestRequest & req,
+                    const RestRequestParsingContext & cxt)
         {
             try {
                 if (!validater(connection, req, cxt))

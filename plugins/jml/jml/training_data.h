@@ -16,8 +16,7 @@
 #include <cmath>
 #include "mldb/arch/math.h"
 #include "mldb/utils/floating_point.h"
-#include "mldb/arch/threads.h"
-
+#include <mutex>
 
 namespace ML {
 
@@ -231,7 +230,7 @@ protected:
     typedef std::vector<std::shared_ptr<Feature_Set> > data_type;
     data_type data_;
 
-    mutable Lock index_lock;
+    mutable std::mutex index_lock;
     mutable std::shared_ptr<Dataset_Index> index_;
 
     std::shared_ptr<const Feature_Space> feature_space_;

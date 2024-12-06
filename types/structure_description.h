@@ -148,7 +148,7 @@ struct StructureDescription
         }
         
         if (onUnknownField)
-            context.onUnknownFieldHandlers.push_back([=,&context] (const ValueDescription *) { this->onUnknownField((Struct *)output, context); });
+            context.onUnknownFieldHandlers.push_back([=,&context,this] (const ValueDescription *) { this->onUnknownField((Struct *)output, context); });
 
         return true;
     }
@@ -277,7 +277,7 @@ struct StructureDescription
     }
 
     virtual const FieldDescription *
-    hasField(const void * val, const std::string & field) const
+    hasField(const void * val, const std::string & field) const override
     {
         auto it = fields.find(field.c_str());
         if (it != fields.end())
@@ -286,7 +286,7 @@ struct StructureDescription
     }
 
     virtual const FieldDescription *
-    getFieldDescription(const void * val, const void * field) const
+    getFieldDescription(const void * val, const void * field) const override
     {
         ssize_t offset = (const char *)field - (const char *)val;
         for (auto & f: fields) {
@@ -298,7 +298,7 @@ struct StructureDescription
     }
     
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const
+                              const std::function<void (const FieldDescription &)> & onField) const override
     {
         for (auto f: orderedFields) {
             onField(f->second);
@@ -306,7 +306,7 @@ struct StructureDescription
     }
 
     virtual const FieldDescription & 
-    getField(const std::string & field) const
+    getField(const std::string & field) const override
     {
         auto it = fields.find(field.c_str());
         if (it != fields.end())
@@ -315,7 +315,7 @@ struct StructureDescription
     }
 
     virtual const FieldDescription & 
-    getFieldByNumber(int fieldNum) const
+    getFieldByNumber(int fieldNum) const override
     {
         for (auto & f: fields) {
             if (f.second.fieldNum == fieldNum)
@@ -330,12 +330,12 @@ struct StructureDescription
         return this->version;
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         return StructureDescriptionBase::parseJson(val, context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         return StructureDescriptionBase::printJson(val, context);
     }

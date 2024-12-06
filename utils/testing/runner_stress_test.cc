@@ -60,10 +60,11 @@ struct HelperCommands : vector<string>
 
     void sendOutput(bool isStdOut, const string & data)
     {
-        char cmdBuffer[1024];
+        constexpr size_t BUFFER_SIZE = 1024;
+        char cmdBuffer[BUFFER_SIZE];
         int len = data.size();
         int totalLen = len + 3 + sizeof(int);
-        sprintf(cmdBuffer, (isStdOut ? "out" : "err"));
+        snprintf(cmdBuffer, BUFFER_SIZE, (isStdOut ? "out" : "err"));
         memcpy(cmdBuffer + 3, &len, sizeof(int));
         memcpy(cmdBuffer + 3 + sizeof(int), data.c_str(), len);
         push_back(string(cmdBuffer, totalLen));
@@ -71,9 +72,10 @@ struct HelperCommands : vector<string>
 
     void sendExit(int code)
     {
-        char cmdBuffer[1024];
+        constexpr size_t BUFFER_SIZE = 1024;
+        char cmdBuffer[BUFFER_SIZE];
         int totalLen = 3 + sizeof(int);
-        sprintf(cmdBuffer, "xit");
+        snprintf(cmdBuffer, BUFFER_SIZE, "xit");
         memcpy(cmdBuffer + 3, &code, sizeof(int));
         push_back(string(cmdBuffer, totalLen));
     };

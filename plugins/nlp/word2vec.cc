@@ -89,7 +89,7 @@ struct SqlWord2VecScope: public SqlExpressionMldbScope {
                   SqlBindingScope & argScope)
     {
         if (functionName == "fileTimestamp") {
-            return {[=] (const std::vector<ExpressionValue> & args,
+            return {[=,this] (const std::vector<ExpressionValue> & args,
                          const SqlRowScope & scope)
                     {
                         return ExpressionValue(fileTimestamp, fileTimestamp);

@@ -426,7 +426,7 @@ multiplex(Watch && other)
     // Bind it in so that we get the events
     auto recursiveTrigger = std::make_shared<bool>(true);
         
-    auto onEvent = [=] (const Any & val)
+    auto onEvent = [=,this] (const Any & val)
         {
             if (*recursiveTrigger)
                 this->triggerGenericLocked(val);

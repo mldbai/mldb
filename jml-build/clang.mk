@@ -18,10 +18,11 @@ $(warning building with clang++ version $(CLANG_VERSION))
 
 CLANGXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Wno-deprecated -Winit-self -Qunused-arguments -Wno-mismatched-tags -Wno-unused-function -ftemplate-backtrace-limit=0 -Wno-inconsistent-missing-override
 
-CLANG_SANITIZER_address_FLAGS:=-fsanitize=address
-CLANG_SANITIZER_memory_FLAGS:=-fsanitize=memory
-CLANG_SANITIZER_thread_FLAGS:=-fsanitize=thread
-CLANG_SANITIZER_undefined_FLAGS:=-fsanitize=undefined -fno-sanitize-recover=undefined -fno-sanitize=vptr -fvisibility=default
+CLANG_SANITIZER_COMMON_FLAGS:=
+CLANG_SANITIZER_address_FLAGS:=-fsanitize=address ${CLANG_SANITIZER_COMMON_FLAGS}
+CLANG_SANITIZER_memory_FLAGS:=-fsanitize=memory ${CLANG_SANITIZER_COMMON_FLAGS}
+CLANG_SANITIZER_thread_FLAGS:=-fsanitize=thread ${CLANG_SANITIZER_COMMON_FLAGS}
+CLANG_SANITIZER_undefined_FLAGS:=-fsanitize=undefined -fno-sanitize-recover=undefined -fno-sanitize=vptr -fvisibility=default --rtlib=compiler-rt ${CLANG_SANITIZER_COMMON_FLAGS}
 
 COMMA?=,
 NOTHING?=

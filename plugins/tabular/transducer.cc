@@ -515,7 +515,7 @@ ZstdStringDecompressor::
 getOutputLength(std::string_view input) const
 {
     const char * data = input.data();
-    auto res = ZSTD_getDecompressedSize(data, input.length());
+    auto res = ZSTD_getFrameContentSize(data, input.length());
     if (ZSTD_isError(res)) {
         throw AnnotatedException(500, "Error with decompressing: "
                                   + string(ZSTD_getErrorName(res)));
@@ -528,7 +528,7 @@ ZstdStringDecompressor::
 getTemporaryBufferSize(std::string_view input,
                        ssize_t outputLength) const
 {
-    auto res = ZSTD_getDecompressedSize(input.data(), input.length());
+    auto res = ZSTD_getFrameContentSize(input.data(), input.length());
     if (ZSTD_isError(res)) {
         throw AnnotatedException(500, "Error with decompressing: "
                                   + string(ZSTD_getErrorName(res)));

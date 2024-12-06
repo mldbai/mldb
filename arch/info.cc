@@ -84,7 +84,7 @@ std::string username()
 std::string hostname()
 {
     char buf[128];
-    int res = gethostname(buf, 128);
+    auto res = gethostname(buf, 128);
     if (res != 0)
         throw Exception(errno, "hostname", "hostname");
     buf[127] = 0;
@@ -95,7 +95,7 @@ std::string now()
 {
     struct timeval tv;
 
-    int res = gettimeofday(&tv, NULL);
+    auto res = gettimeofday(&tv, NULL);
     if (res != 0)
         throw Exception(errno, "now", "gettimeofday");
     
@@ -133,7 +133,7 @@ size_t num_open_files()
     
     dirent entry;
     for (dirent * current = &entry;  current;  ++result) {
-        int res = readdir_r(dfd, &entry, &current);
+        auto res = readdir_r(dfd, &entry, &current);
         if (res != 0)
             throw Exception("num_open_files(): readdir_r: "
                             + string(strerror(errno)));
@@ -176,7 +176,7 @@ std::string fd_to_filename(int fd)
     struct vnode_fdinfowithpath info;
     memset(&info, 0, sizeof(info));
     errno = 0;
-    int res = proc_pidfdinfo(getpid(), fd, PROC_PIDFDVNODEPATHINFO, &info, sizeof(info));
+    auto res = proc_pidfdinfo(getpid(), fd, PROC_PIDFDVNODEPATHINFO, &info, sizeof(info));
     if (res == 0)
         throw MLDB::Exception("proc_pidfdinfo() error: " + string(strerror(errno)));
     return info.pvip.vip_path;

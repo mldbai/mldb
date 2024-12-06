@@ -123,7 +123,7 @@ struct ArrayDescription
         return *this->inner;
     }
 
-    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
     {
         return this->inner;
     }

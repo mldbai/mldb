@@ -63,7 +63,7 @@ struct AsioThreadPool::Impl {
     {
         std::unique_lock<std::mutex> guard(threadsLock);
         for (size_t i = threads.size(); i < minNumThreads; i++) {
-            threads.emplace_back([=] () { this->run(i); });
+            threads.emplace_back([=,this] () { this->run(i); });
         }
     }
     
@@ -157,7 +157,7 @@ struct AsioThreadPool::Impl {
                     int threadNum = threads.size();
                     cerr << "starting up thread " << threadNum << endl;
                     std::unique_lock<std::mutex> guard(threadsLock);
-                    threads.emplace_back([=] () { this->run(threadNum); });
+                    threads.emplace_back([=,this] () { this->run(threadNum); });
                 }
                 else if (threadFactor + 0.2 < threads.size()) {
                     // Threads are over-provisioned.  Need to signal the thread

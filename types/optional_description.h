@@ -80,7 +80,7 @@ struct OptionalDescription
         return *inner;
     }
 
-    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
     {
         return this->inner;
     }

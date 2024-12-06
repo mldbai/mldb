@@ -103,7 +103,7 @@ struct ContinuousDataset::Itl final {
         if (config.commitInterval.number > 0) {
             timer = engine->getTimer(Date::now().plusSeconds(config.commitInterval.number),
                                      config.commitInterval.number,
-                                     [=] (Date date)
+                                     [this] (Date date)
                                      {
                                          rotate(date);
                                      });

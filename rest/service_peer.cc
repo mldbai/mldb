@@ -72,7 +72,7 @@ addRoutes()
                     pingRoute,
                     Json::Value());
     
-    auto getPeerCollection = [=] (const RestRequestParsingContext & context)
+    auto getPeerCollection = [=,this] (const RestRequestParsingContext & context)
         {
             return &this->peers;
         };
@@ -136,7 +136,7 @@ createHttpWatch(RestConnection & connection,
         data->watch = this->watch(resource, true /* catchUp */,
                                   data->connection.http->getPeerName());
 
-        auto onFire = [=] (const Any & valueIn)
+        auto onFire = [=,this] (const Any & valueIn)
             {
                 DEBUG_MSG(logger) << "watchRouter onFire" << jsonEncode(valueIn)
                 << " shutdown " << this->shutdown_;
@@ -293,7 +293,7 @@ onPeerStateChange(RemotePeer * peer)
     //DEBUG_MSG(logger) << "peer state change for " << jsonEncode(info);
 
     // post this so that we can let it get out of its callback
-    peerServer->postWork([=] () { peers.deleteEntry(info.peerName); });
+    peerServer->postWork([=,this] () { peers.deleteEntry(info.peerName); });
 }
 
 std::string
@@ -582,7 +582,7 @@ initRoutes(RouteManager & manager)
 {
     RestCollection<std::string, RemotePeer>::initRoutes(manager);
 
-    auto getServicePeer = [=] (const RestRequestParsingContext & cxt)
+    auto getServicePeer = [=,this] (const RestRequestParsingContext & cxt)
         {
             return service;
         };

@@ -92,7 +92,7 @@ doGetAllColumns(const Utf8String & tableName,
         columnsWithInfo[i].offset = i;
     }
         
-    auto exec = [=] (const SqlRowScope & scope, const VariableFilter & filter)
+    auto exec = [=,this] (const SqlRowScope & scope, const VariableFilter & filter)
         {
             /* 
                The filter parameter here is not used since this context is
@@ -131,19 +131,19 @@ doGetFunction(const Utf8String & tableName,
 {
     if (functionName == "lineNumber") {
         lineNumberUsed = true;
-        return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
+        return {[=,this] (const std::vector<ExpressionValue> & args,
+                          const SqlRowScope & scope)
                 {
                     auto & row = scope.as<RowScope>();
                     return ExpressionValue(row.lineNumber, fileTimestamp);
                 },
                 std::make_shared<IntegerValueInfo>()
-                    };
+                };
     }
     else if (functionName == "rowHash") {
         lineNumberUsed = true;
-        return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
+        return {[=,this] (const std::vector<ExpressionValue> & args,
+                          const SqlRowScope & scope)
                 {
                     auto & row = scope.as<RowScope>();
                     if(!row.rowName) {
@@ -155,8 +155,8 @@ doGetFunction(const Utf8String & tableName,
                     };
     }
     else if (functionName == "fileTimestamp") {
-        return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
+        return {[=,this] (const std::vector<ExpressionValue> & args,
+                          const SqlRowScope & scope)
                 {
                     return ExpressionValue(fileTimestamp, fileTimestamp);
                 },
@@ -164,8 +164,8 @@ doGetFunction(const Utf8String & tableName,
                     };
     }
     else if (functionName == "dataFileUrl") {
-        return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
+        return {[=,this] (const std::vector<ExpressionValue> & args,
+                          const SqlRowScope & scope)
                 {
                     return ExpressionValue(dataFileUrl, fileTimestamp);
                 },
@@ -173,8 +173,8 @@ doGetFunction(const Utf8String & tableName,
                     };
     }
     else if (functionName == "lineOffset") {
-        return {[=] (const std::vector<ExpressionValue> & args,
-                     const SqlRowScope & scope)
+        return {[=,this] (const std::vector<ExpressionValue> & args,
+                          const SqlRowScope & scope)
                 {
                     auto & row = scope.as<RowScope>();
                     return ExpressionValue(row.lineOffset, fileTimestamp);

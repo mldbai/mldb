@@ -130,15 +130,14 @@ struct ZStandardDecompressor: public Decompressor {
     virtual int64_t decompressedSize(const char * block, size_t blockLen,
                                      int64_t totalLen) const override
     {
-        unsigned long long res = ZSTD_getDecompressedSize(block, blockLen);
-        if (ZSTD_isError(res)) {
-            return LENGTH_INSUFFICIENT_DATA;
-        }
-        else if (res == 0) {
+        unsigned long long res = ZSTD_getFrameContentSize(block, blockLen);
+        if (res == ZSTD_CONTENTSIZE_UNKNOWN) {
             return LENGTH_UNKNOWN;  // 0 means zero length OR unknown
         }
-        else return res;
-        
+        else if (ZSTD_isError(res)) {
+            return LENGTH_INSUFFICIENT_DATA;
+        }
+        else return res;        
     }
     
     virtual void decompress(const char * data, size_t len,

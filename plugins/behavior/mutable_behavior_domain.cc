@@ -1225,7 +1225,7 @@ signalPartialCacheNeedsUpdate()
         return;
     }
 
-    auto updateCacheJob = [=] ()
+    auto updateCacheJob = [this] ()
         {
             try {
                 this->updatePartialCache();
@@ -2455,7 +2455,7 @@ clear(GcLock & rootLock)
     earliest = 0;
     latest = std::numeric_limits<int64_t>::max();
     deleteDataNode(sorted);
-    rootLock.defer([=] () { deleteDataNode(unsorted); });
+    rootLock.defer([this] () { deleteDataNode(unsorted); });
 
     unsorted = nullptr;
 }

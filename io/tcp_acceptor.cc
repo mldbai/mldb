@@ -118,7 +118,7 @@ dissociate(TcpSocketHandler * handler)
     auto handlerPtr = tryFindHandlerPtr(handler);
     if (!handlerPtr)
         return false;
-    auto doDissociate = [=] {
+    auto doDissociate = [=,this] {
         std::unique_lock<std::mutex> guard(associatedHandlersLock_);
         associatedHandlers_.erase(handlerPtr);
     };

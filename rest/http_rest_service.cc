@@ -267,9 +267,9 @@ init()
     httpEndpoint->init();
 
     httpEndpoint->onRequest
-        = [=] (std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> connection,
-               const HttpHeader & header,
-               const Utf8String & payload)
+        = [=,this] (std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> connection,
+                    const HttpHeader & header,
+                    const Utf8String & payload)
         {
             std::string requestId = this->getHttpRequestId();
             HttpRestConnection restConnection(connection, requestId, this);

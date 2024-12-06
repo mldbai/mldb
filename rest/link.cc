@@ -336,12 +336,12 @@ add(std::shared_ptr<LinkToken> token)
 
     impl->data[id]->link = std::move(token);
 
-    auto doStateChange = [=] (LinkState state)
+    auto doStateChange = [=,this] (LinkState state)
         {
             using namespace std;
             //cerr << "doStateChange " << state << endl;
             if (state == LS_DISCONNECTED) {
-                callMeBackLater.add([=] () { this->release(id); });
+                callMeBackLater.add([=,this] () { this->release(id); });
             }
         };
 

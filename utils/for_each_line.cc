@@ -9,7 +9,6 @@
 #include <atomic>
 #include <exception>
 #include <mutex>
-#include "mldb/arch/threads.h"
 #include <chrono>
 #include <thread>
 #include <cstring>

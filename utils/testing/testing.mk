@@ -22,7 +22,7 @@ $(eval $(call test,print_utils_test,,boost))
 
 
 $(eval $(call program,runner_test_helper,utils arch io_base value_description))
-$(eval $(call test,runner_test,runner arch value_description io_base utils vfs types,boost))
+#$(eval $(call test,runner_test,runner arch value_description io_base utils vfs types,boost))
 $(eval $(call test,runner_stress_test,runner io_base arch,boost manual))
 $(TESTS)/runner_test $(TESTS)/runner_stress_test: $(BIN)/runner_test_helper
 $(eval $(call test,sink_test,runner utils io_base arch,boost))

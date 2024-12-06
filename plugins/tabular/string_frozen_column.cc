@@ -60,7 +60,7 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
     }
 
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         auto onRow2 = [&] (size_t rowNum, const CellValue & val)
             {
@@ -70,7 +70,7 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
         return unwrapped->forEach(onRow2);
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         auto onRow2 = [&] (size_t rowNum, const CellValue & val)
             {
@@ -80,24 +80,24 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
         return unwrapped->forEachDense(onRow2);
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         return wrap(unwrapped->get(rowIndex));
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return unwrapped->size();
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         return sizeof(*this)
             + unwrapped->memusage();
     }
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         auto fn2 = [&] (const CellValue & v)
             {
@@ -108,7 +108,7 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         auto fn2 = [&] (const CellValue & v, size_t n)
             {
@@ -125,17 +125,17 @@ struct CompressedStringFrozenColumn: public FrozenColumn {
 
     ColumnTypes columnTypes;
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
 
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "Sc";
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         unwrapped->serialize(serializer);
     }
