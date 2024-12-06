@@ -12,6 +12,8 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <functional>
+#include <algorithm>
 #include <boost/lexical_cast.hpp>
 #include "mldb/arch/exception.h"
 #include <iostream>
@@ -188,7 +190,7 @@ public:
                        std::vector<std::string> & list) const
     {
         if (find(val, key)) {
-            list.erase(remove(list.begin(), list.end(), find_key(key, true)),
+            list.erase(std::remove(list.begin(), list.end(), find_key(key, true)),
                        list.end());
         }
         return false;

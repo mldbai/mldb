@@ -927,7 +927,7 @@ doUnaryArithmetic(const SqlExpression * expr,
                 if (r.empty())
                     return storage = ExpressionValue::null(r.getEffectiveTimestamp());
                 return storage
-                    = ExpressionValue(std::move(op(r.getAtom())),
+                    = ExpressionValue(op(r.getAtom()),
                                       r.getEffectiveTimestamp());
             },
             expr,
@@ -1399,7 +1399,7 @@ doUnaryBitwise(const SqlExpression * expr,
                 const ExpressionValue & r = boundRhs(row, rstorage, filter);
                 if (r.empty())
                     return storage = ExpressionValue::null(r.getEffectiveTimestamp());
-                return storage = ExpressionValue(std::move(op(r.toInt())), r.getEffectiveTimestamp());
+                return storage = ExpressionValue(op(r.toInt()), r.getEffectiveTimestamp());
             },
             expr,
             std::make_shared<IntegerValueInfo>(boundRhs.info->isConst())};

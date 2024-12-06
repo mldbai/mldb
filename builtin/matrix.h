@@ -196,7 +196,7 @@ struct ColumnIndexEntry: public ColumnSpec {
         this->numExamples = numExamples;
         this->numExamplesWithColumn = numExamplesWithColumn;
         this->columnName = std::move(columnName);
-        this->cellValue = std::move(cellValue);
+        this->cellValue = CellValue();
         this->op = COL_VALUE;
         continuousValues.clear();
         continuousValues.resize(numExamples);

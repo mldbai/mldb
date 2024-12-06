@@ -1,19 +1,19 @@
 ifneq ($(PREMAKE),1)
 
-$(shell mkdir -p $(OBJ)/mldb/ext/hoedown/src/)
-$(shell mkdir -p $(OBJ)/mldb/ext/hoedown/bin/)
+#$(shell mkdir -p $(OBJ)/mldb/ext/hoedown/src/)
+#$(shell mkdir -p $(OBJ)/mldb/ext/hoedown/bin/)
 
 
 HOEDOWN_SRC=\
-	src/autolink.o \
-	src/buffer.o \
-	src/document.o \
-	src/escape.o \
-	src/html.o \
-	src/html_blocks.o \
-	src/html_smartypants.o \
-	src/stack.o \
-	src/version.o
+	src/autolink.c \
+	src/buffer.c \
+	src/document.c \
+	src/escape.c \
+	src/html.c \
+	src/html_blocks.c \
+	src/html_smartypants.c \
+	src/stack.c \
+	src/version.c \
 
 HOEDOWN_WARNING_FLAGS :=
 
@@ -21,14 +21,18 @@ ifeq ($(toolchain),gcc6)
 HOEDOWN_WARNING_FLAGS := -Wno-misleading-indentation
 endif
 
-HOEDOWN_REAL_SRC=$(HOEDOWN_SRC:%.o=%.c)
+ifeq ($(toolchain),gcc14)
+HOEDOWN_WARNING_FLAGS := -Wno-enum-int-mismatch
+endif
 
-$(eval $(call set_compile_option,bin/hoedown.c bin/smartypants.c,-Imldb/ext/hoedown/src $(HOEDOWN_WARNING_FLAGS)))
+HOEDOWN_REAL_SRC=$(HOEDOWN_SRC)
 
-$(eval $(call set_compile_option,src/document.c,$(HOEDOWN_WARNING_FLAGS)))
+#$(eval $(call set_compile_option,bin/hoedown.c bin/smartypants.c,-Imldb/ext/hoedown/src $(HOEDOWN_WARNING_FLAGS)))
+
+$(eval $(call set_compile_option,$(HOEDOWN_SRC),$(HOEDOWN_WARNING_FLAGS)))
 $(eval $(call library,hoedown,$(HOEDOWN_REAL_SRC)))
-$(eval $(call program,hoedown,hoedown,bin/hoedown.c))
-$(eval $(call program,smartypants,hoedown,bin/smartypants.c))
+#$(eval $(call program,hoedown,hoedown,bin/hoedown.c))
+#$(eval $(call program,smartypants,hoedown,bin/smartypants.c))
 
 # Perfect hashing
 

@@ -260,8 +260,6 @@ int64_t check_to_int2(const JSValue & val)
         //if (debug)
         //cerr << "is string" << endl;
 
-        auto ival = val->IntegerValue(context);
-        if (ival.IsJust()) return check(ival);
         string s = MLDB::lowercase(cstr(val));
         try {
             return boost::lexical_cast<int64_t>(s);

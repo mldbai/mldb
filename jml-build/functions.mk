@@ -372,11 +372,29 @@ $$(foreach file,$$(strip $(1)),$$(eval $$(call add_source,$$(file),$$(call suffi
 endif
 endef
 
+filter_compiler_option_clang19=$(if $(filter $(1),clang8+ clang9+ clang10+ clang11+ clang12+ clang13+ clang14+ clang15+ clang16+ clang17+ clang18+ clang19),$(2),)
+filter_compiler_option_gcc14=$(if $(filter $(1),gcc8+ gcc9+ gcc10+ gcc11+ gcc12+ gcc13+ gcc14),$(2),)
+
+get_compiler_with_version=$(if $(findstring clang,$(toolchain)),clang$(CLANG_VERSION_MAJOR),$(toolchain))
+
+# Make sure we have a filter for compiler options for this toolchain
+COMPILER_WITH_VERSION:=$(call get_compiler_with_version)
+$(warning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
+$(if $(call filter_compiler_option_$(COMPILER_WITH_VERSION),$(COMPILER_WITH_VERSION),true),,$(error need to add a filter_compiler_option_$(COMPILER_WITH_VERSION) function for $(toolchain)))
+
+
+filter_compiler_option5=$(call filter_compiler_option_$(toolchain),$(1),$(2))
+#filter_compiler_option5=$(error filter_compiler_option5 $(1) $(2))
+filter_compiler_option4=$(call filter_compiler_option5,$(word 1,$(subst :, ,$(1))),$(wordlist 2,1000000,$(subst :, ,$(1))),$(call get_compiler_with_version,$(toolchain)))
+filter_compiler_option3=$(foreach option,$(1),$(w arning option $(option))$(if $(findstring :,$(option)),$(call filter_compiler_option4,$(option)),$(option)) )
+filter_compiler_option2=$(if $(findstring :,$(1)),$(call filter_compiler_option3,$(1)),$(1))
+filter_compiler_option=$(w arning filter_compiler_option $(1))$(call filter_compiler_option2,$(1))
+
 # set compile options for a single source file
 # $(1): filename
 # $(2): compile option
 define set_single_compile_option
-OPTIONS_$(CWD)/$(1) += $(2)
+OPTIONS_$(CWD)/$(1) += $$(call filter_compiler_option,$(2))
 #$$(warning setting OPTIONS_$(CWD)/$(1) += $(2))
 endef
 

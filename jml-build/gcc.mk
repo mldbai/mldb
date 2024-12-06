@@ -16,7 +16,8 @@ CXXFLAGS ?= $(ARCHFLAGS) $(INCLUDE) $(GXXWARNINGFLAGS)$(if $(GCC_VERSION_WARNING
 CXXNODEBUGFLAGS := -O3 -DBOOST_DISABLE_ASSERTS -DNDEBUG 
 CXXDEBUGFLAGS := -O0 -g3
 
-CXXLINKFLAGS = $(PORT_LINK_FLAGS) -rdynamic $(foreach DIR,$(PWD)/$(BIN) $(PWD)/$(LIB),-L$(DIR) -Wl,--rpath-link,$(DIR)) -Wl,--rpath,\$$ORIGIN/../bin -Wl,--rpath,\$$ORIGIN/../lib -Wl,--copy-dt-needed-entries -Wl,--no-as-needed
+#CXXLINKFLAGS = $(PORT_LINK_FLAGS) -rdynamic $(foreach DIR,$(PWD)/$(BIN) $(PWD)/$(LIB),-L$(DIR) -Wl,--rpath-link,$(DIR)) -Wl,--rpath,\$$ORIGIN/../bin -Wl,--rpath,\$$ORIGIN/../lib -Wl,--copy-dt-needed-entries -Wl,--no-as-needed
+CXXLINKFLAGS = $(PORT_LINK_FLAGS) -rdynamic $(foreach DIR,$(PWD)/$(BIN) $(PWD)/$(LIB),-L$(DIR) -Wl,-rpath,$(DIR)) -Wl,-rpath,\$$ORIGIN/../bin -Wl,-rpath,\$$ORIGIN/../lib
 CXXLIBRARYFLAGS = -shared $(CXXLINKFLAGS) -lpthread
 CXXEXEFLAGS =$(CXXLINKFLAGS) -lpthread
 CXXEXEPOSTFLAGS = $(if $(MEMORY_ALLOC_LIBRARY),-l$(MEMORY_ALLOC_LIBRARY))

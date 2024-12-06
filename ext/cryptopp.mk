@@ -8,6 +8,12 @@ ifeq ($(ARCH),amd64)
 CRYPTOPP_ARCH:=aarch64
 endif
 
+CRYPTOPP_COMPILER_FLAGS_gcc14 := -Wno-error -fno-permissive -Wno-stringop-overflow -Wno-restrict
+
+CRYPTOPP_COMPILER_FLAGS := $(CRYPTOPP_COMPILER_FLAGS_$(toolchain))
+
+$(eval $(call set_compile_option,$(CRYPTOPP_SOURCE),$(CRYPTOPP_COMPILER_FLAGS)))
+
 ifeq ($(ARCH),x86_64)
 $(eval $(call set_compile_option,aria_simd.cpp,-msse3))
 $(eval $(call set_compile_option,blake2b_simd.cpp,-msse4.1))
@@ -31,20 +37,28 @@ $(eval $(call set_compile_option,sse_simd.cpp,-msse3))
 endif
 
 ifeq ($(ARCH),aarch64)
+ISARM := true
+endif
+
+ifeq ($(ARCH),arm64)
+ISARM := true
+endif
+
+ifeq ($(ISARM),true)
 $(eval $(call set_compile_option,aria_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,blake2b_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,blake2s_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,chacha_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,cham_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,crc_simd.cpp,-march=armv8-a+crc))
-$(eval $(call set_compile_option,gcm_simd.cpp,-march=armv8-a+crypto))
-$(eval $(call set_compile_option,gf2n_simd.cpp,-march=armv8-a+crypto))
+$(eval $(call set_compile_option,gcm_simd.cpp,-march=armv8-a+crypto+aes))
+$(eval $(call set_compile_option,gf2n_simd.cpp,-march=armv8-a+crypto+aes))
 $(eval $(call set_compile_option,keccak_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,lea_simd.cpp,-march=armv8-a))
-$(eval $(call set_compile_option,rijndael_simd.cpp,-march=armv8-a+crypto))
+$(eval $(call set_compile_option,rijndael_simd.cpp,-march=armv8-a+crypto+aes))
 $(eval $(call set_compile_option,neon_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,sha_simd.cpp,-march=armv8-a+crypto))
-$(eval $(call set_compile_option,shacal2_simd.cpp,-march=armv8-a+crypto))
+$(eval $(call set_compile_option,shacal2_simd.cpp,-march=armv8-a+crypto+aes))
 $(eval $(call set_compile_option,simon128_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,sm4_simd.cpp,-march=armv8-a))
 $(eval $(call set_compile_option,speck128_simd.cpp,-march=armv8-a))
