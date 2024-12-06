@@ -259,7 +259,7 @@ struct LocalUrlFsHandler : public UrlFsHandler {
 
             if (entry.is_regular_file()) {
 
-                OpenUriObject open = [=] (const std::map<std::string, std::string> & options)
+                OpenUriObject open = [=,this] (const std::map<std::string, std::string> & options)
                 -> UriHandler
                 {
                     if (!options.empty())

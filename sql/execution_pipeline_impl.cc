@@ -110,7 +110,7 @@ doGetAllColumns(const Utf8String & tableName,
         index[column.columnName] = ColumnPath(outputName);
     }
 
-    auto exec = [=] (const SqlRowScope & rowScope, const VariableFilter & filter)
+    auto exec = [=,this] (const SqlRowScope & rowScope, const VariableFilter & filter)
         -> ExpressionValue
     {
         auto & row = rowScope.as<PipelineResults>();
@@ -2303,7 +2303,7 @@ doGetFunction(const Utf8String & functionName,
     else if (functionName == "rowPath" 
              || functionName == "rowName" 
                 || functionName == "rowHash") {
-        auto getRowPath = [=] (const SqlRowScope & rowScope) {
+        auto getRowPath = [=,this] (const SqlRowScope & rowScope) {
             auto & row = rowScope.as<PipelineResults>();
 
             // cerr << "rowPath from: " << jsonEncode(row) << " offset: " << fieldOffset << endl;

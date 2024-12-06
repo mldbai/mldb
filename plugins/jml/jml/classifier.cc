@@ -9,7 +9,6 @@
 
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "classifier_persist_impl.h"
-#include "mldb/arch/threads.h"
 #include "mldb/arch/file_functions.h"
 #include "evaluation.h"
 
@@ -605,7 +604,7 @@ struct Accuracy_Job_Info {
     const distribution<float> & example_weights;
     const Classifier_Impl & classifier;
     const Optimization_Info & opt_info;
-    Lock lock;
+    std::mutex lock;
     double & correct;
     double & total;
     double & rmse_accum;
@@ -655,7 +654,7 @@ struct Accuracy_Job_Info {
             }
         }
 
-        Guard guard(lock);
+        std::unique_lock<std::mutex> guard(lock);
         correct += sub_correct;
         total += sub_total;
         rmse_accum += sub_rmse;

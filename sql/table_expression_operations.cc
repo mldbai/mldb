@@ -735,22 +735,22 @@ bind(SqlBindingScope & context, const ProgressFunc & onProgress) const
     static const PathElement columnNameName("column");
 
     // Allow the dataset to run queries
-    result.table.runQuery = [=] (const SqlBindingScope & context,
-                                 const SelectExpression & select,
-                                 const WhenExpression & when,
-                                 const SqlExpression & where_,
-                                 const OrderByExpression & orderBy,
-                                 ssize_t offset,
-                                 ssize_t limit,
-                                 const ProgressFunc & onProgress)
+    result.table.runQuery = [=,this] (const SqlBindingScope & context,
+                                      const SelectExpression & select,
+                                      const WhenExpression & when,
+                                      const SqlExpression & where_,
+                                      const OrderByExpression & orderBy,
+                                      ssize_t offset,
+                                      ssize_t limit,
+                                      const ProgressFunc & onProgress)
         -> BasicRowGenerator
         {
             // Copy the where expression
             std::shared_ptr<SqlExpression> where = where_.shallowCopy();
 
-            auto exec = [=] (ssize_t numToGenerate,
-                             SqlRowScope & rowScope,
-                             const BoundParameters & params)
+            auto exec = [=,this] (ssize_t numToGenerate,
+                                  SqlRowScope & rowScope,
+                                  const BoundParameters & params)
                 -> std::vector<NamedRowValue>
             {
                 // 1.  Get the row

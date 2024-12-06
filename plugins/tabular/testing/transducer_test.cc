@@ -20,13 +20,12 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/utils/string_functions.h"
 
-#pragma clang diagnostic ignored "-Wunknown-warning-option"
-#pragma clang diagnostic ignored "-Wvla-cxx-extension"
-
 using namespace std;
 using namespace MLDB;
 
 static const std::string TMP = Environment::instance()["TMP"];
+
+constexpr size_t MAX_BUFFER_SIZE = 1024 * 1024;
 
 std::pair<std::shared_ptr<StringTransducer>, std::shared_ptr<StringTransducer>>
 testTransducer(const std::vector<std::string> & vals)
@@ -45,9 +44,11 @@ testTransducer(const std::vector<std::string> & vals)
 
     for (auto & s: vals) {
         size_t len = forward->getOutputLength(s);
-        char buf[len];
+        ExcAssertLess(len, MAX_BUFFER_SIZE);
+        char buf[MAX_BUFFER_SIZE];
         string_view enc = forward->generateAll(s, buf, len);
-        char outbuf[s.size()];
+        ExcAssertLess(s.size(), MAX_BUFFER_SIZE);
+        char outbuf[MAX_BUFFER_SIZE];
         string_view dec = backward->generateAll(enc, outbuf, s.size());
         BOOST_REQUIRE_EQUAL(s, dec);
     }
@@ -69,16 +70,19 @@ testTransducer(const std::vector<std::string> & vals)
 
     for (auto & s: vals) {
         size_t len = forward->getOutputLength(s);
-        char buf[len];
+        ExcAssertLess(len, MAX_BUFFER_SIZE);
+        char buf[MAX_BUFFER_SIZE];
         string_view enc = forward->generateAll(s, buf, len);
 
         size_t len2 = forward2->getOutputLength(s);
-        char buf2[len2];
+        ExcAssertLess(len2, MAX_BUFFER_SIZE);
+        char buf2[MAX_BUFFER_SIZE];
         string_view enc2 = forward2->generateAll(s, buf2, len2);
 
         BOOST_CHECK_EQUAL(enc, enc2);
 
-        char outbuf[s.size()];
+        ExcAssertLess(s.size(), MAX_BUFFER_SIZE);
+        char outbuf[MAX_BUFFER_SIZE];
         string_view dec = backward2->generateAll(enc, outbuf, s.size());
         BOOST_REQUIRE_EQUAL(s, dec);
     }

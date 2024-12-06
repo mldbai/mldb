@@ -1899,14 +1899,14 @@ MutableSparseMatrixDataset::
 getChunkRecorder()
 {
     MultiChunkRecorder result;
-    result.newChunk = [=] (size_t)
+    result.newChunk = [this] (size_t)
         {
             return std::unique_ptr<Recorder>(
                 new MutableSparseMatrixDataset::Itl::ChunkRecorder(
                     static_cast<Itl *>(itl.get()), logger));
         };
 
-    result.commit = [=] () { this->commit(); };
+    result.commit = [this] () { this->commit(); };
     return result;
 }
 

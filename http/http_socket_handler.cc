@@ -144,7 +144,7 @@ send(std::string str,
      NextAction action, OnWriteFinished onWriteFinished)
 {
     if (str.size() > 0) {
-        auto onWritten = [=] (const boost::system::error_code & ec,
+        auto onWritten = [=,this] (const boost::system::error_code & ec,
                               size_t) {
             if (onWriteFinished) {
                 onWriteFinished();

@@ -146,7 +146,7 @@ struct FilteredDataset::Itl
         MatrixNamedRow matrixRow = matrixView->getRow(rowName);
 
         std::vector<std::tuple<ColumnPath, CellValue, Date> > columns;
-        auto filterColumn = [=] (const std::tuple<ColumnPath, CellValue, Date> & tuple) {
+        auto filterColumn = [this] (const std::tuple<ColumnPath, CellValue, Date> & tuple) {
             return filter(get<1>(tuple), get<2>(tuple));
         };
         std::copy_if(matrixRow.columns.begin(), matrixRow.columns.end(),
@@ -182,7 +182,7 @@ struct FilteredDataset::Itl
         MatrixColumn matrixColumn = columnIndex->getColumn(columnHash);
         
         std::vector<std::tuple<RowPath, CellValue, Date> > rows;
-        auto filterRow = [=] (const std::tuple<RowHash, CellValue, Date> & tuple) {
+        auto filterRow = [this] (const std::tuple<RowHash, CellValue, Date> & tuple) {
             return filter(get<1>(tuple), get<2>(tuple));
         };
         std::copy_if(matrixColumn.rows.begin(), matrixColumn.rows.end(),

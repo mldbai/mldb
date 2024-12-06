@@ -60,9 +60,9 @@ static bool list_archive(std::streambuf * streambuf,
 {
     struct archive_entry *entry;
     struct archive * a = archive_read_new();
-    Scope_Exit(archive_read_finish(a));
+    Scope_Exit(archive_read_free(a));
 
-    archive_read_support_compression_all(a);
+    archive_read_support_filter_all(a);
     archive_read_support_format_all(a);
     archive_read_open(a, new ArchiveData(streambuf), NULL, myread, myclose);
     while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {

@@ -627,7 +627,10 @@ PythonInterpreter(InitializationContext context)
 
             checkStatus(Py_InitializeFromConfig(&config));
 
+#if PY_MAJOR_VERSION <= 4 && PY_MINOR_VERSION <= 9
+            // Deprecated to a no-op in Python 3.9: https://docs.python.org/3/whatsnew/3.9.html
             PyEval_InitThreads();
+#endif
             st = PyEval_SaveThread();
 
             // Undo the sigint handler that the Python initialization puts

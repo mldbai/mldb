@@ -32,7 +32,7 @@ start(const TestFn& testFn, int threadCount, int group)
     }
 
     for (int id = 0;  id < threadCount;  ++id) {
-        threads[group].emplace_back([=] {
+        threads[group].emplace_back([=,this] {
                     int r = testFn(id);
                     lock_guard<mutex> guard(this->lock);
                     this->promises[group][id].set_value(r);

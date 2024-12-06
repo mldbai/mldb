@@ -434,10 +434,13 @@ struct Path {
         }
     }
 
-    struct Iterator
-        : public std::iterator<std::random_access_iterator_tag, const PathElement,
-                               std::ptrdiff_t, const PathElement*,
-                               const PathElement &> {
+    struct Iterator {
+        using iterator_category = std::random_access_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+        using value_type = PathElement;
+        using pointer = const PathElement *;
+        using reference = const PathElement &;
+
         const Path * p;
         size_t index;
 

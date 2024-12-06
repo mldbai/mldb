@@ -120,7 +120,7 @@ struct DirectFrozenColumn
         values = mutableValues.freeze(serializer);
     }
 
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "d";
     }
@@ -143,17 +143,17 @@ struct DirectFrozenColumn
         return true;
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, false /* keep nulls */);
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, true /* keep nulls */);
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         CellValue result;
         if (rowIndex < firstEntry)
@@ -165,12 +165,12 @@ struct DirectFrozenColumn
         return values[rowIndex];
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return numEntries;
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         size_t result
             = sizeof(*this);
@@ -186,7 +186,7 @@ struct DirectFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         bool doneNull = false;
         auto fn2 = [&] (const CellValue & val)
@@ -207,7 +207,7 @@ struct DirectFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         auto fn2 = [&] (const CellValue & val, size_t n)
             {
@@ -226,12 +226,12 @@ struct DirectFrozenColumn
 
     FrozenCellValueTable values;
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         serializeMetadataT<DirectFrozenColumnMetadata>(serializer, *this);
         values.serialize(*serializer.newStructure("values"));
@@ -381,7 +381,7 @@ struct TableFrozenColumn
         indexes = mutableIndexes.freeze(serializer);
     }
 
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "T";
     }
@@ -410,17 +410,17 @@ struct TableFrozenColumn
         return true;
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, false /* keep nulls */);
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, true /* keep nulls */);
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         CellValue result;
         if (rowIndex < firstEntry)
@@ -440,12 +440,12 @@ struct TableFrozenColumn
         }
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return numEntries;
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         size_t result = sizeof(*this);
         result += table.memusage();
@@ -455,7 +455,7 @@ struct TableFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         if (hasNulls) {
             if (!fn(CellValue()))
@@ -470,7 +470,7 @@ struct TableFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         auto onValue = [&] (auto index, size_t count)
         {
@@ -493,12 +493,12 @@ struct TableFrozenColumn
     FrozenIntegerTable indexes;
     FrozenCellValueSet table;
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         serializeMetadataT<TableFrozenColumnMetadata>(serializer, *this);
         indexes.serialize(*serializer.newStructure("ix"));
@@ -641,12 +641,12 @@ struct SparseTableFrozenColumn
         }
     }
 
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "ST";
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         for (size_t i = 0;  i < numEntries();  ++i) {
             auto rowNum = this->rowNum.get(i);
@@ -658,7 +658,7 @@ struct SparseTableFrozenColumn
         return true;
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         size_t lastRowNum = 0;
         for (size_t i = 0;  i < numEntries();  ++i) {
@@ -685,7 +685,7 @@ struct SparseTableFrozenColumn
         return true;
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         CellValue result;
         if (rowIndex < firstEntry)
@@ -736,12 +736,12 @@ struct SparseTableFrozenColumn
         return result;
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return lastEntry - firstEntry + 1;
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         size_t result
             = sizeof(*this);
@@ -754,7 +754,7 @@ struct SparseTableFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         // Detect nulls which implicitly means a gap in the indexes
         if (firstEntry + numEntries() != lastEntry + 1) {
@@ -766,7 +766,7 @@ struct SparseTableFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         auto onValue = [&] (auto value, auto count)
         {
@@ -780,12 +780,12 @@ struct SparseTableFrozenColumn
         return numEntries();
     }
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         serializeMetadataT<SparseTableFrozenColumnMetadata>(serializer, *this);
         table.serialize(*serializer.newStructure("t"));
@@ -1089,22 +1089,22 @@ struct IntegerFrozenColumn
         return table.forEach(onRow2);
     }
     
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "I";
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, false /* keep nulls */);
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, true /* keep nulls */);
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         CellValue result;
         if (rowIndex < firstEntry)
@@ -1115,18 +1115,18 @@ struct IntegerFrozenColumn
         return decode(table.get(rowIndex));
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return table.size();
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         return sizeof(*this) + table.memusage();
     }
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         auto onVal = [&] (uint64_t val) -> bool
             {
@@ -1137,7 +1137,7 @@ struct IntegerFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         auto onVal = [&] (uint64_t val, size_t count) -> bool
             {
@@ -1154,12 +1154,12 @@ struct IntegerFrozenColumn
 
     FrozenIntegerTable table;
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         serializeMetadataT<IntegerFrozenColumnMetadata>(serializer, *this);
         table.serialize(*serializer.newStructure("t"));
@@ -1319,17 +1319,17 @@ struct DoubleFrozenColumn
         return true;
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, false /* keep nulls */);
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         return forEachImpl(onRow, true /* keep nulls */);
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         CellValue result;
         if (rowIndex < firstEntry)
@@ -1340,12 +1340,12 @@ struct DoubleFrozenColumn
         return storage[rowIndex];
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return numEntries;
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         size_t result
             = sizeof(*this)
@@ -1365,7 +1365,7 @@ struct DoubleFrozenColumn
     };
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         bool hasNulls = false;
 
@@ -1401,7 +1401,7 @@ struct DoubleFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         std::vector<double> allVals;
         allVals.reserve(numEntries);
@@ -1439,7 +1439,7 @@ struct DoubleFrozenColumn
 
     FrozenMemoryRegionT<Entry> storage;
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
@@ -1449,12 +1449,12 @@ struct DoubleFrozenColumn
         return SizingInfo(column);
     }
 
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "D";
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         serializeMetadataT<DoubleFrozenColumnMetadata>(serializer, *this);
         serializer.addRegion(storage, "d");
@@ -1562,7 +1562,7 @@ struct TimestampFrozenColumn
         return val.coerceToTimestamp();
     }
 
-    virtual bool forEach(const ForEachRowFn & onRow) const
+    virtual bool forEach(const ForEachRowFn & onRow) const override
     {
         auto onRow2 = [&] (size_t rowNum, const CellValue & val)
             {
@@ -1572,7 +1572,7 @@ struct TimestampFrozenColumn
         return unwrapped->forEach(onRow2);
     }
 
-    virtual bool forEachDense(const ForEachRowFn & onRow) const
+    virtual bool forEachDense(const ForEachRowFn & onRow) const override
     {
         auto onRow2 = [&] (size_t rowNum, const CellValue & val)
             {
@@ -1582,24 +1582,24 @@ struct TimestampFrozenColumn
         return unwrapped->forEachDense(onRow2);
     }
 
-    virtual CellValue get(uint32_t rowIndex) const
+    virtual CellValue get(uint32_t rowIndex) const override
     {
         return wrap(unwrapped->get(rowIndex));
     }
 
-    virtual size_t size() const
+    virtual size_t size() const override
     {
         return unwrapped->size();
     }
 
-    virtual size_t memusage() const
+    virtual size_t memusage() const override
     {
         return sizeof(*this)
             + unwrapped->memusage();
     }
 
     virtual bool
-    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const
+    forEachDistinctValue(std::function<bool (const CellValue &)> fn) const override
     {
         auto fn2 = [&] (const CellValue & v)
             {
@@ -1610,7 +1610,7 @@ struct TimestampFrozenColumn
     }
 
     virtual bool
-    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const
+    forEachDistinctValueWithRowCount(std::function<bool (const CellValue &, size_t)> fn) const override
     {
         auto fn2 = [&] (const CellValue & v, size_t n)
             {
@@ -1625,17 +1625,17 @@ struct TimestampFrozenColumn
         return unwrapped->nonNullRowCount();
     }
 
-    virtual ColumnTypes getColumnTypes() const
+    virtual ColumnTypes getColumnTypes() const override
     {
         return columnTypes;
     }
 
-    virtual std::string format() const
+    virtual std::string format() const override
     {
         return "Timestamp";
     }
 
-    virtual void serialize(StructuredSerializer & serializer) const
+    virtual void serialize(StructuredSerializer & serializer) const override
     {
         serializeMetadataT<TimestampFrozenColumnMetadata>(serializer, *this);
         unwrapped->serialize(*serializer.newStructure("ul"));

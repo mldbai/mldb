@@ -19,7 +19,7 @@
 #include "mldb/utils/csv.h"
 #include "mldb/arch/format.h"
 #include "mldb/base/scope.h"
-#include "mldb/ext/utf8cpp/source/utf8.h"
+#include "mldb/ext/utfcpp/source/utf8.h"
 #include <boost/test/unit_test.hpp>
 #include "mldb/compiler/filesystem.h"
 #include <sstream>

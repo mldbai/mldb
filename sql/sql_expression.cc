@@ -3397,9 +3397,9 @@ bind(SqlBindingScope & context) const
              hasUnknownColumns ? SCHEMA_OPEN : SCHEMA_CLOSED,
              isConstant);
 
-        auto exec = [=] (const SqlRowScope & context,
-                         ExpressionValue & storage,
-                         const VariableFilter & filter) -> const ExpressionValue &
+        auto exec = [=,this] (const SqlRowScope & context,
+                              ExpressionValue & storage,
+                              const VariableFilter & filter) -> const ExpressionValue &
             {
                 StructValue result;
                 result.resize(allPrefixes.size());

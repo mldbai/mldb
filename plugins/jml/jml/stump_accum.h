@@ -9,7 +9,7 @@
    the testing programs to work.
 */
 
-#include "mldb/arch/threads.h"
+#include <mutex>
 
 namespace ML {
 
@@ -30,8 +30,8 @@ struct No_Locks {
     typedef int Guard;
 };
 
-typedef Lock Lock_;
-typedef Guard Guard_;
+typedef std::recursive_mutex Lock_;
+typedef std::unique_lock<std::recursive_mutex> Guard_;
 
 struct Locked {
     typedef Lock_ Lock;

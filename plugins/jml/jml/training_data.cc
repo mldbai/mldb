@@ -109,7 +109,7 @@ initFiltered(const Training_Data & other,
         newExampleNumbers[i] = currentExample++;
     }
 
-    Guard guard(index_lock);
+    std::unique_lock<std::mutex> guard(index_lock);
     if (index_)
         throw Exception("preindex: already has index");
     index_.reset(new Dataset_Index());
@@ -392,7 +392,7 @@ fixup_grouping_features(const std::vector<Feature> & group_features,
 void Training_Data::
 preindex(const Feature & label, const std::vector<Feature> & features)
 {
-    Guard guard(index_lock);
+    std::unique_lock<std::mutex> guard(index_lock);
     if (index_)
         throw Exception("preindex: already has index");
 
@@ -560,7 +560,7 @@ Training_Data * Training_Data::make_type() const
 
 const Dataset_Index & Training_Data::generate_index() const
 {
-    Guard guard(index_lock);
+    std::unique_lock<std::mutex> guard(index_lock);
     if (!dirty_ && index_) return *index_;
 
     //boost::timer::cpu_timer timer;

@@ -47,11 +47,11 @@ void
 TcpSocketHandler::
 requestClose(OnClose onClose)
 {
-    auto onCloseHandler = [=] () {
+    auto onCloseHandler = [=,this] () {
         if (onClose) {
             onClose();
         }
-        acceptor_->dissociate(this);
+        this->acceptor_->dissociate(this);
     };
     impl_->requestClose(onCloseHandler);
 }

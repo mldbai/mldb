@@ -645,7 +645,7 @@ RestRequestRouter::
 addHelpRoute(PathSpec path, RequestFilter filter)
 {
     OnProcessRequest helpRoute
-        = [=] (RestConnection & connection,
+        = [=,this] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context)
         {

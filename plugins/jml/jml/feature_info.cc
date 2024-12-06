@@ -665,7 +665,7 @@ string
 Fixed_Categorical_Info::
 print() const
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     string result = format("%zd", print_.size());
@@ -676,7 +676,7 @@ print() const
 
 std::string Fixed_Categorical_Info::print(int value) const
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     if (value < 0 || value >= print_.size()) {
@@ -693,7 +693,7 @@ std::string Fixed_Categorical_Info::print(int value) const
 
 int Fixed_Categorical_Info::lookup(const std::string & name) const
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     /* Get the value of the category */
@@ -710,7 +710,7 @@ compact_size_t FIXED_CI_VERSION(0);
 
 void Fixed_Categorical_Info::serialize(DB::Store_Writer & store) const
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     store << FIXED_CI_VERSION << string("FIXED_CI");
@@ -719,7 +719,7 @@ void Fixed_Categorical_Info::serialize(DB::Store_Writer & store) const
 
 void Fixed_Categorical_Info::reconstitute(DB::Store_Reader & store)
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     compact_size_t version(store);
@@ -744,7 +744,7 @@ std::string Fixed_Categorical_Info::class_id() const
 
 unsigned Fixed_Categorical_Info::count() const
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     return print_.size();
@@ -752,7 +752,7 @@ unsigned Fixed_Categorical_Info::count() const
 
 void Fixed_Categorical_Info::make_parse_from_print()
 {
-    Guard guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
+    std::unique_lock<std::mutex> guard(lock, std::defer_lock);  // guard that doesn't acquire the lock
     if (is_mutable) guard.lock();
 
     parse_.clear();
@@ -819,7 +819,7 @@ parse_or_add(const std::string & name) const
     if (frozen)
         throw Exception("Mutable_Categorical_Info::parse_or_add(): "
                         "frozen");
-    Guard guard(lock);
+    std::unique_lock<std::mutex> guard(lock);
 
     /* Get the value of the category */
     auto it = parse_.find(name);
@@ -837,7 +837,7 @@ int
 Mutable_Categorical_Info::
 lookup(const std::string & name) const
 {
-    Guard guard(lock);
+    std::unique_lock<std::mutex> guard(lock);
     if (!frozen) return parse_or_add(name);
     else return Fixed_Categorical_Info::lookup(name);
 }
@@ -850,7 +850,7 @@ freeze()
     //     << print_ << endl;
 
     if (frozen) return;
-    Guard guard(lock);
+    std::unique_lock<std::mutex> guard(lock);
     frozen = true;
     is_mutable = false;
 }

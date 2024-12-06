@@ -272,7 +272,7 @@ init()
 {
     httpEndpoint.init();
     httpEndpoint.onRequest
-        = [=] (std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> connection,
+        = [=,this] (std::shared_ptr<HttpRestEndpoint::RestConnectionHandler> connection,
                const HttpHeader & header,
                const Utf8String & payload)
         {

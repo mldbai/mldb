@@ -43,39 +43,39 @@ struct TabularDataset : public Dataset {
 
     virtual ~TabularDataset();
     
-    virtual Any getStatus() const;
+    virtual Any getStatus() const override;
 
-    virtual std::shared_ptr<MatrixView> getMatrixView() const;
+    virtual std::shared_ptr<MatrixView> getMatrixView() const override;
 
-    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const;
+    virtual std::shared_ptr<ColumnIndex> getColumnIndex() const override;
 
-    virtual std::shared_ptr<RowStream> getRowStream() const;
+    virtual std::shared_ptr<RowStream> getRowStream() const override;
 
-    virtual ExpressionValue getRowExpr(const RowPath & row) const;
+    virtual ExpressionValue getRowExpr(const RowPath & row) const override;
     
-    virtual std::pair<Date, Date> getTimestampRange() const;
+    virtual std::pair<Date, Date> getTimestampRange() const override;
 
     virtual GenerateRowsWhereFunction
     generateRowsWhere(const SqlBindingScope & context,
                       const Utf8String& alias,
                       const SqlExpression & where,
                       ssize_t offset,
-                      ssize_t limit) const;
+                      ssize_t limit) const override;
 
-    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const;
+    virtual KnownColumn getKnownColumnInfo(const ColumnPath & columnName) const override;
 
     /** Commit changes to the database. */
-    virtual void commit();
+    virtual void commit() override;
 
-    virtual MultiChunkRecorder getChunkRecorder();
+    virtual MultiChunkRecorder getChunkRecorder() override;
 
     virtual void
     recordRowItl(const RowPath & rowName,
-                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals);
+                 const std::vector<std::tuple<ColumnPath, CellValue, Date> > & vals)  override;
 
     virtual void
     recordRows(const std::vector<std::pair<RowPath,
-               std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows);
+               std::vector<std::tuple<ColumnPath, CellValue, Date> > > > & rows) override;
     
     virtual RestRequestMatchResult
     handleRequest(RestConnection & connection,
@@ -89,8 +89,6 @@ protected:
     struct TabularDataStore;
     std::shared_ptr<TabularDataStore> itl;
 };
-
-
 
 } // namespace MLDB
 

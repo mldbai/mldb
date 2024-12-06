@@ -58,7 +58,7 @@ BehaviorWrapper(const BehaviorDomain & behs)
         = std::bind(mem_fn(&BehaviorDomain::getSubjectHashesAndAllTimestamps),
                     this->behs, _1, _2, true /* sorted */);
 
-    getBehaviorsContainingString = [=] (const std::string & mustContain)
+    getBehaviorsContainingString = [=,this] (const std::string & mustContain)
         {
             std::vector<Id> segmentsMatching;
 
@@ -77,7 +77,7 @@ BehaviorWrapper(const BehaviorDomain & behs)
             return segmentsMatching;
         };
 
-    getBehaviorsMatchingRegex = [=] (const std::string & regex)
+    getBehaviorsMatchingRegex = [=,this] (const std::string & regex)
         {
             std::vector<Id> segmentsMatching;
 

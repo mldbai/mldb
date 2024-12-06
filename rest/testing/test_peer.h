@@ -301,7 +301,7 @@ struct ForkedTestPeer: public Runner {
     {
         started.lock();
 
-        auto onTerminate = [=] (const RunResult & result)
+        auto onTerminate = [=,this] (const RunResult & result)
             {
                 cerr << "Test peer has terminated" << endl;
                 std::unique_lock<std::mutex> guard(runResultLock);

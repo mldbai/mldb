@@ -40,7 +40,7 @@ static constexpr double binary_exp10_neg [10] = {
     0.0
 };
 
-double
+inline double
 exp10_int(int val)
 {
     double result = 1.0;

@@ -3528,8 +3528,8 @@ bind(const std::vector<BoundSqlExpression> & args,
 
         BoundFunction result;
 
-        result.exec = [=] (const std::vector<ExpressionValue> & args,
-                           const SqlRowScope & scope)
+        result.exec = [=,this] (const std::vector<ExpressionValue> & args,
+                                const SqlRowScope & scope)
             -> ExpressionValue
             {
                 auto rowScope = evalScope.getRowScope(scope, args);

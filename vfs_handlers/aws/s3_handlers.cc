@@ -82,7 +82,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
                               int depth)
             {
                 std::string filename = "s3://" + bucket + "/" + prefix + objectName;
-                OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
+                OpenUriObject open = [=,this] (const std::map<std::string, std::string> & options) -> UriHandler
                 {
                     if (!options.empty())
                         throw MLDB::Exception("Options not accepted by S3");

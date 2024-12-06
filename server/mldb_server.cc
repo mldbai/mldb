@@ -165,9 +165,9 @@ initRoutes()
 
     // Push our this pointer in to make sure that it's available to sub
     // routes
-    auto addObject = [=] (RestConnection & connection,
-                          const RestRequest & request,
-                          RestRequestParsingContext & context)
+    auto addObject = [this] (RestConnection & connection,
+                             const RestRequest & request,
+                             RestRequestParsingContext & context)
         {
             context.addObject((MldbEngine *)this);
         };

@@ -57,6 +57,7 @@ std::string format(const char * fmt, ...)
     }
 }
 
+#if 0 // in format.cc in the arch library
 std::string vformat(const char * fmt, va_list ap)
 {
     char * mem;
@@ -75,6 +76,7 @@ std::string vformat(const char * fmt, va_list ap)
         throw;
     }
 }
+#endif
 
 std::vector<std::string> split(const std::string & str, char c, int limit)
 {

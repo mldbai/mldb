@@ -10,7 +10,7 @@
 #pragma once
 
 #include <string>
-#include "mldb/ext/utf8cpp/source/utf8.h"
+#include "mldb/ext/utfcpp/source/utf8.h"
 
 
 namespace MLDB {
@@ -77,7 +77,9 @@ public:
 
     Utf8String(const std::basic_string<char32_t> & str);
 
-    Utf8String(const_iterator first, const const_iterator & last);
+    Utf8String(const const_iterator & first, const const_iterator & last);
+
+    Utf8String(const iterator & first, const iterator & last);
 
     Utf8String & operator=(Utf8String && str) noexcept
     {

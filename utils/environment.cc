@@ -13,7 +13,9 @@
 
 #include "mldb/utils/environment.h"
 
+
 namespace MLDB {
+
 
 // everything included in arch/environment_static.cc
 

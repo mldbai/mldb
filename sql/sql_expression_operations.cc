@@ -2187,9 +2187,9 @@ bind(SqlBindingScope & scope) const
     }
     else throw AnnotatedException(400, "Unknown type `" + type + "' for IsTypeExpression");
 
-    return {[=] (const SqlRowScope & row,
-                 ExpressionValue & storage,
-                 const VariableFilter & filter) -> const ExpressionValue &
+    return {[=,this] (const SqlRowScope & row,
+                      ExpressionValue & storage,
+                      const VariableFilter & filter) -> const ExpressionValue &
             {
                 auto v = boundExpr(row, filter);
                 bool val = (v .* fn) ();
@@ -2656,9 +2656,9 @@ bind(SqlBindingScope & scope) const
 
         auto outputInfo = info->getConst(isConst);
 
-        return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter)
+        return {[=,this] (const SqlRowScope & row,
+                          ExpressionValue & storage,
+                          const VariableFilter & filter)
                     -> const ExpressionValue &
                 {
                     ExpressionValue vstorage;
@@ -2696,9 +2696,9 @@ bind(SqlBindingScope & scope) const
 
         auto outputInfo = info->getConst(isConst);
 
-        return {[=] (const SqlRowScope & row,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter)
+        return {[=,this] (const SqlRowScope & row,
+                          ExpressionValue & storage,
+                          const VariableFilter & filter)
                     -> const ExpressionValue &
                 {
                     for (auto & w: boundWhen) {
@@ -2817,9 +2817,9 @@ bind(SqlBindingScope & scope) const
     BoundSqlExpression boundUpper = upper->bind(scope);
     bool isConstant = boundExpr.info->isConst() && boundLower.info->isConst() && boundUpper.info->isConst();
 
-    return {[=] (const SqlRowScope & row,
-                 ExpressionValue & storage,
-                 const VariableFilter & filter) -> const ExpressionValue &
+    return {[=,this] (const SqlRowScope & row,
+                      ExpressionValue & storage,
+                      const VariableFilter & filter) -> const ExpressionValue &
             {
                 ExpressionValue vstorage, lstorage, ustorage;
 
@@ -3016,9 +3016,9 @@ bind(SqlBindingScope & scope) const
                 }
             }
 
-            auto exec = [=] (const SqlRowScope & rowScope,
-                             ExpressionValue & storage,
-                             const VariableFilter & filter) -> const ExpressionValue &
+            auto exec = [=,this] (const SqlRowScope & rowScope,
+                                  ExpressionValue & storage,
+                                  const VariableFilter & filter) -> const ExpressionValue &
                 { 
                     // 1.  What are we looking to see if it's in
                     ExpressionValue vstorage;
@@ -3050,9 +3050,9 @@ bind(SqlBindingScope & scope) const
             isConstant = isConstant && tupleExpressions.back().info->isConst();
         }
 
-        return {[=] (const SqlRowScope & rowScope,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
+        return {[=,this] (const SqlRowScope & rowScope,
+                          ExpressionValue & storage,
+                          const VariableFilter & filter) -> const ExpressionValue &
         {
             ExpressionValue vstorage, istorage;
 
@@ -3088,9 +3088,9 @@ bind(SqlBindingScope & scope) const
 
         isConstant = false; //TODO
 
-        return {[=] (const SqlRowScope & rowScope,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
+        return {[=,this] (const SqlRowScope & rowScope,
+                          ExpressionValue & storage,
+                          const VariableFilter & filter) -> const ExpressionValue &
         {
             ExpressionValue vstorage, istorage;
 
@@ -3120,9 +3120,9 @@ bind(SqlBindingScope & scope) const
 
         isConstant = isConstant && boundSet.info->isConst();
 
-        return {[=] (const SqlRowScope & rowScope,
-                     ExpressionValue & storage,
-                     const VariableFilter & filter) -> const ExpressionValue &
+        return {[=,this] (const SqlRowScope & rowScope,
+                          ExpressionValue & storage,
+                          const VariableFilter & filter) -> const ExpressionValue &
         {
             ExpressionValue vstorage, istorage;
 
@@ -3633,7 +3633,7 @@ bind(SqlBindingScope & scope) const
 
         // This function figures out the new name of the column.  If it's excluded,
         // then it returns the empty column name
-        newColumnName = ColumnFilter([=] (const ColumnPath & inputColumnName) -> ColumnPath
+        newColumnName = ColumnFilter([=,this] (const ColumnPath & inputColumnName) -> ColumnPath
             {
                 //cerr << "input column name " << inputColumnName << endl;
 
@@ -3842,9 +3842,9 @@ bind(SqlBindingScope & scope) const
 
         auto info = exprBound.info;
      
-        auto exec = [=] (const SqlRowScope & scope,
-                         ExpressionValue & storage,
-                         const VariableFilter & filter)
+        auto exec = [=,this] (const SqlRowScope & scope,
+                              ExpressionValue & storage,
+                              const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 const ExpressionValue & val = exprBound(scope, storage, filter);
@@ -3922,9 +3922,9 @@ bind(SqlBindingScope & scope) const
         return BoundSqlExpression(exec, this, info, decomposition);
     }
     else {
-        auto exec = [=] (const SqlRowScope & scope,
-                         ExpressionValue & storage,
-                         const VariableFilter & filter)
+        auto exec = [=,this] (const SqlRowScope & scope,
+                              ExpressionValue & storage,
+                              const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue valStorage;
@@ -4186,9 +4186,9 @@ bind(SqlBindingScope & scope) const
 
         BoundSqlExpression boundSelect = select->bind(colScope);
 
-        auto exec = [=] (const SqlRowScope & scope,
-                         ExpressionValue & storage,
-                         const VariableFilter & filter)
+        auto exec = [=,this] (const SqlRowScope & scope,
+                              ExpressionValue & storage,
+                              const VariableFilter & filter)
             -> const ExpressionValue &
             {
                 ExpressionValue input = allColumns.exec(scope, filter);

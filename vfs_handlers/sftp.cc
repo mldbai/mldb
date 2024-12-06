@@ -1121,7 +1121,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
                 // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
                 string currUri = "sftp://" + connStr + path + "/" + name;
                 if (LIBSSH2_SFTP_S_ISREG (attr.permissions)) {
-                    OpenUriObject open = [=] (const std::map<std::string, std::string> & options) -> UriHandler
+                    OpenUriObject open = [=,this] (const std::map<std::string, std::string> & options) -> UriHandler
                     {
                         if (!options.empty()) {
                             throw MLDB::Exception("Options not accepted by S3");

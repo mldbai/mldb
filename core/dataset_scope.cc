@@ -625,8 +625,8 @@ doGetColumnFunction(const Utf8String & functionName)
     }
 
     if (functionName == "rowCount") {
-        return {[=] (const ColumnPath & columnName,
-                     const std::vector<ExpressionValue> & args)
+        return {[=,this] (const ColumnPath & columnName,
+                          const std::vector<ExpressionValue> & args)
                 {
                     return ExpressionValue
                         (dataset.getColumnIndex()->getColumnRowCount(columnName),
