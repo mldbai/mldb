@@ -14,11 +14,18 @@ if(SCCACHE)
 endif(SCCACHE)
 
 
-find_package(Boost REQUIRED COMPONENTS program_options unit_test_framework regex date_time python312)
+find_package(Boost REQUIRED COMPONENTS
+    program_options
+    unit_test_framework
+    regex
+    date_time
+    python312
+    system
+    iostreams
+)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${Boost_INCLUDE_DIRS})
-
 
 if (APPLE)
     # Shouldn't need this but otherwise it doesn't find the URL canonicalization
@@ -37,12 +44,12 @@ add_subdirectory(arch)
 add_subdirectory(base)
 add_subdirectory(types)
 add_subdirectory(watch)
-#add_subdirectory(logging)
-#add_subdirectory(io)
-#add_subdirectory(http)
-#add_subdirectory(vfs)
-#add_subdirectory(block)
-#add_subdirectory(utils)
+add_subdirectory(logging)
+add_subdirectory(io)
+add_subdirectory(http)
+add_subdirectory(vfs)
+add_subdirectory(block)
+add_subdirectory(utils)
 #add_subdirectory(credentials)
 #add_subdirectory(rest)
 #add_subdirectory(vfs_handlers)

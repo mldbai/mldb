@@ -26,13 +26,3 @@ function(add_mldb_test test_name dependencies options)
 
     add_test(NAME run_${test_name} COMMAND ${test_name})
 endfunction()
-
-# Function to set compile options for specific source files
-function(set_compile_options source_file options)
-    set_source_files_properties(${source_file} PROPERTIES COMPILE_FLAGS ${options})
-endfunction()
-
-# Function to set include paths for specific source files
-function(set_include_paths source_file options)
-    set_source_files_properties(${source_file} PROPERTIES INCLUDE_DIRECTORIES ${options})
-endfunction()

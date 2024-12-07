@@ -10,14 +10,13 @@ add_library(test_utils
 target_link_libraries(test_utils
     arch
     utils
-    ${STD_FILESYSTEM_LIBNAME}
 )
 
 # Test definitions
 add_mldb_test(json_diff_test "json_diff;vfs;value_description;arch" "boost")
 add_mldb_test(json_hash_test "json_diff;value_description;arch" "boost")
 add_mldb_test(command_expression_test "command_expression;value_description;arch;types;test_utils" "boost")
-add_mldb_test(config_test "config;boost_program_options" "boost")
+add_mldb_test(config_test "config;Boost::program_options" "boost")
 add_mldb_test(logger_test "log" "boost")
 add_mldb_test(compact_vector_test "arch" "boost")
 add_mldb_test(fixture_test "test_utils" "boost")
@@ -43,6 +42,8 @@ add_mldb_test(sink_test "runner;utils;io_base;arch" "boost")
 
 add_mldb_test(lightweight_hash_test "arch;utils" "boost")
 add_mldb_test(parse_context_test "utils;arch;vfs;base" "boost")
+message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
+set_source_files_properties(parse_context_test.cc PROPERTIES INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS}")
 
 add_mldb_test(environment_test "utils;arch" "boost")
 add_mldb_test(string_functions_test "arch;utils" "boost")

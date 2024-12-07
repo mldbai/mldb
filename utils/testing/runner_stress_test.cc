@@ -63,7 +63,7 @@ struct HelperCommands : vector<string>
         char cmdBuffer[1024];
         int len = data.size();
         int totalLen = len + 3 + sizeof(int);
-        sprintf(cmdBuffer, (isStdOut ? "out" : "err"));
+        snprintf(cmdBuffer, 3, (isStdOut ? "out" : "err"));
         memcpy(cmdBuffer + 3, &len, sizeof(int));
         memcpy(cmdBuffer + 3 + sizeof(int), data.c_str(), len);
         push_back(string(cmdBuffer, totalLen));
@@ -73,7 +73,7 @@ struct HelperCommands : vector<string>
     {
         char cmdBuffer[1024];
         int totalLen = 3 + sizeof(int);
-        sprintf(cmdBuffer, "xit");
+        snprintf(cmdBuffer, 3, "xit");
         memcpy(cmdBuffer + 3, &code, sizeof(int));
         push_back(string(cmdBuffer, totalLen));
     };

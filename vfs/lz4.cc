@@ -180,6 +180,14 @@ struct MLDB_PACKED Header
 
 static_assert(sizeof(Header) == 6, "sizeof(lz4::Header) == 6");
 
+// Simple wrapper around LZ4_compress_default that matches the signature of
+// LZ4_compress_HC by ignoring the compression parameter
+static int compress_default_compression(const char* src, char* dst, int srcSize,
+                                        int dstCapacity, int compression /* unused */)
+{
+    return LZ4_compress_default(src, dst, srcSize, dstCapacity);
+}
+
 } // namespace lz4
 
 /*****************************************************************************/
@@ -203,7 +211,8 @@ struct Lz4Compressor : public Compressor {
           pos(0)
     {
         buffer.resize(head.blockSize());
-        compressFn = level < 3 ? LZ4_compress : LZ4_compressHC;
+        compressFn = level < 3 ? lz4::compress_default_compression : LZ4_compress_HC;
+        compressionLevel = level;
         
         if (head.streamChecksum()) {
             streamChecksumState = XXH32_createState();
@@ -262,7 +271,7 @@ struct Lz4Compressor : public Compressor {
         char* compressed = new char[bytesToAlloc];
         Scope_Exit(delete[] compressed);
         
-        auto compressedSize = compressFn(buffer.data(), compressed, pos);
+        auto compressedSize = compressFn(buffer.data(), compressed, pos, bytesToAlloc, compressionLevel);
 
         auto writeChecksum = [&](const char* data, size_t n) {
             if (!head.blockChecksum()) return;
@@ -313,7 +322,8 @@ struct Lz4Compressor : public Compressor {
     
     lz4::Header head;
     uint64_le contentSize;
-    int (*compressFn)(const char*, char*, int);
+    int (*compressFn)(const char*, char*, int, int, int);
+    int compressionLevel = -10000;
 
     bool writeHeader;
     std::vector<char> buffer;

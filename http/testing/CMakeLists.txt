@@ -1,6 +1,11 @@
 # This file is part of MLDB. Copyright 2024 Jeremy Barnes. All rights reserved.
 
-set(HTTP_TESTING_EXTRA_LIBS arch types value_description io_base)
+set(HTTP_TESTING_EXTRA_LIBS
+    arch
+    types
+    value_description
+    io_base
+)
 
 add_mldb_test(http_header_test "http;${HTTP_TESTING_EXTRA_LIBS}" "boost;manual")
 add_mldb_test(http_parsers_test "http;${HTTP_TESTING_EXTRA_LIBS}" "boost;valgrind")

@@ -47,10 +47,10 @@ struct HttpSocketHandler : public TcpSocketHandler {
 
 private:
     /* TcpSocketHandler interface */
-    virtual void bootstrap();
-    virtual void onReceivedData(const char * buffer, size_t bufferSize);
+    virtual void bootstrap() override;
+    virtual void onReceivedData(const char * buffer, size_t bufferSize) override;
     virtual void onReceiveError(const boost::system::error_code & ec,
-                                size_t bufferSize);
+                                size_t bufferSize) override;
 
     HttpRequestParser parser_;
 };
@@ -146,7 +146,7 @@ private:
     virtual void onRequestStart(const char * methodData, size_t methodSize,
                                 const char * urlData, size_t urlSize,
                                 const char * versionData,
-                                size_t versionSize);
+                                size_t versionSize) override;
     virtual void onHeader(const char * data, size_t dataSize) override;
     virtual bool onExpect100Continue() override;
     virtual void onData(const char * data, size_t dataSize) override;

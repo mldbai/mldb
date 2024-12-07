@@ -669,26 +669,26 @@ BOOST_AUTO_TEST_CASE( test_set_prctl_from_thread )
 
     RunResult runResult;
     auto onTerminate = [&] (const RunResult & result) {
-        cerr << to_string(gettid()) + ": process terminated\n";
+        cerr << std::this_thread::get_id() << ": process terminated\n";
         runResult = result;
         lock.unlock();
     };
 
     auto threadProc = [=] () {
         runner->run({findExe("sleep"), "3"}, onTerminate);
-        cerr << to_string(gettid()) + ": process launched\n";
+        cerr << std::this_thread::get_id() << ": process launched\n";
     };
 
     lock.lock();
 
-    cerr << to_string(gettid()) + ": launching thread\n";
+    cerr << std::this_thread::get_id() << ": launching thread\n";
     thread launcherThread(threadProc);
     launcherThread.join();
-    cerr << to_string(gettid()) + ": thread joined\n";
+    cerr << std::this_thread::get_id() << ": thread joined\n";
 
     lock.lock();
 
-    cerr << to_string(gettid()) + ": runner done\n";
+    cerr << std::this_thread::get_id() << ": runner done\n";
     loop.shutdown();
     lock.unlock();
 

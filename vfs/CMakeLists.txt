@@ -1,5 +1,7 @@
 # This file is part of MLDB. Copyright 2024 Jeremy Barnes. All rights reserved.
 
+include(FindSnappy.cmake)
+
 # Define the sources for the VFS library
 set(LIBVFS_SOURCES
     fs_utils.cc
@@ -19,15 +21,14 @@ set(LIBVFS_SOURCES
 # Define the libraries to link with the VFS library
 set(LIBVFS_LINK
     arch
-    boost_iostreams
+    Boost::iostreams
     types
-    ${STD_FILESYSTEM_LIBNAME}
     http
     lz4
     lzma
     xxhash
     zstd
-    snappy
+    ${SNAPPY_LIBRARY}
     db
     bz2
     value_description

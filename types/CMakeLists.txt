@@ -46,11 +46,11 @@ set(LIBVALUE_DESCRIPTION_LINK
     ICU::data
 )
 
-set(JSONCPP_COMPILER_FLAGS "-Wno-unused-result")
+#set(JSONCPP_COMPILER_FLAGS "-Wno-unused-result")
 
-foreach(source IN LISTS JSONCPP_SOURCES)
-    set_compile_options(${source} "${JSONCPP_COMPILER_FLAGS}")
-endforeach()
+#foreach(source IN LISTS JSONCPP_SOURCES)
+#    set_compile_options(${source} "${JSONCPP_COMPILER_FLAGS}")
+#endforeach()
 
 add_library(value_description ${LIBVALUE_DESCRIPTION_SOURCES} ${JSONCPP_SOURCES})
 target_link_libraries(value_description PRIVATE ${LIBVALUE_DESCRIPTION_LINK})
@@ -88,15 +88,15 @@ set(LIBTYPES_LINK
 )
 
 message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
+set_source_files_properties(string.cc PROPERTIES INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS}")
+set_source_files_properties(regex.cc  PROPERTIES  INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS};${RE2_INCLUDE_PATH}" COMPILE_FLAGS -Wno-unused-variable)
 
-set_compile_options(string.cc "-I${ICU_INCLUDE_DIRS}")
-#set_compile_options(regex.cc "-I${ICU_INCLUDE_DIRS}")
-set_include_paths(regex.cc "${ICU_INCLUDE_DIRS}")
+#set_include_paths(regex.cc "${ICU_INCLUDE_DIRS}")
 
 #set_compile_options(regex.cc "-I${RE2_INCLUDE_PATH} -I${ICU_INCLUDE_DIRS} -Wno-unused-variable")
 
-message("CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
-message("LIBRARY_OUTPUT_DIRECTORY: ${LIBRARY_OUTPUT_DIRECTORY}")
+#message("CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR}")
+#message("LIBRARY_OUTPUT_DIRECTORY: ${LIBRARY_OUTPUT_DIRECTORY}")
 
 # Handle the prerequisite for building libtypes
 add_custom_command(

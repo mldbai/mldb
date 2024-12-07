@@ -2,7 +2,7 @@
 
 # Test case for filter_streams_test
 add_mldb_test(filter_streams_test 
-  "vfs;filesystem;boost_system;value_description;arch;types"
+  "vfs;filesystem;Boost::system;value_description;arch;types"
   "boost"
 )
 
@@ -12,6 +12,6 @@ add_dependencies(filter_streams_test lz4cli zstd)
 
 # Test case for compressor_test
 add_mldb_test(compressor_test 
-  "vfs;filesystem;boost_system;value_description;arch;types"
+  "vfs;Boost::system;value_description;arch;types"
   "boost"
 )

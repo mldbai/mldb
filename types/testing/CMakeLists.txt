@@ -10,7 +10,7 @@ set(TYPES_TESTING_EXTRA_LIBS
 add_mldb_test(date_test "${TYPES_TESTING_EXTRA_LIBS}" "boost")
 add_mldb_test(localdate_test "${TYPES_TESTING_EXTRA_LIBS}" "boost;valgrind")
 add_mldb_test(string_test "${TYPES_TESTING_EXTRA_LIBS};Boost::regex;ICU::i18n" "boost")
-set_compile_options(string_test.cc "-I${ICU_INCLUDE_DIRS}")
+set_source_files_properties(string_test.cc PROPERTIES INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS}")
 add_mldb_test(json_handling_test "${TYPES_TESTING_EXTRA_LIBS}" "boost")
 add_mldb_test(value_description_test "${TYPES_TESTING_EXTRA_LIBS}" "boost")
 add_mldb_test(periodic_utils_test "${TYPES_TESTING_EXTRA_LIBS}" "boost")

@@ -35,7 +35,7 @@ struct RunnerTestHelperCommands : std::vector<std::string>
         if (totalLen > 16384) {
             throw MLDB::Exception("message too large");
         }
-        ::sprintf(cmdBuffer, (isStdOut ? "out" : "err"));
+        ::snprintf(cmdBuffer, 3, (isStdOut ? "out" : "err"));
         ::memcpy(cmdBuffer + 3, &len, sizeof(int));
         ::memcpy(cmdBuffer + 3 + sizeof(int), data.c_str(), len);
         push_back(std::string(cmdBuffer, totalLen));
@@ -43,8 +43,8 @@ struct RunnerTestHelperCommands : std::vector<std::string>
 
     void sendSleep(int tenthSecs)
     {
-        char cmdBuffer[8];
-        ::sprintf(cmdBuffer, "slp%.4x", tenthSecs);
+        char cmdBuffer[80];
+        ::snprintf(cmdBuffer, 80, "slp%.4x", tenthSecs);
         push_back(std::string(cmdBuffer, 7));
     }
 
@@ -52,7 +52,7 @@ struct RunnerTestHelperCommands : std::vector<std::string>
     {
         char cmdBuffer[1024];
         int totalLen = 3 + sizeof(int);
-        ::sprintf(cmdBuffer, "xit");
+        ::snprintf(cmdBuffer, 3, "xit");
         ::memcpy(cmdBuffer + 3, &code, sizeof(int));
         push_back(std::string(cmdBuffer, totalLen));
     };

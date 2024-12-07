@@ -132,7 +132,7 @@ struct GzipCompressor : public Compressor, public ZlibStreamCommon {
     }
 
     virtual void compress(const char * data, size_t len,
-                            const OnData & onData)
+                            const OnData & onData) override
     {
         pump(data, len, onData, Z_NO_FLUSH);
     }

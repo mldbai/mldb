@@ -1,7 +1,9 @@
 # Set sources based on architecture
-set(HIGHWAYHASH_SOURCE_x86_64 hh_avx2.cc hh_sse41.cc)
-set(HIGHWAYHASH_SOURCE_arm64 hh_neon.cc)
+
+set(HIGHWAYHASH_SOURCE_x86_64 highwayhash/highwayhash/hh_avx2.cc highwayhash/highwayhash/hh_sse41.cc)
+set(HIGHWAYHASH_SOURCE_arm64 highwayhash/highwayhash/hh_neon.cc)
 set(HIGHWAYHASH_SOURCE_aarch64 ${HIGHWAYHASH_SOURCE_arm64})
+set(HIGHWAYHASH_ARCH_SOURCES ${HIGHWAYHASH_SOURCE_${CMAKE_SYSTEM_PROCESSOR}})
 
 # Set compilation flags based on the compiler
 #set(HIGHWAYHASH_FLAGS_clang -Wno-unused-private-field)
@@ -17,7 +19,7 @@ set(HIGHWAYHASH_SOURCE
     highwayhash/highwayhash/nanobenchmark.cc
     highwayhash/highwayhash/os_specific.cc
     highwayhash/highwayhash/c_bindings.cc
-    ${HIGHWAYHASH_SOURCE_${ARCH}}
+    ${HIGHWAYHASH_ARCH_SOURCES}
 )
 
 # Set compile options for the source files

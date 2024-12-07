@@ -590,12 +590,12 @@ struct UrlContentHandler
         return shared_from_this();
     }
     
-    virtual ContentDescriptor getDescriptor() const
+    virtual ContentDescriptor getDescriptor() const override
     {
         return descriptor;
     }
 
-    virtual ContentDescriptor getCanonicalDescriptor() const
+    virtual ContentDescriptor getCanonicalDescriptor() const override
     {
         return descriptor;  // TODO: collect from info, etc
     }
@@ -605,7 +605,7 @@ struct UrlContentHandler
         return stream.info();
     }
 
-    virtual uint64_t getSize() const
+    virtual uint64_t getSize() const override
     {
         auto size = stream.info().size;
         if (size == -1) {
@@ -673,7 +673,7 @@ struct UrlContentHandler
     }
 
     virtual std::pair<uint64_t, FrozenMemoryRegion>
-    getRangeContaining(uint64_t offset, uint64_t length) const
+    getRangeContaining(uint64_t offset, uint64_t length) const override
     {
         // TODO: later, look for natural chunks in the data and use
         // them.
@@ -820,7 +820,7 @@ struct ContentDecompressor
     forEachBlockParallel(uint64_t startOffset,
                          uint64_t requestedBlockSize,
                          int maxParallelism,
-                         std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
+                         std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const override
     {
         //maxParallelism = 1;
 
