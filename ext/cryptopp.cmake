@@ -9,8 +9,8 @@ list(FILTER CRYPTOPP_FILES EXCLUDE REGEX ".*/pch\.cpp|.*/simple\.cpp|.*/adhoc\.c
 #list(REMOVE_ITEM CRYPTOPP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/cryptlib.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/cpu.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/integer.cpp")
 #list(REMOVE_ITEM CRYPTOPP_FILES "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/cryptlib.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/cryptopp/cpu.cpp")
 
-message(CRYPTOPP_FILES: ${CRYPTOPP_FILES})
-message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
+#message(CRYPTOPP_FILES: ${CRYPTOPP_FILES})
+#message("CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64")
     set(CRYPTOPP_ARCH "aarch64")
@@ -18,7 +18,7 @@ else()
     set(CRYPTOPP_ARCH ${CMAKE_SYSTEM_PROCESSOR})
 endif()
 
-message("CRYPTOPP_ARCH: ${CRYPTOPP_ARCH}")
+#message("CRYPTOPP_ARCH: ${CRYPTOPP_ARCH}")
 
 # Exclude specific files based on the architecture
 foreach(exclusion ${CRYPTOPP_EXCLUDE_${CRYPTOPP_ARCH}})

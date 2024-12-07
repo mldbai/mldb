@@ -87,6 +87,9 @@ set(LIBTYPES_LINK
     arch
 )
 
+# Should always be optimized since otherwise everything will be way too slow
+set_source_files_properties(path.cc PROPERTIES COMPILE_OPTIONS "-O3")
+
 #message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
 set_source_files_properties(string.cc PROPERTIES INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS}")
 set_source_files_properties(regex.cc  PROPERTIES  INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS};${RE2_INCLUDE_PATH}" COMPILE_FLAGS -Wno-unused-variable)

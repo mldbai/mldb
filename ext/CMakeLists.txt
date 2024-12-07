@@ -3,6 +3,8 @@ add_subdirectory(xxhash)
 include(cryptopp.cmake)
 include(highwayhash.cmake)
 include(zstd.cmake)
+include(pffft.cmake)
+include(easyexif.cmake)
 
 # Export this for sub CMakeLists.txt files
 set(MLDB_EXT_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -16,6 +18,13 @@ add_subdirectory(re2)
 add_subdirectory(googleurl)
 add_subdirectory(cityhash)
 add_subdirectory(lz4)
-add_subdirectory(abseil-cpp)
 add_subdirectory(edlib)
 add_subdirectory(tinyxml2)
+
+set(ABSL_PROPAGATE_CXX_STD ON)
+set(ABSL_ENABLE_INSTALL OFF)
+add_subdirectory(abseil-cpp)
+
+set(BUILD_TESTS OFF)
+set(ENABLE_INSTALL OFF)
+add_subdirectory(s2geometry)
