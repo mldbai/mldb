@@ -71,9 +71,9 @@ std::function<void (RowPath rowName, Date timestamp,
 Recorder::
 specializeRecordTabular(const std::vector<ColumnPath> & columnNames)
 {
-    return [=] (RowPath rowName, Date timestamp,
-                CellValue * vals, size_t numVals,
-                std::vector<std::pair<ColumnPath, CellValue> > extra)
+    return [=,this] (RowPath rowName, Date timestamp,
+                     CellValue * vals, size_t numVals,
+                     std::vector<std::pair<ColumnPath, CellValue> > extra)
         {
             recordTabularImpl(std::move(rowName), timestamp,
                               vals, numVals, std::move(extra),

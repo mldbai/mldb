@@ -806,13 +806,13 @@ Dataset::
 getChunkRecorder()
 {
     MultiChunkRecorder result;
-    result.newChunk = [=] (size_t)
+    result.newChunk = [this] (size_t)
         {
             return std::unique_ptr<Recorder>
                 (new DatasetRecorder(this));
         };
 
-    result.commit = [=] () { this->commit(); };
+    result.commit = [this] () { this->commit(); };
     return result;
 }
 
@@ -1598,9 +1598,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                     });
             
             if (inExpression->tuple && inExpression->tuple->isConstant()) {
-                return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params,
-                             const ProgressFunc & onProgress)
+                return {[=,this] (ssize_t numToGenerate, Any token,
+                                  const BoundParameters & params,
+                                  const ProgressFunc & onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             std::vector<RowPath> filtered;
@@ -1821,9 +1821,9 @@ generateRowsWhere(const SqlBindingScope & scope,
                 uint64_t m = crhs2->constant.getAtom().toUInt();
                 uint64_t c = crhs->constant.getAtom().toUInt();
 
-                return {[=] (ssize_t numToGenerate, Any token,
-                             const BoundParameters & params,
-                             const ProgressFunc& onProgress)
+                return {[=,this] (ssize_t numToGenerate, Any token,
+                                  const BoundParameters & params,
+                                  const ProgressFunc& onProgress)
                         -> std::pair<std::vector<RowPath>, Any>
                         {
                             std::vector<RowPath> filtered;
@@ -1896,9 +1896,9 @@ generateRowsWhere(const SqlBindingScope & scope,
     if (where.isConstant()) {
         if (where.constantValue().isTrue()) {
             GenerateRowsWhereFunction wheregen
-                = {[=] (ssize_t numToGenerate, Any token,
-                        const BoundParameters & params,
-                        const ProgressFunc & onProgress)
+                = {[=,this] (ssize_t numToGenerate, Any token,
+                             const BoundParameters & params,
+                             const ProgressFunc & onProgress)
                     {
                         ssize_t start = 0;
                         ssize_t limit = numToGenerate;
@@ -1964,9 +1964,9 @@ generateRowsWhere(const SqlBindingScope & scope,
 
     //no need to check for where == true, it was checked above...
 
-    return {[=] (ssize_t numToGenerate, Any token,
-                 const BoundParameters & params,
-                 const ProgressFunc & onProgress)
+    return {[=,this] (ssize_t numToGenerate, Any token,
+                      const BoundParameters & params,
+                      const ProgressFunc & onProgress)
             {
                 ssize_t start = 0;
                 ssize_t limit = numToGenerate;
@@ -2110,9 +2110,9 @@ queryBasic(const SqlBindingScope & scope,
     // Do we have when TRUE?  In that case we can avoid filtering
     bool whenTrue = when.when->isConstantTrue();
 
-    auto exec = [=] (ssize_t numToGenerate,
-                     SqlRowScope & rowScope,
-                     const BoundParameters & params)
+    auto exec = [=,this] (ssize_t numToGenerate,
+                          SqlRowScope & rowScope,
+                          const BoundParameters & params)
         {
             // Get a list of rows that we run over
             auto rows = rowGenerator(-1, Any(), params).first;
