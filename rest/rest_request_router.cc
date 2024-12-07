@@ -645,7 +645,7 @@ RestRequestRouter::
 addHelpRoute(PathSpec path, RequestFilter filter)
 {
     OnProcessRequest helpRoute
-        = [=] (RestConnection & connection,
+        = [=,this] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context)
         {
@@ -671,7 +671,7 @@ addAutodocRoute(PathSpec autodocPath, PathSpec helpPath,
 {
     Utf8String autodocPathStr = autodocPath.getPathDesc();
     OnProcessRequest rootRoute
-        = [=] (RestConnection & connection,
+        = [=,this] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context) {
         connection.sendRedirect(302, (autodocPathStr + "/index.html").rawString());

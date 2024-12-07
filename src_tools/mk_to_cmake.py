@@ -84,11 +84,15 @@ def main():
     parser.add_argument('--utility-dir', '-u', default="jml-build", help="Directory that contains utility functions for cmake")
     parser.add_argument('--overwrite', '-o', action='store_true', help="Overwrite existing CMake files")
     parser.add_argument('--dry-run', '-d', action='store_true', help="Perform a dry run without making any changes")
+    parser.add_argument('--verbose', '-v', action='store_true', help="Print verbose output")
+
     args = parser.parse_args()
     
     input_dir = args.input_dir
     utility_dir = args.utility_dir
     overwrite = args.overwrite
+    verbose = args.verbose
+
     if args.dry_run:
         print("Dry run mode enabled. No changes will be made.")
 
@@ -122,17 +126,27 @@ def main():
             with open(mk_path, 'r') as f:
                 input_makefile = f.read()
             
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": USER_PROMPT.format(input_makefile=input_makefile, utility_functions=utility_functions),
+                }
+            ]
+
+            if verbose:
+                print(f"prompt\n{messages}",file=sys.stderr)
+                
             completion = client.chat.completions.create(
                 model=MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {
-                        "role": "user",
-                        "content": USER_PROMPT.format(input_makefile=input_makefile, utility_functions=utility_functions),
-                    }
-                ]
+                messages=messages,
             )
             
+            if verbose:
+                sys.stderr.write("completion\n{completion}")
+                print(f"completion\n{completion}",file=sys.stderr)
+
+
             if len(mk_files) == 1:
                 cmake_file = os.path.join(dir, "CMakeLists.txt")
             else:
@@ -162,11 +176,6 @@ def main():
                 f.write("\n")
             #print(cmake_output)
             print(f"Output written to {cmake_file}")
-
-
-        # Your code to process the input directory and utility directory goes here
-        print(f"Input Directory: {input_dir}")
-        print(f"Utility Directory: {utility_dir}")
 
 if __name__ == "__main__":
     main()

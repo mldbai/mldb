@@ -87,7 +87,7 @@ set(LIBTYPES_LINK
     arch
 )
 
-message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
+#message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
 set_source_files_properties(string.cc PROPERTIES INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS}")
 set_source_files_properties(regex.cc  PROPERTIES  INCLUDE_DIRECTORIES "${ICU_INCLUDE_DIRS};${RE2_INCLUDE_PATH}" COMPILE_FLAGS -Wno-unused-variable)
 

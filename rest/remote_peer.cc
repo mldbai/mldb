@@ -140,8 +140,8 @@ start()
 {
     this->heartbeat = connection->getTimer(Date::now(), 1.0);
 
-    auto gotPingResponse = [=] (const PeerMessage & msg,
-                                std::vector<std::string> && payload)
+    auto gotPingResponse = [=,this] (const PeerMessage & msg,
+                                     std::vector<std::string> && payload)
         {
             //Date received = jsonDecodeStr<Date>(payload.at(0));
 
@@ -157,7 +157,7 @@ start()
             //<< pingTimeMs << endl;
         };
 
-    auto gotPingError = [=] (const PeerMessage & msg)
+    auto gotPingError = [=,this] (const PeerMessage & msg)
         {
             cerr << owner->peerInfo.peerName
             << " got nothing back from ping to "
@@ -171,7 +171,7 @@ start()
     // NOTE: This must come after startReading, as there will be a heartbeat queued,
     // and if we do this before startReading for our connection to ourself, then
     // we have a race condition and my miss the message.
-    this->heartbeat.bind([=] (Date date)
+    this->heartbeat.bind([=,this] (Date date)
                          {
                              //cerr << "heartbeat: " << this
                              //     << " this->connection = " << this->connection
@@ -678,7 +678,7 @@ watchWithPath(const ResourceSpec & spec, bool catchUp, Any info,
 
     // Called when the local watch is released.  We need to tell the remote
     // end that it's no longer needed.
-    auto onWatchReleased = [=] (Watch & watch, Any && info)
+    auto onWatchReleased = [=,this] (Watch & watch, Any && info)
         {
             // Don't deal with it when we're shutting down
             if (this->shutdown_)
@@ -700,7 +700,7 @@ watchWithPath(const ResourceSpec & spec, bool catchUp, Any info,
             // delete it now.  Wait for the function to exit before
             // we do it.
 
-            auto doDelete = [=] ()
+            auto doDelete = [=,this] ()
             {
                 std::unique_lock<std::mutex> guard(remoteWatchMutex);
                 cerr << "erasing local watch data for " << externalWatchId << endl;
@@ -717,7 +717,7 @@ watchWithPath(const ResourceSpec & spec, bool catchUp, Any info,
     data->watches.onRelease = onWatchReleased;
     data->info = info;
 
-    auto onResponse = [=] (const PeerMessage & msg,
+    auto onResponse = [=,this] (const PeerMessage & msg,
                            std::vector<std::string> && payload)
         {
             // Our watch was either successfully created or had an error
@@ -757,7 +757,7 @@ watchWithPath(const ResourceSpec & spec, bool catchUp, Any info,
             localWatches.erase(externalWatchId);
         };
 
-    auto onError = [=] (const PeerMessage & msg)
+    auto onError = [=,this] (const PeerMessage & msg)
         {
             cerr << "error setting watch on remote channel" << endl;
             cerr << msg.error << endl;
@@ -953,8 +953,8 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
     ExcAssertEqual(res->getLocalAddress(), sourcePath);
     ExcAssertEqual(res->getRemoteAddress(), targetPath2);
 
-    auto onResponse = [=] (const PeerMessage & msg,
-                           std::vector<std::string> && payload)
+    auto onResponse = [=,this] (const PeerMessage & msg,
+                                std::vector<std::string> && payload)
         {
             //cerr << "got response to acceptLink message" << endl;
             //cerr << "payload.size() = " << payload.size() << endl;
@@ -985,7 +985,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
 #endif
         };
 
-    auto onError = [=] (const PeerMessage & msg)
+    auto onError = [=,this] (const PeerMessage & msg)
         {
             cerr << "error setting remote link" << endl;
             cerr << msg.error << endl;
@@ -1005,7 +1005,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
 
     localLinks[externalLinkId] = entry;
 
-    auto onStateChanged = [=] (LinkState newState)
+    auto onStateChanged = [=,this] (LinkState newState)
         {
             ExcAssertNotEqual(newState, LS_CONNECTING);
 
@@ -1032,7 +1032,7 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
 
     //cerr << "33333333333 local end of link is set up" << endl;
 
-    auto onMessage = [=] (const Any & payload)
+    auto onMessage = [=,this] (const Any & payload)
         {
             //cerr << "Link received message to pass through" << endl;
 
@@ -1175,7 +1175,7 @@ handleRemoteCreateWatch(std::vector<std::string> & message)
     string error;
 
     // Find the types it returns
-    auto onWatchFire = [=] (const Any & ev)
+    auto onWatchFire = [=,this] (const Any & ev)
         {
             //cerr << "onWatchFire " << jsonEncode(ev) << endl;
             this->sendPeerWatchFired(externalWatchId, ev);
@@ -1309,7 +1309,7 @@ sendPeerWatchFired(int64_t externalWatchId,
     message.push_back(jsonEncodeStr(externalWatchId));
     message.push_back(jsonEncodeStr(ev));
 
-    auto onError = [=] (const PeerMessage & msg)
+    auto onError = [=,this] (const PeerMessage & msg)
         {
             // Delete the watch, since we can no longer guarantee what the
             // state was.
@@ -1383,7 +1383,7 @@ handleRemoteCreateLink(std::vector<std::string> & message)
 
                 // Called when we get a message over the link to send back
                 // to the peer.
-                auto onRecv = [=] (const Any & ev)
+                auto onRecv = [=,this] (const Any & ev)
                     {
                         //cerr << "sending watch event " << jsonEncode(ev)
                         //<< endl;
@@ -1420,7 +1420,7 @@ handleRemoteCreateLink(std::vector<std::string> & message)
                 entry->dataWatch = link->onRecv();
                 entry->dataWatch.bind(onRecv);
 
-                auto onState = [=] (LinkState state)
+                auto onState = [=,this] (LinkState state)
                     {
                         ExcAssertNotEqual(state, LS_CONNECTING);
                         ExcAssertNotEqual(state, LS_CONNECTED);

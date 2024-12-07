@@ -108,7 +108,7 @@ struct RestServiceEndpoint {
                               const Json::Value & response,
                               std::string contentType = "application/json") override;
 
-        void sendResponse(int responseCode)
+        void sendResponse(int responseCode) override
         {
             return sendResponse(responseCode, "", "");
         }

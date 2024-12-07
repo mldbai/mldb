@@ -46,7 +46,7 @@ struct CallMeBackLater::Itl {
 
         std::unique_ptr<std::thread> newThread;
         shutdown_ = false;
-        newThread.reset(new std::thread([=] () { this->runMainThread(); }));
+        newThread.reset(new std::thread([=,this] () { this->runMainThread(); }));
 
         thread = newThread.release();
     }

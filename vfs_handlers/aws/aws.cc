@@ -10,9 +10,10 @@
 #include "mldb/arch/format.h"
 #include "mldb/utils/string_functions.h"
 #include <iostream>
-
+#include <algorithm> 
+#include <cctype>
+#include <locale>
 #include "xml_helpers.h"
-#include <boost/algorithm/string.hpp>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -33,6 +34,34 @@ using std::endl;
 using CryptoPP::byte;
 
 namespace MLDB {
+
+namespace {
+
+// https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
+// trim from start (in place)
+template<typename String>
+static inline void ltrim(String &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](auto ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+template<typename String>
+static inline void rtrim(String &s) {
+    auto it = s.end();
+    while (it != s.begin() && std::isspace(*--it)) {}
+    s.erase(it, s.end());
+}
+
+// trim from both ends (in place)
+template<typename String>
+static inline void trim(String &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
+} // file scope
 
 // Fix GCC error message about unused function
 auto __fixGccError = &CryptoPP::StringNarrow;
@@ -104,7 +133,7 @@ encodeDigest(const std::string & digest)
     //cerr << "got " << got << " characters" << endl;
 
     std::string result(outBuf, outBuf + got);
-    boost::trim(result);
+    trim(result);
     return result;
 }
 
@@ -324,7 +353,7 @@ addSignatureV4(BasicRequest & request,
         RestParams headers = request.headers;
         for (auto & h: headers) {
             h.first = lowercase(h.first);
-            boost::trim(h.second);
+            trim(h.second);
         }
         std::sort(headers.begin(), headers.end());
         
