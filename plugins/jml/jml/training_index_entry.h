@@ -12,7 +12,6 @@
 
 #include "training_index.h"
 #include "feature_map.h"
-#include "mldb/arch/threads.h"
 #include "mldb/utils/xdiv.h"
 #include <boost/utility.hpp>
 
@@ -31,7 +30,7 @@ namespace ML {
 struct Dataset_Index::Index_Entry {
     Index_Entry();
 
-    mutable Lock lock;  // for when we store things that aren't there
+    mutable std::mutex lock;  // for when we store things that aren't there
 
     bool used;  ///< True if we use this entry
     bool initialized;

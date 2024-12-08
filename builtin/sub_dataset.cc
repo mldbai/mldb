@@ -688,14 +688,14 @@ SubDataset::
 getChunkRecorder()
 {
     MultiChunkRecorder result;
-    result.newChunk = [=] (size_t)
+    result.newChunk = [this] (size_t)
         {
             return std::unique_ptr<Recorder>(
                 new SubDataset::Itl::ChunkRecorder(
                     static_cast<Itl *>(itl.get())));
         };
 
-    result.commit = [=] () { this->commit(); };
+    result.commit = [this] () { this->commit(); };
     return result;
 }
 

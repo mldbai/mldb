@@ -13,8 +13,9 @@
 #include <sys/types.h>
 #include <sstream>
 #include <thread>
+#include <mutex>
+#include <unistd.h>
 
-#include "threads.h"
 #include "exception.h"
 #include "fslock.h"
 #include <errno.h>

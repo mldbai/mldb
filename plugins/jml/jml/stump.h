@@ -175,7 +175,7 @@ public:
 
     /** Predict the score for all classes. */
     Label_Dist predict(const Feature_Set & features,
-                       PredictionContext * context = 0) const;
+                       PredictionContext * context = 0) const override;
 
     using Classifier_Impl::predict;
 
@@ -192,29 +192,29 @@ public:
 
     /** Predict the score for a single class. */
     virtual float predict(int label, const Feature_Set & features,
-                          PredictionContext * context = 0) const;
+                          PredictionContext * context = 0) const override;
 
-    virtual Output_Encoding output_encoding() const;
+    virtual Output_Encoding output_encoding() const override;
 
-    virtual std::string print() const;
+    virtual std::string print() const override;
 
-    virtual std::string summary() const;
+    virtual std::string summary() const override;
 
-    virtual std::vector<Feature> all_features() const;
+    virtual std::vector<Feature> all_features() const override;
 
     /** Serialization and reconstitution. */
-    virtual void serialize(DB::Store_Writer & store) const;
+    virtual void serialize(DB::Store_Writer & store) const override;
     virtual void reconstitute(DB::Store_Reader & store,
                               const std::shared_ptr<const Feature_Space>
-                                  & fs);
+                                  & fs) override;
 
     virtual void serialize_lw(DB::Store_Writer & store) const;
     virtual void reconstitute_lw(DB::Store_Reader & store,
                                  const Feature & feature);
 
-    virtual std::string class_id() const { return "STUMP"; }
+    virtual std::string class_id() const override { return "STUMP"; }
 
-    virtual Stump * make_copy() const;
+    virtual Stump * make_copy() const override;
 
     virtual Classifier_Impl *
     merge(const Classifier_Impl & other, float weight = 1.0) const override MLDB_WARN_UNUSED_RESULT;

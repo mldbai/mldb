@@ -1,5 +1,7 @@
 # This file is part of MLDB. Copyright 2024 Jeremy Barnes. All rights reserved.
 
+find_library(LIBARCHIVE_LIB_NAME archive)
+
 # Create the block library
 add_library(block
     memory_region.cc

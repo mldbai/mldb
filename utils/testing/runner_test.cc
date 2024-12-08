@@ -15,7 +15,6 @@
 #include "mldb/types/value_description.h"
 #include "mldb/arch/exception.h"
 #include "mldb/arch/wait_on_address.h"
-#include "mldb/arch/threads.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/scope.h"

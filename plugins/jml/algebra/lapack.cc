@@ -11,7 +11,6 @@
 #include "lapack.h"
 #include <vector>
 #include <cmath>
-#include "mldb/arch/threads.h"
 #include "mldb/arch/exception.h"
 #include <iostream>
 #include "mldb/utils/possibly_dynamic_buffer.h"

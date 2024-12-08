@@ -589,13 +589,14 @@ cacheRemoteFile(const string & filename, uint64_t fileSize,
             const string & cacheFile)
     const
 {
-    char buffer[1024*1024];
+    constexpr size_t BUFFER_SIZE = 1024*1024;
+    char buffer[BUFFER_SIZE];
     uint64_t totalRead = 0;
 
     ExcAssert(remoteCacheDir.size() > 0);
     ExcAssert(remoteCacheDir.size() < (1024*1024 - 14));
 
-    ::sprintf(buffer, "%s/remote-download-XXXXXX", remoteCacheDir.c_str());
+    ::snprintf(buffer, BUFFER_SIZE, "%s/remote-download-XXXXXX", remoteCacheDir.c_str());
     int fd = mkstemp(buffer);
     /* we put the filename in "tmp" so that it can be remembered while the
        buffer is used for reading file data */

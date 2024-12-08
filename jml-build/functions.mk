@@ -76,6 +76,7 @@ define include_sub_makes
 $$(foreach name,$(1),$$(eval $$(call include_sub_make,$$(name))))
 endef
 
+# Include a sub makefile into this makefile.
 # arg 1: name
 # arg 2: dir (optional, is the same as $(1) if not given)
 # arg 3: makefile (optional, is $(2)/$(1).mk if not given)

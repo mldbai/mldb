@@ -10,6 +10,8 @@
 #include <cstring>
 #include <fstream>
 #include <thread>
+#include <mutex>
+#include <unistd.h>
 
 #include "mldb/compiler/compiler.h"
 #include "mldb/utils/environment.h"
@@ -19,7 +21,6 @@
 #include "exception.h"
 #include "exception_hook.h"
 #include "format.h"
-#include "threads.h"
 #include "rtti_utils.h"
 
 #include "exception_internals.h"

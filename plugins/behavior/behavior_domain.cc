@@ -426,7 +426,7 @@ serialize(DB::Store_Writer & store, ssize_t maxSubjectBehaviors)
     // Remove those with a count that is too low
     subjectCounts.erase(std::partition(subjectCounts.begin(),
                                        subjectCounts.end(),
-                                       [=] (tuple<BH, int, SH> p)
+                                       [this] (tuple<BH, int, SH> p)
                                        { return std::get<1>(p) >= minSubjects; }),
                         subjectCounts.end());
     

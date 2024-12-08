@@ -3,6 +3,7 @@ data
 models
 .target.mk
 build
+build-vscode
 local.mk
 *~
 old-data

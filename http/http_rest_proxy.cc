@@ -8,7 +8,6 @@
 */
 
 #include <curl/curl.h>
-#include "mldb/arch/threads.h"
 #include <chrono>
 #include <thread>
 #include "mldb/types/structure_description.h"

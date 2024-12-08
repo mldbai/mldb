@@ -22,6 +22,7 @@ find_package(Boost REQUIRED COMPONENTS
     python312
     system
     iostreams
+    timer
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -56,9 +57,9 @@ add_subdirectory(vfs_handlers)
 add_subdirectory(sql)
 add_subdirectory(core)
 add_subdirectory(engine)
-#add_subdirectory(builtin)
-#add_subdirectory(plugins)
-#add_subdirectory(server)
-#add_subdirectory(sdk)
+add_subdirectory(builtin)
+add_subdirectory(plugins)
+add_subdirectory(server)
+add_subdirectory(sdk)
 #add_subdirectory(testing)
 

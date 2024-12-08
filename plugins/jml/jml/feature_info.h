@@ -10,10 +10,10 @@
 
 #include <vector>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include "mldb/types/db/persistent.h"
 #include "feature_set.h"
-#include "mldb/arch/threads.h"
 
 namespace MLDB {
 struct ParseContext;
@@ -321,7 +321,7 @@ protected:
     /* Note that these are only considered mutable, and the lock used, if the
        field is_mutable is set to true. */
     bool is_mutable;
-    mutable Lock lock;
+    mutable std::mutex lock;
     mutable std::unordered_map<std::string, int> parse_;
     mutable std::vector<std::string> print_;
     void make_parse_from_print();
