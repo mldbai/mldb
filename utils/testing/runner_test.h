@@ -50,9 +50,10 @@ struct RunnerTestHelperCommands : std::vector<std::string>
 
     void sendExit(int code)
     {
-        char cmdBuffer[1024];
+        constexpr size_t BUFFER_SIZE = 1024;
+        char cmdBuffer[BUFFER_SIZE];
         int totalLen = 3 + sizeof(int);
-        ::snprintf(cmdBuffer, 3, "xit");
+        ::snprintf(cmdBuffer, BUFFER_SIZE, "xit");
         ::memcpy(cmdBuffer + 3, &code, sizeof(int));
         push_back(std::string(cmdBuffer, totalLen));
     };

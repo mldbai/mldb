@@ -11,6 +11,7 @@
 #include <fstream>
 #include <thread>
 #include <mutex>
+#include <sstream>
 #include <unistd.h>
 
 #include "mldb/compiler/compiler.h"

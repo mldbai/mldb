@@ -671,7 +671,7 @@ addAutodocRoute(PathSpec autodocPath, PathSpec helpPath,
 {
     Utf8String autodocPathStr = autodocPath.getPathDesc();
     OnProcessRequest rootRoute
-        = [=,this] (RestConnection & connection,
+        = [=] (RestConnection & connection,
                const RestRequest & request,
                const RestRequestParsingContext & context) {
         connection.sendRedirect(302, (autodocPathStr + "/index.html").rawString());

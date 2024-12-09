@@ -50,8 +50,14 @@ static inline void ltrim(String &s) {
 template<typename String>
 static inline void rtrim(String &s) {
     auto it = s.end();
-    while (it != s.begin() && std::isspace(*--it)) {}
-    s.erase(it, s.end());
+    while (it != s.begin()) {
+        --it;
+        if (!std::isspace(*it)) {
+            ++it;
+            s.erase(it, s.end());
+            break;
+        }
+    }
 }
 
 // trim from both ends (in place)

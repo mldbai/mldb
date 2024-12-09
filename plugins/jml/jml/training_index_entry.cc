@@ -15,6 +15,7 @@
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/base/exc_assert.h"
+#include <mutex>
 
 using namespace std;
 
@@ -251,7 +252,7 @@ get_values(Sort_By sort_by) const
         std::sort(new_values_sorted.begin(), new_values_sorted.end());
         //safe_less<float>());
         
-        std::unique_lock<std::mutex> guard(lock);
+        std::unique_lock<std::recursive_mutex> guard(lock);
         if (has_values_sorted) return values_sorted;
         values_sorted.swap(new_values_sorted);
         has_values_sorted = true;
@@ -304,7 +305,7 @@ get_examples(Sort_By sort_by) const
         new_examples_sorted.reserve(pairs.size());
         for (const auto & p: pairs) { new_examples_sorted.emplace_back(p.second); }
         
-        std::unique_lock<std::mutex> guard(lock);
+        std::unique_lock<std::recursive_mutex> guard(lock);
         if (has_examples_sorted) return examples_sorted;
         examples_sorted.swap(new_examples_sorted);
         has_examples_sorted = true;
@@ -363,7 +364,7 @@ get_counts(Sort_By sort_by) const
         if (debug)
             cerr << "counts = " << counts << endl;
 
-        std::unique_lock<std::mutex> guard(lock);
+        std::unique_lock<std::recursive_mutex> guard(lock);
         if (has_counts) return counts;
         counts.swap(new_counts);
         has_counts = true;
@@ -392,7 +393,7 @@ get_counts(Sort_By sort_by) const
         for (unsigned i = 0;  i < val_examples.size();  ++i)
             new_counts_sorted.push_back(examp_counts[val_examples[i]]);
 
-        std::unique_lock<std::mutex> guard(lock);
+        std::unique_lock<std::recursive_mutex> guard(lock);
         if (has_counts_sorted) return counts_sorted;
         counts_sorted.swap(new_counts_sorted);
         has_counts_sorted = true;
@@ -459,7 +460,7 @@ get_divisors(Sort_By sort_by) const
             for (unsigned i = 0;  i < counts.size();  ++i)
                 new_divisors[i] = 1.0 / counts[i];
 
-            std::unique_lock<std::mutex> guard(lock);
+            std::unique_lock<std::recursive_mutex> guard(lock);
             if (has_divisors) return divisors;
             divisors.swap(new_divisors);
             has_divisors = true;
@@ -477,7 +478,7 @@ get_divisors(Sort_By sort_by) const
             for (unsigned i = 0;  i < counts.size();  ++i)
                 new_divisors[i] = 1.0 / counts[i];
 
-            std::unique_lock<std::mutex> guard(lock);
+            std::unique_lock<std::recursive_mutex> guard(lock);
             if (has_divisors_sorted) return divisors_sorted;
             divisors_sorted.swap(new_divisors);
             has_divisors_sorted = true;
@@ -584,7 +585,7 @@ get_freqs() const
 #endif
     std::sort(freqs2.begin(), freqs2.end());
     
-    std::unique_lock<std::mutex> guard(lock);
+    std::unique_lock<std::recursive_mutex> guard(lock);
     if (has_freqs) return freqs;
     freqs = Freqs(freqs2.begin(), freqs2.end());
     has_freqs = true;
@@ -614,7 +615,7 @@ get_category_freqs(size_t num_categories) const
         new_category_freqs[(int)it->first] = it->second;
     }
 
-    std::unique_lock<std::mutex> guard(lock);
+    std::unique_lock<std::recursive_mutex> guard(lock);
     if (has_category_freqs) {
         if (num_categories != category_freqs.size())
             throw Exception("get_category_freqs(): feature has changed number of "
@@ -669,7 +670,7 @@ get_labels() const
             new_labels.push_back(Label((int)values[i]));
     }
     
-    std::unique_lock<std::mutex> guard(lock);
+    std::unique_lock<std::recursive_mutex> guard(lock);
     if (has_labels) return labels;
     new_labels.swap(labels);
     has_labels = true;
@@ -699,7 +700,7 @@ get_mapped_labels(const vector<Label> & labels, const Feature & target,
     if (exactly_one() && sort_by == BY_EXAMPLE)
         return labels;  // don't need to update them...
 
-    std::unique_lock<std::mutex> guard(lock);
+    std::unique_lock<std::recursive_mutex> guard(lock);
     vector<Label> & result = (sort_by == BY_VALUE ? mapped_labels[target]
                               : mapped_labels_sorted[target]);
     
@@ -721,7 +722,7 @@ Dataset_Index::Index_Entry::
 create_buckets(size_t num_buckets) const
 {
     check_used();
-    std::unique_lock<std::mutex> guard(lock);
+    std::unique_lock<std::recursive_mutex> guard(lock);
 
     //cerr << "create_buckets(" << num_buckets << ")" << endl;
 
@@ -779,7 +780,7 @@ buckets(size_t num_buckets) const
     if (freqs.size() < num_buckets)
         num_buckets = freqs.size();
     
-    std::unique_lock<std::mutex> guard(lock);
+    std::unique_lock<std::recursive_mutex> guard(lock);
     if (bucket_info.count(num_buckets))
         return bucket_info[num_buckets];
     

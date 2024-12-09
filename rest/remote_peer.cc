@@ -953,8 +953,8 @@ acceptLink(const std::vector<Utf8String> & sourcePath,
     ExcAssertEqual(res->getLocalAddress(), sourcePath);
     ExcAssertEqual(res->getRemoteAddress(), targetPath2);
 
-    auto onResponse = [=,this] (const PeerMessage & msg,
-                                std::vector<std::string> && payload)
+    auto onResponse = [=] (const PeerMessage & msg,
+                           std::vector<std::string> && payload)
         {
             //cerr << "got response to acceptLink message" << endl;
             //cerr << "payload.size() = " << payload.size() << endl;

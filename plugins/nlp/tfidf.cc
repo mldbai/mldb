@@ -386,7 +386,7 @@ apply(const FunctionApplier & applier,
     auto idf_inverseSmooth = [this] (double numberOfRelevantDoc) {
         return std::log(1 + (corpusSize / (1 + numberOfRelevantDoc)));
     };
-    auto idf_inverseMax = [=,this] (double numberOfRelevantDoc) {
+    auto idf_inverseMax = [=] (double numberOfRelevantDoc) {
         return std::log(1 + (maxNt) / (1 + numberOfRelevantDoc));
     };
     auto idf_probabilistic_inverse = [this] (double numberOfRelevantDoc) {

@@ -373,8 +373,9 @@ $$(foreach file,$$(strip $(1)),$$(eval $$(call add_source,$$(file),$$(call suffi
 endif
 endef
 
-filter_compiler_option_clang19=$(if $(filter $(1),clang8+ clang9+ clang10+ clang11+ clang12+ clang13+ clang14+ clang15+ clang16+ clang17+ clang18+ clang19),$(2),)
-filter_compiler_option_gcc14=$(if $(filter $(1),gcc8+ gcc9+ gcc10+ gcc11+ gcc12+ gcc13+ gcc14),$(2),)
+filter_compiler_option_clang16=$(if $(filter $(1),clang clang8+ clang9+ clang10+ clang11+ clang12+ clang13+ clang14+ clang15+ clang16),$(2),)
+filter_compiler_option_clang19=$(if $(filter $(1),clang clang8+ clang9+ clang10+ clang11+ clang12+ clang13+ clang14+ clang15+ clang16+ clang17+ clang18+ clang19),$(2),)
+filter_compiler_option_gcc14=$(if $(filter $(1),gcc gcc8+ gcc9+ gcc10+ gcc11+ gcc12+ gcc13+ gcc14+ gcc14),$(2),)
 
 get_compiler_with_version=$(if $(findstring clang,$(toolchain)),clang$(CLANG_VERSION_MAJOR),$(toolchain))
 
