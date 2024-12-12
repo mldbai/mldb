@@ -18,7 +18,7 @@
 #include "mldb/utils/floating_point.h"
 #include <mutex>
 
-namespace ML {
+namespace MLDB {
 
 
 class Dataset_Index;
@@ -250,4 +250,4 @@ protected:
 };
 
 
-} // namespace ML
+} // namespace MLDB

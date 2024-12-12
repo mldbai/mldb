@@ -61,6 +61,7 @@ LIBMLDB_BUILTIN_BASE_LINK:= \
 	mldb_core \
 	utils \
 	sql_types \
+	algebra \
 
 # Shared_mutex only in C++17
 $(eval $(call set_compile_option,dist_table_procedure.cc,-std=c++1z))

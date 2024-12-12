@@ -10,9 +10,9 @@
 
 #include "process_stats.h"
 #include "mldb/arch/exception.h"
+#include "mldb/utils/lexical_cast.h"
+#include "mldb/utils/split.h"
 
-#include <boost/algorithm/string/split.hpp>
-#include <boost/lexical_cast.hpp>
 #include <string>
 #include <vector>
 #include <array>
@@ -25,7 +25,6 @@
 
 using namespace MLDB;
 using namespace std;
-using namespace boost;
 
 
 namespace {

@@ -12,7 +12,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/pair_utils.h"
@@ -410,8 +410,8 @@ calcSvdBasis(const ColumnCorrelations & correlations,
         INFO_MSG(logger) << "saving correlations " << n;
         filter_ostream stream(MLDB::format("correlations-%d.json", n++));
         stream << jsonEncode(correlations.columns);
-        for (unsigned i = 0;  i < correlations.correlations.shape()[0];  ++i) {
-            for (unsigned j = 0;  j < correlations.correlations.shape()[1];  ++j) {
+        for (unsigned i = 0;  i < correlations.correlations.dim(0);  ++i) {
+            for (unsigned j = 0;  j < correlations.correlations.dim(1);  ++j) {
                 stream << i << " " << j << " " << correlations.correlations[i][j]
                        << endl;
             }

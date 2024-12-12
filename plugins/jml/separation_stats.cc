@@ -9,7 +9,6 @@
 #include "separation_stats.h"
 #include "mldb/arch/exception.h"
 #include "mldb/base/exc_assert.h"
-#include <boost/utility.hpp>
 #include "mldb/vfs/filter_streams.h"
 
 

@@ -14,7 +14,7 @@
 #include "mldb/core/bound_queries.h"
 #include "mldb/sql/sql_expression.h"
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/pair_utils.h"

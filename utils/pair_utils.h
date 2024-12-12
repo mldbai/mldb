@@ -12,9 +12,6 @@
 #pragma once
 
 #include <type_traits>
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/iterator/zip_iterator.hpp>
-#include <boost/iterator/iterator_facade.hpp>
 #include <utility>
 #include <functional>
 

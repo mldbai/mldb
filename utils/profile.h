@@ -8,23 +8,22 @@
 
 #pragma once
 
-#include <boost/timer/timer.hpp>
 #include "mldb/arch/timers.h"
 
 namespace MLDB {
 
 class Function_Profiler {
 public:
-    boost::timer::cpu_timer * t = nullptr;   
+    MLDB::Timer * t = nullptr;
     double & var;
     Function_Profiler(double & var, bool profile)
         : t(0), var(var)
     {
-        if (profile) t = new boost::timer::cpu_timer();
+        if (profile) t = new MLDB::Timer();
     }
     ~Function_Profiler()
     {
-        if (t) var += t->elapsed().wall;
+        if (t) var += t->elapsed_wall();
         delete t;
     }
 };
@@ -44,8 +43,7 @@ struct StackProfilerSeed {
 };
 
 struct StackProfiler {
-    boost::timer::cpu_timer t;
-    MLDB::Timer wall;
+    MLDB::Timer t;
     StackProfilerSeed& seed;
     StackProfiler(StackProfilerSeed& seed) : seed(seed)   
     {
@@ -54,9 +52,9 @@ struct StackProfiler {
     ~StackProfiler()
     {
        auto current = seed.accum.load();
-       while (!seed.accum.compare_exchange_weak(current, current + t.elapsed().wall));
+       while (!seed.accum.compare_exchange_weak(current, current + t.elapsed_cpu()));
        current = seed.wallaccum.load();
-       while (!seed.wallaccum.compare_exchange_weak(current, current + wall.elapsed_wall()));
+       while (!seed.wallaccum.compare_exchange_weak(current, current + t.elapsed_wall()));
     }
 };
 

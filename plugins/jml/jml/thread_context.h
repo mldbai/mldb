@@ -15,7 +15,7 @@
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/arch/exception.h"
 
-namespace ML {
+namespace MLDB {
 
 template<class RNG>
 struct RNG_Adaptor {
@@ -88,4 +88,4 @@ private:
     int recursion_;
 };
 
-} // namespace ML
+} // namespace MLDB

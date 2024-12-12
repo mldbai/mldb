@@ -14,14 +14,14 @@
 #include "mldb/utils/floating_point.h"
 #include "mldb/types/string.h"
 
-namespace ML {
+namespace MLDB {
 
 inline size_t chain_hash(size_t h1, size_t h2 = 0)
 {
     return 18446744073709551557ULL * h1 + h2;
 }
 
-} // namespace ML
+} // namespace MLDB
 
 
 namespace std {
@@ -48,7 +48,7 @@ template<typename T>
 struct hash<T *> {
     size_t operator () (const T * ptr) const
     {
-        return ML::chain_hash(reinterpret_cast<size_t>(ptr));
+        return MLDB::chain_hash(reinterpret_cast<size_t>(ptr));
     }
 };
 #endif
@@ -61,8 +61,8 @@ struct hash<std::pair<X, Y> > {
 
     size_t operator () (const std::pair<X, Y> & p)
     {
-        return ML::chain_hash(hash1(p.first),
-                              ML::chain_hash(hash2(p.second)));
+        return MLDB::chain_hash(hash1(p.first),
+                              MLDB::chain_hash(hash2(p.second)));
     }
 };
 

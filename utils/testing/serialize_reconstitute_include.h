@@ -15,7 +15,7 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/arch/demangle.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 using namespace std;
 

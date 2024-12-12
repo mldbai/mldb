@@ -17,7 +17,7 @@
 #include <stdlib.h>
 
 using namespace MLDB;
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 MLDB_FIXTURE( kmeans_test );

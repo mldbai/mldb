@@ -12,6 +12,7 @@
 
 #include <chrono>
 #include <string>
+#include <string_view>
 #include <cmath>
 #include "value_description_fwd.h"
 
@@ -98,10 +99,10 @@ struct Date {
 
     static Date fromIso8601Week(int year, int week, int day = 1);
 
-    static Date parseSecondsSinceEpoch(const std::string & date);
+    static Date parseSecondsSinceEpoch(std::string_view date);
 
     static Date parseDefaultUtc(const std::string & date);
-    static Date parseIso8601DateTime(const std::string & date);
+    static Date parseIso8601DateTime(std::string_view date);
 
     // Deprecated
     static Date parseIso8601(const std::string & date);
@@ -473,6 +474,9 @@ private:
 std::ostream & operator << (std::ostream & stream, const Date & date);
 std::istream & operator >> (std::istream & stream, Date & date);
 
+std::string lexical_cast_to_string(const Date & date, Date *);
+Date lexical_cast_from_string(std::string_view str, Date *);
+
 namespace JS {
 
 void to_js(JSValue & jsval, Date value);
@@ -494,19 +498,19 @@ from_js_ref(const JSValue & val, Date *)
 
  struct Iso8601Parser {
 
-    static Date parseDateTimeString(const std::string & dateTimeStr)
+    static Date parseDateTimeString(std::string_view dateTimeStr)
     {
         Iso8601Parser parser(dateTimeStr);
         return parser.expectDateTime();
     }
 
-    static Date parseTimeString(const std::string & timeStr)
+    static Date parseTimeString(std::string_view timeStr)
     {
         Iso8601Parser parser(timeStr);
         return parser.expectTime();
     }
 
-     Iso8601Parser(const std::string & dateStr);
+     Iso8601Parser(std::string_view dateStr);
      ~Iso8601Parser();
      
     Date expectDateTime();
@@ -540,7 +544,7 @@ private:
     int expectTimeZoneMinutes();
     bool matchTimeZoneMinutes(int & result);
 
-     std::unique_ptr<ParseContext> parser;
+    std::unique_ptr<ParseContext> parser;
  };
 
 PREDECLARE_VALUE_DESCRIPTION(Date);

@@ -13,7 +13,7 @@
 #include "naive_bayes.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -65,9 +65,9 @@ public:
     Naive_Bayes
     train_weighted(Thread_Context & context,
                    const Training_Data & data,
-                   const boost::multi_array<float, 2> & weights,
+                   const MLDB::MatrixRef<float, 2> & weights,
                    const std::vector<Feature> & features_) const;
 };
 
 
-} // namespace ML
+} // namespace MLDB

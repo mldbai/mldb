@@ -8,10 +8,10 @@
 #define BOOST_TEST_DYN_LINK
 #include "mldb/types/date.h"
 #include <boost/test/unit_test.hpp>
-#include <boost/lexical_cast.hpp>
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/arch/format.h"
 #include "mldb/base/parse_context.h"
+#include "mldb/utils/lexical_cast.h"
 #include <climits>
 
 using namespace std;
@@ -574,20 +574,20 @@ BOOST_AUTO_TEST_CASE( test_iso8601WeekStart )
 
 BOOST_AUTO_TEST_CASE( test_date_iostream_print )
 {
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::positiveInfinity()),
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::positiveInfinity()),
                       "Inf");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::negativeInfinity()),
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::negativeInfinity()),
                       "-Inf");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::notADate()),
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::notADate()),
                       "NaD");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)(uint64_t)-1)),
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)(uint64_t)-1)),
                       "Inf");
 
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9.22337e+18)), "Inf");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)std::numeric_limits<int64_t>::min())), "-Inf");
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)9223372036854775807ULL)), "Inf");
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(9.22337e+18)), "Inf");
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)std::numeric_limits<int64_t>::min())), "-Inf");
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::fromSecondsSinceEpoch((double)9223372036854775807ULL)), "Inf");
     
-    BOOST_CHECK_EQUAL(boost::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(-9.22337e+18)), "-Inf");
+    BOOST_CHECK_EQUAL(MLDB::lexical_cast<std::string>(Date::fromSecondsSinceEpoch(-9.22337e+18)), "-Inf");
 }
 
 BOOST_AUTO_TEST_CASE( test_minute )

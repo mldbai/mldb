@@ -15,7 +15,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -68,4 +68,4 @@ std::string Index_Iterator::titles()
     return "     value buck labl  examp cnt divis";
 }
 
-} // namespace ML
+} // namespace MLDB

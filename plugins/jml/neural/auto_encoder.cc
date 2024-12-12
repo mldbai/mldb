@@ -11,7 +11,7 @@
 #include "reverse_layer_adaptor.h"
 #include "reconstruct_layer_adaptor.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -379,4 +379,4 @@ rbbprop(const F * inputs,
            input_errors, dinput_errors, gradient, dgradient, example_weight);
 }
     
-} // namespace ML
+} // namespace MLDB

@@ -17,7 +17,7 @@
 #include <vector>
 
 
-namespace ML {
+namespace MLDB {
 
 
 struct Configuration;
@@ -129,7 +129,7 @@ struct Auto_Encoder_Trainer {
     }
 };
     
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__neural__auto_encoder_trainer_h__ */
 

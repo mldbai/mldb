@@ -17,7 +17,6 @@
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/plugins/jml/jml/transform_list.h"
 #include "mldb/utils/vector_utils.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/plugins/jml/stats/moments.h"
 #include "datasets.h"
 #include "mldb/arch/info.h"
@@ -35,7 +34,7 @@
 
 using namespace std;
 
-using namespace ML;
+using namespace MLDB;
 
 int main(int argc, char ** argv)
 try
@@ -444,9 +443,9 @@ try
     
     if (repeat_trials > 1) {
         for (unsigned j = 0;  j < accum_acc.size();  ++j) {
-            float mean = ML::mean(accum_acc[j].begin(), accum_acc[j].end());
+            float mean = MLDB::mean(accum_acc[j].begin(), accum_acc[j].end());
             float std_dev
-                = ML::std_dev(accum_acc[j].begin(), accum_acc[j].end(),
+                = MLDB::std_dev(accum_acc[j].begin(), accum_acc[j].end(),
                               mean);
             cerr << "testing set " << j << ": " << repeat_trials
                  << " trials accuracy: mean "

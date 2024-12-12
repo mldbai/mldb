@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -54,11 +54,11 @@ public:
     std::vector<double> compute(const std::vector<double> & fv) const;
     
 private:
-    ML::Classifier classifier;
+    MLDB::Classifier classifier;
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__classifier_mlp_h__ */

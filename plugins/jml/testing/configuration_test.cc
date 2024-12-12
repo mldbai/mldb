@@ -15,7 +15,7 @@
 #include <boost/test/unit_test.hpp>
 #include "mldb/utils/vector_utils.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -133,7 +133,7 @@ enum Update {
 
 DECLARE_ENUM_INFO(Update, 3);
 
-namespace ML {
+namespace MLDB {
 
 const Enum_Opt<Update>
 Enum_Info<Update>::OPT[3] = {
@@ -143,7 +143,7 @@ Enum_Info<Update>::OPT[3] = {
 
 const char * Enum_Info<Update>::NAME = "Update";
 
-} // namespace ML
+} // namespace MLDB
 
 BOOST_AUTO_TEST_CASE( test1 )
 {

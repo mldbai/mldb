@@ -54,7 +54,7 @@ struct _Init {
 static const std::string ARCH = Environment::instance()["ARCH"];
 static const std::string BIN = Environment::instance()["BIN"];
 
-fs::path findExe(const std::string & name)
+Utf8String findExe(const std::string & name)
 {
     static std::vector<fs::path> searchPaths = { "/bin", "/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", BIN, "./build/" + ARCH + "/bin" };
 
@@ -792,7 +792,7 @@ BOOST_AUTO_TEST_CASE( test_runner_waitRunning_exceptions )
     loop.addSource("runner", runner);
     runner->waitConnectionState(AsyncEventSource::CONNECTED);
 
-    vector<string> command{findExe("sleep"), "2"};
+    vector<Utf8String> command{findExe("sleep"), "2"};
 
     std::atomic<int> terminateCount(0);
     auto doTerminate = [&] (int runCount) {

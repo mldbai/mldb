@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -119,7 +119,7 @@ generate(Thread_Context & context,
     size_t nx = training_data.example_count();
 
     /* Expand the weights */
-    boost::multi_array<float, 2> weights(boost::extents[nx][nl]);
+    MLDB::Matrix<float, 2> weights(nx, nl);
 
     if (ex_weights.empty())
         std::fill(weights.data(), weights.data() + nx * nl, 1.0 / nl * nx);
@@ -155,7 +155,7 @@ std::shared_ptr<Classifier_Impl>
 Classifier_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_data,
-         const boost::multi_array<float, 2> & weights,
+         const MLDB::MatrixRef<float, 2> & weights,
          const std::vector<Feature> & features,
          float & Z,
          int recursion) const
@@ -166,13 +166,13 @@ generate(Thread_Context & context,
 
     size_t nx = training_data.example_count();
 
-    if ((weights.shape()[0] != nx)
-        || (weights.shape()[1] != nl && nl != 2 && weights.shape()[1] != 1))
+    if ((weights.dim(0) != nx)
+        || (weights.dim(1) != nl && nl != 2 && weights.dim(1) != 1))
         throw Exception("Classifier_Generator::generate(): "
                         "weights array has the wrong dimensions"
                         + format("(%dx%x), should be (%dx%d)",
-                                 (int)weights.shape()[0],
-                                 (int)weights.shape()[1],
+                                 (int)weights.dim(0),
+                                 (int)weights.dim(1),
                                  (int)nx,
                                  (int)nl));
     
@@ -182,9 +182,9 @@ generate(Thread_Context & context,
     double total = 0.0;
     for (unsigned x = 0;  x < nx;  ++x) {
         double ex_total = 0.0;
-        for (unsigned l = 0;  l < weights.shape()[1];  ++l)
+        for (unsigned l = 0;  l < weights.dim(1);  ++l)
             ex_total += weights[x][l];
-        if (nl == 2 && weights.shape()[1] == 1)
+        if (nl == 2 && weights.dim(1) == 1)
             ex_total *= 2.0;
         ex_weights[x] = ex_total;
         total += ex_total;
@@ -276,5 +276,5 @@ get_trainer(const std::string & name, const Configuration & config)
 
     return result;
 }
-} // namespace ML
+} // namespace MLDB
 

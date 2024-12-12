@@ -24,7 +24,11 @@ add_subdirectory(edlib)
 add_subdirectory(tinyxml2)
 add_subdirectory(judy)
 add_subdirectory(svdlibc)
+
+set(BUILD_TESTS OFF)
+set(BUILD_CLI OFF)
 add_subdirectory(libgit2)
+
 add_subdirectory(sqlite)
 
 set(ABSL_PROPAGATE_CXX_STD ON)

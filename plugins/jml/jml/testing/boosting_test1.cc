@@ -12,7 +12,7 @@
 #include "mldb/plugins/jml/jml/sparse_features.h"
 #include "mldb/plugins/jml/jml/boosted_stumps.h"
 
-using namespace ML;
+using namespace MLDB;
 
 using namespace std;
 
@@ -27,10 +27,10 @@ void run_boosting(const Training_Data & training_set, vector<Feature> features)
     Training_Params params;
     //params["trace"] = 1;
 
-    boost::multi_array<float, 2> training_output(training_set.example_count(), nl);
+    MLDB::MatrixRef<float, 2> training_output(training_set.example_count(), nl);
     training_output.fill(0.0);
 
-    boost::multi_array<float, 2> weights = Boosted_Stumps::get_weights(training_set);
+    MLDB::MatrixRef<float, 2> weights = Boosted_Stumps::get_weights(training_set);
     
     cerr << "  it   train     val   Z    true false  miss     arg feature"
          << endl;

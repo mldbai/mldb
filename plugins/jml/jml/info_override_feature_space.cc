@@ -10,7 +10,7 @@
 
 #include "info_override_feature_space.h"
 
-namespace ML {
+namespace MLDB {
 
 
 Feature_Info 
@@ -25,7 +25,7 @@ info(const Feature & feature) const {
 
 void 
 Info_Override_Feature_Space::
-set_info(const ML::Feature & feature, const ML::Feature_Info & info)
+set_info(const MLDB::Feature & feature, const MLDB::Feature_Info & info)
 {
     overridenInfo[feature] = info;
 }

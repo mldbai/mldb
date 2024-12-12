@@ -25,7 +25,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -444,7 +444,7 @@ train(Auto_Encoder & encoder,
         if (verbosity >= 3) {
             cerr << "rmse of iteration: exact " << train_error_exact
                  << " noisy " << train_error_noisy << endl;
-            if (verbosity >= 3) cerr << timer.elapsed().wall << endl;
+            if (verbosity >= 3) cerr << timer.elapsed_wall() << endl;
         }
         else if (verbosity == 2)
             cerr << format("  %7.5f %7.5f",
@@ -468,7 +468,7 @@ train(Auto_Encoder & encoder,
                 cerr << "training rmse of iteration: exact "
                      << train_error_exact << " noisy " << train_error_noisy
                      << endl;
-                cerr << timer.elapsed().wall << endl;
+                cerr << timer.elapsed_wall() << endl;
             }
             else if (verbosity == 2)
                 cerr << format("  %7.5f %7.5f",
@@ -487,7 +487,7 @@ train(Auto_Encoder & encoder,
                 cerr << "testing rmse of iteration: exact "
                      << test_error_exact << " noisy " << test_error_noisy
                      << endl;
-                cerr << timer.elapsed().wall << endl;
+                cerr << timer.elapsed_wall() << endl;
             }
             else if (verbosity == 2)
                 cerr << format("  %7.5f %7.5f",
@@ -987,7 +987,7 @@ test_and_update(const Auto_Encoder & encoder,
                      sqrt(error_noisy / nx));
 }
     
-} // namespace ML
+} // namespace MLDB
 
 
 #if 0
@@ -1025,11 +1025,11 @@ test_and_update(const Auto_Encoder & encoder,
             //cerr << "ibias: " << layer.ibias << endl;
 
             distribution<LFloat> svalues(min(ni, nh));
-            boost::multi_array<LFloat, 2> layer2 = layer.weights;
+            MLDB::MatrixRef<LFloat, 2> layer2 = layer.weights;
             int nvalues = std::min(ni, nh);
         
-            boost::multi_array<LFloat, 2> rvectors(boost::extents[ni][nvalues]);
-            boost::multi_array<LFloat, 2> lvectorsT(boost::extents[nvalues][nh]);
+            MLDB::MatrixRef<LFloat, 2> rvectors(ni, nvalues);
+            MLDB::MatrixRef<LFloat, 2> lvectorsT(nvalues, nh);
 
             int result = LAPack::gesdd("S", nh, ni,
                                        layer2.data(), nh,
@@ -1041,7 +1041,7 @@ test_and_update(const Auto_Encoder & encoder,
         
 
             if (false) {
-                boost::multi_array<LFloat, 2> weights2
+                MLDB::MatrixRef<LFloat, 2> weights2
                     = rvectors * diag(svalues) * lvectorsT;
                 
                 cerr << "weights2: " << endl;

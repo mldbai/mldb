@@ -8,7 +8,6 @@
 
 #include "fasttext_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer/timer.hpp>
 #include "training_index.h"
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
@@ -19,13 +18,15 @@
 #include "mldb/ext/fasttext/src/args.h"
 #include "mldb/ext/fasttext/src/model.h"
 
+#include "mldb/arch/timers.h"
+
 #include <random>
 #include <mutex>
 
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* FASTTEXT_GENERATOR                                                        */
@@ -102,7 +103,7 @@ FastText_Generator::
     if (regression_problem)
         throw Exception("FastText classifier does not currently support regression mode");
 
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
     std::vector<int64_t> labelCount(numLabels);
     std::vector<int64_t> invalidCount;
     
@@ -248,4 +249,4 @@ Register_Factory<Classifier_Generator, FastText_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

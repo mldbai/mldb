@@ -4,8 +4,9 @@
 #include "mldb/engine/plugin_collection.h"
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/builtin/plugin_resource.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/types/value_description.h"
+#include "mldb/utils/starts_with.h"
 
 #include <chrono>
 #include <thread>
@@ -13,7 +14,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <boost/test/unit_test.hpp>
 
 
@@ -296,7 +297,7 @@ print("a")
     getResult = proxy.get("/v1/plugins/pyplugin/routes/static/static.html");
     cerr << "getResult = " << getResult << endl;
     BOOST_REQUIRE_EQUAL(getResult.code(), 200);
-    BOOST_REQUIRE(boost::starts_with(getResult.body(), "OK"));
+    BOOST_REQUIRE(MLDB::starts_with(getResult.body(), "OK"));
 
 
 
@@ -367,7 +368,7 @@ print("a")
 
     getResult = proxy.get("/v1/plugins/pyplugin_local_multifile/doc/index.html");
     cerr << getResult << endl;
-    BOOST_REQUIRE(boost::starts_with(getResult.body(), "My doc!"));
+    BOOST_REQUIRE(MLDB::starts_with(getResult.body(), "My doc!"));
     
     getResult = proxy.get("/v1/plugins/pyplugin_local_multifile/doc/index.md");
     cerr << getResult << endl;

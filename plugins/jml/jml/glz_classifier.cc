@@ -12,7 +12,6 @@
 #include "null_feature_space.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/plugins/jml/algebra/irls.h"
-#include <boost/timer/timer.hpp>
 #include "training_index.h"
 
 #include <limits>
@@ -24,7 +23,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -331,11 +330,11 @@ do_predict_impl(int label,
 }
 
 
-std::vector<ML::Feature>
+std::vector<MLDB::Feature>
 GLZ_Classifier::
 all_features() const
 {
-    vector<ML::Feature> result;
+    vector<MLDB::Feature> result;
     for (unsigned i = 0;  i < features.size();  ++i)
         if (i == 0 || features[i].feature != result.back())
             result.push_back(features[i].feature);
@@ -353,7 +352,7 @@ output_encoding() const
 Explanation
 GLZ_Classifier::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -390,12 +389,12 @@ explain(const Feature_Set & feature_set,
 
 std::string GLZ_Classifier::print() const
 {
-    return "GLZ_Classifier: link " + ML::print(link);
+    return "GLZ_Classifier: link " + MLDB::print(link);
 }
 
 std::string GLZ_Classifier::summary() const
 {
-    return "GLZ_Classifier: link " + ML::print(link);
+    return "GLZ_Classifier: link " + MLDB::print(link);
 }
 
 namespace {
@@ -518,5 +517,5 @@ Register_Factory<Classifier_Impl, GLZ_Classifier>
 
 
 
-} // namespace ML
+} // namespace MLDB
 

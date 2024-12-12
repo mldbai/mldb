@@ -77,5 +77,11 @@ set(LIBMLDB_BUILTIN_LINK
     mldb_python_plugin
 )
 
-add_library(mldb_builtin ${LIBMLDB_BUILTIN_BASE_SOURCES})
+# For now, this library is just a convenient way to link the other libraries
+set(LIBMLDB_BUILTIN_SOURCES
+    mldb_builtin.cc
+)
+
+
+add_library(mldb_builtin ${LIBMLDB_BUILTIN_SOURCES})
 target_link_libraries(mldb_builtin ${LIBMLDB_BUILTIN_LINK})

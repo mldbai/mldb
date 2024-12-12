@@ -9,7 +9,7 @@
 #include "mldb/types/db/persistent.h"
 #include "mldb/utils/distribution.h"
 #include "decoder.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/plugins/jml/algebra/irls.h"
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/plugins/jml/value_descriptions.h"
@@ -18,7 +18,7 @@ namespace spdlog {
     class logger;
 }
 
-namespace ML {
+namespace MLDB {
 
 class Training_Data;
 class Classifier;
@@ -166,7 +166,7 @@ public:
         \param debug        True if we are operating in debug mode.  More
                             information will be printed in this case.
     */
-    void train_mode0(boost::multi_array<double, 2> & outputs,
+    void train_mode0(MLDB::Matrix<double, 2> & outputs,
                      const std::vector<distribution<double> > & correct,
                      const distribution<int> & num_correct,
                      const distribution<float> & weights,
@@ -188,7 +188,7 @@ public:
 
         \copydoc train_mode0
     */
-    void train_mode1(const boost::multi_array<double, 2> & outputs,
+    void train_mode1(const MLDB::MatrixRef<double, 2> & outputs,
                      const std::vector<distribution<double> > & correct,
                      const distribution<int> & num_correct,
                      const distribution<float> & weights,
@@ -209,7 +209,7 @@ public:
 
         \copydoc train_mode0
     */
-    void train_mode2(const boost::multi_array<double, 2> & outputs,
+    void train_mode2(const MLDB::MatrixRef<double, 2> & outputs,
                      const std::vector<distribution<double> > & correct,
                      const distribution<int> & num_correct,
                      const distribution<float> & weights,
@@ -229,7 +229,7 @@ public:
 
         \copydoc train_mode0
     */
-    void train_mode3(const boost::multi_array<double, 2> & outputs,
+    void train_mode3(const MLDB::MatrixRef<double, 2> & outputs,
                      const std::vector<distribution<double> > & correct,
                      const distribution<int> & num_correct,
                      const distribution<float> & weights,
@@ -244,7 +244,7 @@ public:
 
         \copydoc train_mode0
     */
-    void train_mode4(const boost::multi_array<double, 2> & outputs,
+    void train_mode4(const MLDB::MatrixRef<double, 2> & outputs,
                      const std::vector<distribution<double> > & correct,
                      const distribution<int> & num_correct,
                      const distribution<float> & weights,
@@ -256,7 +256,7 @@ public:
 
         \copydoc train_mode0
     */
-    void train_mode5(const boost::multi_array<double, 2> & outputs,
+    void train_mode5(const MLDB::MatrixRef<double, 2> & outputs,
                      const std::vector<distribution<double> > & correct,
                      const distribution<int> & num_correct,
                      const distribution<float> & weights,
@@ -273,7 +273,7 @@ public:
         Returns a vector with the parameters for the given label.
     */
     distribution<float>
-    train_one_mode0(const boost::multi_array<double, 2> & outputs,
+    train_one_mode0(const MLDB::MatrixRef<double, 2> & outputs,
                     const distribution<double> & correct,
                     const distribution<double> & w,
                     const std::vector<int> & dest) const;
@@ -289,7 +289,7 @@ public:
         Returns a vector with the parameters for the given label.
     */
     distribution<float>
-    train_one_mode1(const boost::multi_array<double, 2> & outputs,
+    train_one_mode1(const MLDB::MatrixRef<double, 2> & outputs,
                     const distribution<double> & correct,
                     const distribution<double> & w,
                     int l) const;
@@ -308,7 +308,7 @@ public:
                             information will be printed in this case.
     */
     void
-    train_glz_regress(const boost::multi_array<double, 2> & outputs,
+    train_glz_regress(const MLDB::MatrixRef<double, 2> & outputs,
                       const distribution<double> & correct,
                       const distribution<float> & weights,
                       bool debug);
@@ -317,7 +317,7 @@ public:
         \copydoc train_glz_regress
     */
     void
-    train_identity_regress(const boost::multi_array<double, 2> & outputs,
+    train_identity_regress(const MLDB::MatrixRef<double, 2> & outputs,
                            const distribution<double> & correct,
                            const distribution<float> & weights,
                            bool debug);
@@ -339,17 +339,17 @@ struct ProbabilizerModel
 {
     //Score, label, weight
     void train(const std::vector<std::tuple<float, float, float> >& fvs,
-               ML::Link_Function link);
+               MLDB::Link_Function link);
 
     void serialize(DB::Store_Writer & store) const;
     void reconstitute(DB::Store_Reader & store);
 
     std::string style = "glz";
-    ML::Link_Function link = LOGIT;
+    MLDB::Link_Function link = LOGIT;
     distribution<double> params;
-    ML::GLZ_Probabilizer glz;
+    MLDB::GLZ_Probabilizer glz;
 };
 
 DECLARE_STRUCTURE_DESCRIPTION(ProbabilizerModel);
 
-} // namespace ML
+} // namespace MLDB

@@ -9,7 +9,7 @@
 
 #include "sqs.h"
 #include "xml_helpers.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/types/structure_description.h"
 

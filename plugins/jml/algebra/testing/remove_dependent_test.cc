@@ -21,20 +21,20 @@
 #include "mldb/plugins/jml/algebra/irls.h"
 #include "mldb/utils/vector_utils.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
 using namespace boost::test_tools;
 
-namespace ML {
+namespace MLDB {
 extern __thread std::ostream * debug_remove_dependent;
 }
 
 template<typename Float>
 void do_test_identity()
 {
-    boost::multi_array<Float, 2> array(boost::extents[2][2]);
+    MLDB::Matrix<Float, 2> array(2, 2);
     array[0][0] = 1;
     array[1][1] = 1;
 
@@ -58,17 +58,17 @@ BOOST_AUTO_TEST_CASE( test_identity )
 template<typename Float>
 void do_test_null()
 {
-    boost::multi_array<Float, 2> array(boost::extents[2][2]);
+    MLDB::Matrix<Float, 2> array(2, 2);
 
-    BOOST_CHECK_EQUAL(array.shape()[0], 2);
-    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+    BOOST_CHECK_EQUAL(array.dim(0), 2);
+    BOOST_CHECK_EQUAL(array.dim(1), 2);
 
     debug_remove_dependent = &cerr;
     vector<int> result = remove_dependent(array);
     debug_remove_dependent = 0;
 
-    BOOST_CHECK_EQUAL(array.shape()[0], 0);
-    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+    BOOST_CHECK_EQUAL(array.dim(0), 0);
+    BOOST_CHECK_EQUAL(array.dim(1), 2);
 
     BOOST_REQUIRE_EQUAL(result.size(), 2);
     BOOST_CHECK_EQUAL(result[0], -1);
@@ -84,18 +84,18 @@ BOOST_AUTO_TEST_CASE( test_null )
 template<typename Float>
 void do_test_uniform()
 {
-    boost::multi_array<Float, 2> array(boost::extents[2][2]);
+    MLDB::Matrix<Float, 2> array(2, 2);
     array[0][0] = array[0][1] = array[1][0] = array[1][1] = 1.0;
 
-    BOOST_CHECK_EQUAL(array.shape()[0], 2);
-    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+    BOOST_CHECK_EQUAL(array.dim(0), 2);
+    BOOST_CHECK_EQUAL(array.dim(1), 2);
 
     debug_remove_dependent = &cerr;
     vector<int> result = remove_dependent(array);
     debug_remove_dependent = 0;
 
-    BOOST_CHECK_EQUAL(array.shape()[0], 1);
-    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+    BOOST_CHECK_EQUAL(array.dim(0), 1);
+    BOOST_CHECK_EQUAL(array.dim(1), 2);
 
     BOOST_CHECK_EQUAL(array[0][0], 1.0);
     BOOST_CHECK_EQUAL(array[0][1], 1.0);
@@ -114,20 +114,20 @@ BOOST_AUTO_TEST_CASE( test_uniform )
 template<typename Float>
 void do_test_dependent()
 {
-    boost::multi_array<Float, 2> array(boost::extents[3][2]);
+    MLDB::Matrix<Float, 2> array(3, 2);
     array[0][0] = 1;
     array[1][1] = 1;
     array[2][1] = 1;
 
-    BOOST_CHECK_EQUAL(array.shape()[0], 3);
-    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+    BOOST_CHECK_EQUAL(array.dim(0), 3);
+    BOOST_CHECK_EQUAL(array.dim(1), 2);
 
     vector<int> result = remove_dependent(array);
 
     cerr << "result = " << result << endl;
 
-    BOOST_CHECK_EQUAL(array.shape()[0], 2);
-    BOOST_CHECK_EQUAL(array.shape()[1], 2);
+    BOOST_CHECK_EQUAL(array.dim(0), 2);
+    BOOST_CHECK_EQUAL(array.dim(1), 2);
 
     BOOST_CHECK_EQUAL(array[0][0], 1.0);
     BOOST_CHECK_EQUAL(array[0][1], 0.0);

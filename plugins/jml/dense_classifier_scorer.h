@@ -43,14 +43,14 @@ struct DenseClassifierScorer : virtual public Scorer {
 
     /** Train the given classifier over the selected partition. */
     void train(const DataPartition & partition,
-               std::shared_ptr<ML::Classifier_Generator> trainer,
+               std::shared_ptr<MLDB::Classifier_Generator> trainer,
                std::shared_ptr<DenseFeatureGenerator> featureGenerator,
                int randomSeed = 1,
                float equalizationFactor = 0.0,
                const std::regex & excludeFeatures = std::regex());
 
     /** Generate a dataset over the selected partition. */
-    ML::Training_Data
+    MLDB::Training_Data
     generateFeatures(const DataPartition & partition,
                      std::shared_ptr<DenseFeatureGenerator> featureGenerator) const;
     
@@ -72,7 +72,7 @@ struct DenseClassifierScorer : virtual public Scorer {
                             bool multiThread = true);
 
     /** Explain the output over the selected partition. */
-    ML::Explanation explain(const DataPartition & partition) const;
+    MLDB::Explanation explain(const DataPartition & partition) const;
 
     /** Train a probabilizer over the selected partition (which should NOT
         be the training partition).
@@ -85,7 +85,7 @@ struct DenseClassifierScorer : virtual public Scorer {
 
     virtual float scoreGeneric(const std::any & args) const;
 
-    virtual ML::Label_Dist labelScoresGeneric(const std::any & args) const;
+    virtual MLDB::Label_Dist labelScoresGeneric(const std::any & args) const;
 
     virtual float probabilityGeneric(const std::any & args) const;
 
@@ -95,12 +95,12 @@ struct DenseClassifierScorer : virtual public Scorer {
     }
 
     /** Explain the output of the given example. */
-    virtual std::pair<ML::Explanation, std::shared_ptr<ML::Feature_Set> >
+    virtual std::pair<MLDB::Explanation, std::shared_ptr<MLDB::Feature_Set> >
     explainGeneric(const std::any & args, int label) const;
 
     /** Explain the output of the given example. */
     virtual FeatureExplanation
-    explainFeaturesGeneric(const ML::Explanation & weights,
+    explainFeaturesGeneric(const MLDB::Explanation & weights,
                            const std::any & args) const;
 
     /** Serialize to disk. */
@@ -116,7 +116,7 @@ struct DenseClassifierScorer : virtual public Scorer {
     void load(const std::string & filename);
     
     DenseClassifier classifier;
-    ML::GLZ_Probabilizer probabilizer;
+    MLDB::GLZ_Probabilizer probabilizer;
     std::shared_ptr<DenseFeatureGenerator> featureGenerator;
 
     // a priori conversion probability
@@ -167,7 +167,7 @@ struct DenseClassifierScorerT
 
     /** Train the given classifier over the selected partition. */
     void train(const DataPartition & partition,
-               std::shared_ptr<ML::Classifier_Generator> trainer,
+               std::shared_ptr<MLDB::Classifier_Generator> trainer,
                std::shared_ptr<DenseFeatureGeneratorT<Args...> > featureGenerator,
                int randomSeed = 1,
                float equalizationFactor = 0.0,
@@ -180,7 +180,7 @@ struct DenseClassifierScorerT
     }
 
     /** Generate feature vectors over the given partition. */
-    ML::Training_Data
+    MLDB::Training_Data
     generateFeatures(const DataPartition & partition,
                      std::shared_ptr<DenseFeatureGeneratorT<Args...> > featureGenerator) const
     {
@@ -188,7 +188,7 @@ struct DenseClassifierScorerT
     }
 
     void loadClassifier(const std::string & filename,
-                        std::shared_ptr<ML::Dense_Feature_Space> fs)
+                        std::shared_ptr<MLDB::Dense_Feature_Space> fs)
     {
         classifier.load(filename, fs);
         initFeatureGeneratorCast();
@@ -222,7 +222,7 @@ struct DenseClassifierScorerT
         return probabilityGeneric(seed);
     }
 
-    virtual std::pair<ML::Explanation, std::shared_ptr<ML::Feature_Set> >
+    virtual std::pair<MLDB::Explanation, std::shared_ptr<MLDB::Feature_Set> >
     explainExample(Args... args, int label) const
     {
         auto seed = this->encodeStatic(std::forward<Args>(args)...);
@@ -230,7 +230,7 @@ struct DenseClassifierScorerT
     }
     
     /** Explain how the given features were constructed. */
-    FeatureExplanation explainFeatures(const ML::Explanation & explanation,
+    FeatureExplanation explainFeatures(const MLDB::Explanation & explanation,
                                        Args... args) const
     {
         auto seed = this->encodeStatic(std::forward<Args>(args)...);

@@ -19,13 +19,13 @@ namespace MLDB {
 
 /** Return a JSON rendering of an explanation of a given feature set. */
 Json::Value
-explanationToJson(const ML::Explanation & expl,
-                  const ML::Feature_Set & fset,
+explanationToJson(const MLDB::Explanation & expl,
+                  const MLDB::Feature_Set & fset,
                   int nFeatures = -1);
 
 /** Return a JSON rendering of an explanation. */
 Json::Value
-explanationToJson(const ML::Explanation & expl,
+explanationToJson(const MLDB::Explanation & expl,
                   int nFeatures = -1);
 
 /*****************************************************************************/
@@ -40,17 +40,17 @@ struct DenseClassifier {
         space. 
     */
     void load(const std::string & filename,
-              std::shared_ptr<ML::Dense_Feature_Space> fs);
+              std::shared_ptr<MLDB::Dense_Feature_Space> fs);
 
     /** Reconstitute from the given store to run on the given feature
         space. */
     void reconstitute(MLDB::DB::Store_Reader & store,
-                      std::shared_ptr<ML::Dense_Feature_Space> fs);
+                      std::shared_ptr<MLDB::Dense_Feature_Space> fs);
     
     /** Initialize from the given classifier with the given input
         feature space. */
-    void init(std::shared_ptr<ML::Classifier_Impl> classifier,
-              std::shared_ptr<ML::Dense_Feature_Space> fs);
+    void init(std::shared_ptr<MLDB::Classifier_Impl> classifier,
+              std::shared_ptr<MLDB::Dense_Feature_Space> fs);
     
     /** Save the classifier to the given file. */
     void save(const std::string & filename) const;
@@ -66,30 +66,30 @@ struct DenseClassifier {
                         PipelineExecutionContext & context) const;
 
     /** Calculate the label scores for a given feature set. */
-    ML::Label_Dist
+    MLDB::Label_Dist
     labelScores(const distribution<float> & features) const;
 
     /** Calculate the label scores for a given feature set. */
-    ML::Label_Dist
+    MLDB::Label_Dist
     labelScoresUnbiased(const distribution<float> & features,
                         PipelineExecutionContext & context) const;
 
-    std::shared_ptr<ML::Classifier_Impl> classifier() const
+    std::shared_ptr<MLDB::Classifier_Impl> classifier() const
     {
         return classifier_;
     }
 
-    std::shared_ptr<ML::Dense_Feature_Space> input_fs() const
+    std::shared_ptr<MLDB::Dense_Feature_Space> input_fs() const
     {
         return input_fs_;
     }
 
-    std::shared_ptr<ML::Dense_Feature_Space> classifier_fs() const
+    std::shared_ptr<MLDB::Dense_Feature_Space> classifier_fs() const
     {
         return classifier_fs_;
     }
 
-    const ML::Dense_Feature_Space::Mapping & mapping() const
+    const MLDB::Dense_Feature_Space::Mapping & mapping() const
     {
         return mapping_;
     }
@@ -100,7 +100,7 @@ struct DenseClassifier {
         Returns the explanation object as well as the feature set used
         to make the explanation.
     */
-    std::pair<ML::Explanation, std::shared_ptr<ML::Mutable_Feature_Set> >
+    std::pair<MLDB::Explanation, std::shared_ptr<MLDB::Mutable_Feature_Set> >
     explain(const distribution<float> & features,
             int label) const;
 
@@ -110,7 +110,7 @@ struct DenseClassifier {
         Returns the explanation object as well as the feature set used
         to make the explanation.
     */
-    std::pair<ML::Explanation, std::shared_ptr<ML::Mutable_Feature_Set> >
+    std::pair<MLDB::Explanation, std::shared_ptr<MLDB::Mutable_Feature_Set> >
     explainUnbiased(const distribution<float> & features,
                     int label,
                     PipelineExecutionContext & context) const;
@@ -123,11 +123,11 @@ struct DenseClassifier {
     }
     
 private:
-    std::shared_ptr<ML::Classifier_Impl> classifier_;
-    std::shared_ptr<ML::Dense_Feature_Space> classifier_fs_;
-    std::shared_ptr<ML::Dense_Feature_Space> input_fs_;
-    ML::Dense_Feature_Space::Mapping mapping_;
-    ML::Optimization_Info opt_info_;
+    std::shared_ptr<MLDB::Classifier_Impl> classifier_;
+    std::shared_ptr<MLDB::Dense_Feature_Space> classifier_fs_;
+    std::shared_ptr<MLDB::Dense_Feature_Space> input_fs_;
+    MLDB::Dense_Feature_Space::Mapping mapping_;
+    MLDB::Optimization_Info opt_info_;
 };
 
 } // namespace MLDB

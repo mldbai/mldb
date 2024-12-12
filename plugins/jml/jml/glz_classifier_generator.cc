@@ -9,7 +9,6 @@
 
 #include "glz_classifier_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer/timer.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/utils/smart_ptr_utils.h"
@@ -24,7 +23,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -126,12 +125,12 @@ std::shared_ptr<Classifier_Impl>
 GLZ_Classifier_Generator::
 generate(Thread_Context & thread_context,
          const Training_Data & training_data,
-         const boost::multi_array<float, 2> & weights,
+         const MLDB::MatrixRef<float, 2> & weights,
          const std::vector<Feature> & features,
          float & Z,
          int) const
 {
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
@@ -203,7 +202,7 @@ float
 GLZ_Classifier_Generator::
 train_weighted(Thread_Context & thread_context,
                const Training_Data & data,
-               const boost::multi_array<float, 2> & weights,
+               const MLDB::MatrixRef<float, 2> & weights,
                const std::vector<Feature> & unfiltered,
                GLZ_Classifier & result) const
 {
@@ -211,6 +210,10 @@ train_weighted(Thread_Context & thread_context,
        1.  Convert training data to a dense format;
        2.  Train on each column
     */
+
+    //cerr << "weights = " << weights << endl;
+
+    constexpr bool debug = false;
 
     result = model;
     result.features.clear();
@@ -275,7 +278,7 @@ train_weighted(Thread_Context & thread_context,
 
     distribution<double> total_weight(nx);
     for (unsigned x = 0;  x < nx;  ++x) {
-        for (unsigned l = 0;  l < weights.shape()[1];  ++l)
+        for (unsigned l = 0;  l < weights.dim(1);  ++l)
             total_weight[x] += weights[x][l];
         if (total_weight[x] > 0.0)
             indexes.push_back(x);
@@ -293,7 +296,8 @@ train_weighted(Thread_Context & thread_context,
     
     // Use double precision, we have enough memory (<= 1GB)
     // NOTE: always on due to issues with convergence
-    boost::multi_array<double, 2> dense_data(boost::extents[nv][nx2]);  // training data, dense
+    MLDB::Matrix<double, 2> dense_data(nv, nx2);  // training data, dense
+    dense_data.fill(0.0);
         
     distribution<double> model(nx2, 0.0);  // to initialise weights, correct
     vector<distribution<double> > w(nl, model);       // weights for each label
@@ -309,7 +313,8 @@ train_weighted(Thread_Context & thread_context,
             distribution<float> decoded = result.decode(data[x]);
             if (add_bias) decoded.push_back(1.0);
             
-            //cerr << "x = " << x << "  decoded = " << decoded << endl;
+            if (x < 100 && debug)
+                cerr << "x = " << x << "  decoded = " << decoded << endl;
             
             /* Record the values of the variables. */
             assert(decoded.size() == nv);
@@ -323,7 +328,7 @@ train_weighted(Thread_Context & thread_context,
                 correct[0][index] = labels[x].value();
                 w[0][index] = weights[x][0];
             }
-            else if (nl == 2 && weights.shape()[1] == 1) {
+            else if (nl == 2 && weights.dim(1) == 1) {
                 correct[0][index] = (double)(labels[x] == 0);
                 correct[1][index] = (double)(labels[x] == 1);
                 w[0][index] = weights[x][0];
@@ -380,6 +385,12 @@ train_weighted(Thread_Context & thread_context,
     cerr << "normalization: " << t.elapsed() << endl;
     t.restart();
 
+    if (debug) {
+        cerr << "means = " << means << endl;
+        cerr << "stds = " << stds << endl;
+        //cerr << "dense_data = " << dense_data << endl;
+    }
+
     int nlr = nl;
     if (nl == 2) nlr = 1;
         
@@ -419,7 +430,7 @@ train_weighted(Thread_Context & thread_context,
         result.weights.push_back(-1.0F * result.weights.front());
     }
 
-    //cerr << "glz_classifier: irls time " << t.elapsed().wall << "s" << endl;
+    //cerr << "glz_classifier: irls time " << t.elapsed_wall() << "s" << endl;
     
     return 0.0;
 }
@@ -436,4 +447,4 @@ Register_Factory<Classifier_Generator, GLZ_Classifier_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

@@ -16,10 +16,10 @@
 #include "mldb/types/value_description_fwd.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 
-namespace ML {
+namespace MLDB {
 struct Mutable_Feature_Set;
 struct Classifier_Impl;
-} // namespace ML
+} // namespace MLDB
 
 
 namespace MLDB {
@@ -148,7 +148,7 @@ struct ClassifyFunction: public Function {
         The third result is the timestamp that should apply to the feature
         set as a whole.
     */
-    std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
+    std::tuple<std::vector<float>, std::shared_ptr<MLDB::Mutable_Feature_Set>, Date>
     getFeatureSet(const ExpressionValue & context, bool returnDense) const;
 
     //Classifier classifier;

@@ -15,7 +15,7 @@
 #include "mldb/arch/backtrace.h"
 #include "mldb/rest/poly_collection_impl.h"
 #include <future>
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/rest/rest_request.h"
 #include "mldb/types/value_description.h"
@@ -364,14 +364,14 @@ start()
             //cerr << "got std out data " << data << endl;
             
             vector<string> lines;
-            boost::split(lines, data, boost::is_any_of("\n"));
+            MLDB::split(lines, data, '\n');
 
             for (auto & l: lines) {
                 if (l.find("MLDB PLUGIN ") != 0)
                     continue;
 
                 vector<string> fields;
-                boost::split(fields, l, boost::is_any_of(" "));
+                MLDB::split(fields, l, ' ');
 
                 ExcAssertEqual(fields.size(), 4);
                 ExcAssertEqual(fields[0], "MLDB");

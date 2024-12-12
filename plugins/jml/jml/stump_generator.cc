@@ -9,7 +9,6 @@
 
 #include "stump_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer/timer.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
@@ -25,12 +24,13 @@
 #include "mldb/arch/info.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/arch/timers.h"
 #include <cassert>
 
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 double non_missing_ticks = 0.0;
 size_t non_missing_calls = 0;
@@ -132,13 +132,13 @@ generate(Thread_Context & context,
 {
     vector<Feature> features = features_;
 
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
     Stump stumps(training_set.feature_space(), predicted);
 
-    boost::multi_array<float, 2> weights
+    MLDB::Matrix<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
 
     if (committee_size == 1) {
@@ -177,14 +177,14 @@ std::shared_ptr<Classifier_Impl>
 Stump_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
-         const boost::multi_array<float, 2> & weights,
+         const MLDB::MatrixRef<float, 2> & weights,
          const std::vector<Feature> & features_,
          float & Z,
          int recursion) const
 {
     vector<Feature> features = features_;
 
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
@@ -227,7 +227,7 @@ generate(Thread_Context & context,
 Stump
 Stump_Generator::
 get_bias(const Training_Data & data,
-         const boost::multi_array<float, 2> & weights,
+         const MLDB::MatrixRef<float, 2> & weights,
          const Feature & predicted,
          int trace, Stump::Update update_alg)
 {
@@ -269,10 +269,10 @@ get_bias(const Training_Data & data,
     else {
         /* If we have a single dimensional weights array, we need to expand
            it. */
-        boost::multi_array<float, 2> weights_ = weights;  // shallow copy
+        MLDB::Matrix<float, 2> weights_ = weights;  // shallow copy
         
-        if (weights.shape()[1] == 1) {
-            weights_.resize(boost::extents[weights.shape()[0]][nl]);
+        if (weights.dim(1) == 1) {
+            weights_.resize(weights.dim(0), nl);
             for (unsigned x = 0;  x < nx;  ++x)
                 for (unsigned l = 0;  l < nl;  ++l)
                     weights_[x][l] = weights[x][0];
@@ -301,7 +301,7 @@ std::vector<Stump>
 Stump_Generator::
 train_all(Thread_Context & context,
           const Training_Data & data,
-          const boost::multi_array<float, 2> & weights,
+          const MLDB::MatrixRef<float, 2> & weights,
           const std::vector<Feature> & features_) const
 {
     size_t nx = data.example_count();
@@ -313,7 +313,7 @@ train_all(Thread_Context & context,
     vector<pair<int, float> > reweighted(nx);
     for (unsigned i = 0;  i < nx;  ++i) {
         reweighted[i].first = i;
-        for (unsigned l = 0;  l < weights.shape()[1];  ++l)
+        for (unsigned l = 0;  l < weights.dim(1);  ++l)
             reweighted[i].second += weights[i][l]; 
     }
     //sort_on_second_descending(reweighted);
@@ -410,10 +410,10 @@ train_all(Thread_Context & context,
     else if (nl > 11) {
         /* If we have a single dimensional weights array, we need to expand
            it. */
-        boost::multi_array<float, 2> weights_ = weights;  // shallow copy
+        MLDB::Matrix<float, 2> weights_ = weights;  // shallow copy
         
-        if (weights.shape()[1] == 1) {
-            weights_.resize(boost::extents[weights.shape()[0]][nl]);
+        if (weights.dim(1) == 1) {
+            weights_.resize(weights.dim(0), nl);
             for (unsigned x = 0;  x < nx;  ++x)
                 for (unsigned l = 0;  l < nl;  ++l)
                     weights_[x][l] = weights[x][0];
@@ -440,9 +440,9 @@ train_all(Thread_Context & context,
     else if (!bin_sym) {
         /* If we have a single dimensional weights array, we need to expand
            it. */
-        boost::multi_array<float, 2> weights_ = weights;
-        if (weights.shape()[1] == 1) {
-            weights_.resize(boost::extents[weights.shape()[0]][nl]);
+        MLDB::Matrix<float, 2> weights_ = weights;
+        if (weights.dim(1) == 1) {
+            weights_.resize(weights.dim(0), nl);
             for (unsigned x = 0;  x < nx;  ++x)
                 for (unsigned l = 0;  l < nl;  ++l)
                     weights_[x][l] = weights[x][0];
@@ -526,7 +526,7 @@ Stump
 Stump_Generator::
 train_weighted(Thread_Context & context,
                const Training_Data & data,
-               const boost::multi_array<float, 2> & weights,
+               const MLDB::MatrixRef<float, 2> & weights,
                const std::vector<Feature> & features) const
 {
     uint64_t before = ticks();
@@ -603,4 +603,4 @@ Register_Factory<Classifier_Generator, Stump_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

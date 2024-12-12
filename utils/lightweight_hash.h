@@ -9,8 +9,7 @@
 #pragma once
 
 #include "mldb/arch/exception.h"
-#include <boost/iterator/iterator_facade.hpp>
-#include <iostream> // debug
+//#include <iostream> // debug
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/bitops.h"
 #include <string>
@@ -31,15 +30,14 @@ namespace MLDB {
 */
 
 template<typename Key, typename Value, class Hash, class ConstKeyBucket>
-class LightweightHashIterator
-    : public boost::iterator_facade<LightweightHashIterator<Key, Value, Hash, ConstKeyBucket>,
-                                    ConstKeyBucket,
-                                    boost::bidirectional_traversal_tag> {
-
-    typedef boost::iterator_facade<LightweightHashIterator<Key, Value, Hash, ConstKeyBucket>,
-                                   ConstKeyBucket,
-                                   boost::bidirectional_traversal_tag> Base;
+class LightweightHashIterator {
 public:    
+    using value_type = ConstKeyBucket;
+    using iterator_category = std::bidirectional_iterator_tag;
+    using difference_type = ssize_t;
+    using pointer = ConstKeyBucket *;
+    using reference = ConstKeyBucket &;
+
     LightweightHashIterator()
         : hash(0), index(-1)
     {
@@ -68,41 +66,48 @@ private:
     // Index in hash of current entry.  It is allowed to point to any
     // valid bucket of the underlying hash, OR to one-past-the-end of the
     // capacity, which means at the end.
-public:
     Hash * hash;
     ssize_t index;
 
-    friend class boost::iterator_core_access;
-    
+public:
     template<typename K2, typename V2, typename H2, typename CB2>
-    bool equal(const LightweightHashIterator<K2, V2, H2, CB2> & other) const
+    bool operator == (const LightweightHashIterator<K2, V2, H2, CB2> & other) const
     {
         if (hash != other.hash)
             throw Exception("comparing incompatible iterators");
         return index == other.index;
     }
     
-    ConstKeyBucket & dereference() const
+    ConstKeyBucket & operator * () const
     {
         if (!hash)
             throw Exception("dereferencing null iterator");
         return hash->dereference(index);
     }
     
-    void increment()
+    ConstKeyBucket * operator -> () const
+    {
+        if (!hash)
+            throw Exception("dereferencing null iterator");
+        return &hash->dereference(index);
+    }
+
+    LightweightHashIterator& operator++()
     {
         if (index == hash->capacity())
             throw Exception("increment past the end");
         ++index;
         if (index != hash->capacity()) index = hash->advance_to_valid(index);
+        return *this;
     }
     
-    void decrement()
+    LightweightHashIterator& operator--()
     {
         if (index == -1)
             throw Exception("decrement past the start");
         --index;
         if (index != -1) index = hash->backup_to_valid(index);
+        return *this;
     }
     
     template<typename K2, typename V2, typename H2, typename CB2>

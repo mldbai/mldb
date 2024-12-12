@@ -9,15 +9,13 @@
 #pragma once
 
 #include <vector>
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/types/db/persistent.h"
 #include "plugins/jml/enum_info.h"
 #include "mldb/types/value_description_fwd.h"
 
-namespace ML {
-
-using namespace MLDB;
+namespace MLDB {
 
 /*****************************************************************************/
 /* Regularization                                                            */
@@ -49,7 +47,7 @@ std::ostream & operator << (std::ostream & stream, Regularization link);
 */
 template<class FloatIn, class FloatCalc>
 std::vector<int>
-remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
+remove_dependent_impl(MLDB::Matrix<FloatIn, 2> & x,
                       std::vector<distribution<FloatCalc> > & y,
                       double tolerance = 1e-5);
 
@@ -58,26 +56,26 @@ remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
     where each row has moved to in the new matrix, or -1 if the column
     was removed.
 */
-std::vector<int> remove_dependent(boost::multi_array<double, 2> & x);
+std::vector<int> remove_dependent(MLDB::Matrix<double, 2> & x);
 
 /** Removes any linearly dependent rows from the matrix X.  Returns a
     vector with the same number of rows as x originally had, indicating
     where each row has moved to in the new matrix, or -1 if the column
     was removed.
 */
-std::vector<int> remove_dependent(boost::multi_array<float, 2> & x);
+std::vector<int> remove_dependent(MLDB::Matrix<float, 2> & x);
 
 /* Tell the compiler about the explicit instantiations */
 extern template
-std::vector<int> remove_dependent_impl(boost::multi_array<float, 2> & x,
+std::vector<int> remove_dependent_impl(MLDB::Matrix<float, 2> & x,
                                        std::vector<distribution<float> > & y,
                                        double tolerance);
 extern template
-std::vector<int> remove_dependent_impl(boost::multi_array<float, 2> & x,
+std::vector<int> remove_dependent_impl(MLDB::Matrix<float, 2> & x,
                                        std::vector<distribution<double> > & y,
                                        double tolerance);
 extern template
-std::vector<int> remove_dependent_impl(boost::multi_array<double, 2> & x,
+std::vector<int> remove_dependent_impl(MLDB::Matrix<double, 2> & x,
                                        std::vector<distribution<double> > & y,
                                        double tolerance);
 
@@ -115,23 +113,23 @@ struct Regressor {
 
     /// Calculates the least squares of Ax = B
     virtual distribution<float>
-    calc(const boost::multi_array<float, 2> & A,
+    calc(const MLDB::MatrixRef<float, 2> & A,
          const distribution<float> & b) const = 0;
 
     /// Calculates the least squares of Ax = B
     virtual distribution<double>
-    calc(const boost::multi_array<double, 2> & A,
+    calc(const MLDB::MatrixRef<double, 2> & A,
          const distribution<double> & b) const = 0;
 
     /// Calculates the least squares of A * diag(aScale) * transpose(A) * x = b
     virtual distribution<float>
-    calc_scaled(const boost::multi_array<float, 2> & A,
+    calc_scaled(const MLDB::MatrixRef<float, 2> & A,
                 const distribution<float> & aScale,
                 const distribution<float> & b) const;
 
     /// Calculates the least squares of A * diag(aScale) * transpose(A) * x = b
     virtual distribution<double>
-    calc_scaled(const boost::multi_array<double, 2> & A,
+    calc_scaled(const MLDB::MatrixRef<double, 2> & A,
                 const distribution<double> & aScale,
                 const distribution<double> & b) const;
 };
@@ -144,11 +142,11 @@ struct Least_Squares_Regressor : Regressor {
     virtual ~Least_Squares_Regressor();
 
     virtual distribution<float>
-    calc(const boost::multi_array<float, 2> & A,
+    calc(const MLDB::MatrixRef<float, 2> & A,
          const distribution<float> & b) const;
 
     virtual distribution<double>
-    calc(const boost::multi_array<double, 2> & A,
+    calc(const MLDB::MatrixRef<double, 2> & A,
          const distribution<double> & b) const;
 };
 
@@ -159,20 +157,20 @@ struct Ridge_Regressor : Regressor {
     double lambda;
 
     virtual distribution<float>
-    calc(const boost::multi_array<float, 2> & A,
+    calc(const MLDB::MatrixRef<float, 2> & A,
          const distribution<float> & b) const;
 
     virtual distribution<double>
-    calc(const boost::multi_array<double, 2> & A,
+    calc(const MLDB::MatrixRef<double, 2> & A,
          const distribution<double> & b) const;
 
     virtual distribution<float>
-    calc_scaled(const boost::multi_array<float, 2> & A,
+    calc_scaled(const MLDB::MatrixRef<float, 2> & A,
                 const distribution<float> & aScale,
                 const distribution<float> & b) const;
 
     virtual distribution<double>
-    calc_scaled(const boost::multi_array<double, 2> & A,
+    calc_scaled(const MLDB::MatrixRef<double, 2> & A,
                 const distribution<double> & aScale,
                 const distribution<double> & b) const;
 };
@@ -184,11 +182,11 @@ struct Lasso_Regressor : Regressor {
     virtual ~Lasso_Regressor();
 
     virtual distribution<float>
-    calc(const boost::multi_array<float, 2> & A,
+    calc(const MLDB::MatrixRef<float, 2> & A,
          const distribution<float> & b) const;
 
     virtual distribution<double>
-    calc(const boost::multi_array<double, 2> & A,
+    calc(const MLDB::MatrixRef<double, 2> & A,
          const distribution<double> & b) const;
 
     double lambda;
@@ -216,13 +214,13 @@ const Regressor & default_regressor();
 */
 distribution<double>
 irls_logit(const distribution<double> & correct,
-           const boost::multi_array<double, 2> & outputs,
+           const MLDB::MatrixRef<double, 2> & outputs,
            const distribution<double> & w,
            const Regressor & regressor);
 
 distribution<float>
 irls_logit(const distribution<float> & correct,
-           const boost::multi_array<float, 2> & outputs,
+           const MLDB::MatrixRef<float, 2> & outputs,
            const distribution<float> & w,
            const Regressor & regressor);
 
@@ -234,13 +232,13 @@ irls_logit(const distribution<float> & correct,
 */
 distribution<double>
 irls_log(const distribution<double> & correct,
-         const boost::multi_array<double, 2> & outputs,
+         const MLDB::MatrixRef<double, 2> & outputs,
          const distribution<double> & w,
          const Regressor & regressor);
 
 distribution<float>
 irls_log(const distribution<float> & correct,
-         const boost::multi_array<float, 2> & outputs,
+         const MLDB::MatrixRef<float, 2> & outputs,
          const distribution<float> & w,
          const Regressor & regressor);
 
@@ -252,13 +250,13 @@ irls_log(const distribution<float> & correct,
 */
 distribution<double>
 irls_linear(const distribution<double> & correct,
-            const boost::multi_array<double, 2> & outputs,
+            const MLDB::MatrixRef<double, 2> & outputs,
             const distribution<double> & w,
             const Regressor & regressor);
 
 distribution<float>
 irls_linear(const distribution<float> & correct,
-            const boost::multi_array<float, 2> & outputs,
+            const MLDB::MatrixRef<float, 2> & outputs,
             const distribution<float> & w,
             const Regressor & regressor);
 
@@ -270,13 +268,13 @@ irls_linear(const distribution<float> & correct,
 */
 distribution<double>
 irls_probit(const distribution<double> & correct,
-            const boost::multi_array<double, 2> & outputs,
+            const MLDB::MatrixRef<double, 2> & outputs,
             const distribution<double> & w,
             const Regressor & regressor);
 
 distribution<float>
 irls_probit(const distribution<float> & correct,
-            const boost::multi_array<float, 2> & outputs,
+            const MLDB::MatrixRef<float, 2> & outputs,
             const distribution<float> & w,
             const Regressor & regressor);
 
@@ -288,13 +286,13 @@ irls_probit(const distribution<float> & correct,
 */
 distribution<double>
 irls_complog(const distribution<double> & correct,
-             const boost::multi_array<double, 2> & outputs,
+             const MLDB::MatrixRef<double, 2> & outputs,
              const distribution<double> & w,
              const Regressor & regressor);
 
 distribution<float>
 irls_complog(const distribution<float> & correct,
-             const boost::multi_array<float, 2> & outputs,
+             const MLDB::MatrixRef<float, 2> & outputs,
              const distribution<float> & w,
              const Regressor & regressor);
 
@@ -307,14 +305,14 @@ irls_complog(const distribution<float> & correct,
 */
 distribution<double>
 run_irls(const distribution<double> & correct,
-         const boost::multi_array<double, 2> & outputs,
+         const MLDB::MatrixRef<double, 2> & outputs,
          const distribution<double> & w,
          Link_Function func = LOGIT,
          const Regressor & regressor = default_regressor());
 
 distribution<float>
 run_irls(const distribution<float> & correct,
-         const boost::multi_array<float, 2> & outputs,
+         const MLDB::MatrixRef<float, 2> & outputs,
          const distribution<float> & w,
          Link_Function func = LOGIT,
          const Regressor & regressor = default_regressor());
@@ -337,7 +335,7 @@ double erfinv(double);
 */
 distribution<float>
 perform_irls(const distribution<float> & correct,
-             const boost::multi_array<float, 2> & outputs,
+             const MLDB::MatrixRef<float, 2> & outputs,
              const distribution<float> & w,
              Link_Function link_function,
              bool ridge_regression = true,
@@ -356,7 +354,7 @@ perform_irls(const distribution<float> & correct,
 */
 distribution<double>
 perform_irls(const distribution<double> & correct,
-             const boost::multi_array<double, 2> & outputs,
+             const MLDB::MatrixRef<double, 2> & outputs,
              const distribution<double> & w,
              Link_Function link_function,
              Regularization = Regularization_l2,
@@ -366,9 +364,9 @@ perform_irls(const distribution<double> & correct,
              bool condition = true);
 
 
-} // namespace ML
+} // namespace MLDB
 
 
-DECLARE_ENUM_INFO(ML::Link_Function, 5);
-DECLARE_ENUM_INFO(ML::Regularization, 3);
+DECLARE_ENUM_INFO(MLDB::Link_Function, 5);
+DECLARE_ENUM_INFO(MLDB::Regularization, 3);
 

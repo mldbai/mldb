@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -756,7 +756,7 @@ rbprop(const F * inputs,
     // Error signal
     distribution<F> diff(reconstruction_errors, reconstruction_errors + ni);
     
-    const boost::multi_array<LFloat, 2> & W = forward.weights;
+    const MLDB::MatrixRef<LFloat, 2> & W = forward.weights;
 
     const distribution<LFloat> & b MLDB_UNUSED = forward.bias;
     const distribution<LFloat> & c MLDB_UNUSED = ibias;
@@ -810,7 +810,7 @@ rbprop(const F * inputs,
     distribution<F> factor_totals
         = factor_totals_accum.cast<F>() * e;
 
-    boost::multi_array<F, 2> W_updates;
+    MLDB::MatrixRef<F, 2> W_updates;
     vector<distribution<double> > missing_act_updates;
 
     distribution<double> hidden_rep_ed(hidden_rep_e);
@@ -1091,4 +1091,4 @@ TWOWAY_REGISTER("Twoway_Layer");
 
 template class Layer_Stack<Twoway_Layer>;
 
-} // namespace ML
+} // namespace MLDB

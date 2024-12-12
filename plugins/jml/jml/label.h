@@ -12,9 +12,7 @@
 #include "mldb/types/db/persistent_fwd.h"
 #include "mldb/arch/exception.h"
 
-namespace ML {
-
-namespace DB = MLDB::DB;
+namespace MLDB {
 
 /*****************************************************************************/
 /* LABEL                                                                     */
@@ -68,4 +66,4 @@ struct Label {
 
 
 
-} // namespace ML
+} // namespace MLDB

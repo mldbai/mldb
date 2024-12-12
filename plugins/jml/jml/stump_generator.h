@@ -16,7 +16,7 @@
 #include "stump.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -65,7 +65,7 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
-             const boost::multi_array<float, 2> & weights,
+             const MLDB::MatrixRef<float, 2> & weights,
              const std::vector<Feature> & features,
              float & Z,
              int recursion = 0) const;
@@ -88,14 +88,14 @@ public:
     /** Training */
     Stump train_weighted(Thread_Context & context,
                          const Training_Data & data,
-                         const boost::multi_array<float, 2> & weights,
+                         const MLDB::MatrixRef<float, 2> & weights,
                          const std::vector<Feature> & features) const;
 
     /** Find the best committee_size stumps. */
     std::vector<Stump>
     train_all(Thread_Context & context,
               const Training_Data & data,
-              const boost::multi_array<float, 2> & weights,
+              const MLDB::MatrixRef<float, 2> & weights,
               const std::vector<Feature> & features) const;
 
     /** Get the bias for this stump.  This is the weight that would be
@@ -103,13 +103,13 @@ public:
         a given feature. */
     static Stump
     get_bias(const Training_Data & data,
-             const boost::multi_array<float, 2> & weights,
+             const MLDB::MatrixRef<float, 2> & weights,
              const Feature & predicted,
              int trace, Stump::Update update_alg);
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__stump_generator_h__ */

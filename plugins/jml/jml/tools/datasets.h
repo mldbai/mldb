@@ -16,7 +16,7 @@
 #include "mldb/utils/distribution.h"
 
 
-namespace ML {
+namespace MLDB {
 
 class Feature_Transformer;
 class Sparse_Feature_Space;
@@ -85,4 +85,4 @@ public:
 
 };
 
-} // namespace ML
+} // namespace MLDB

@@ -16,7 +16,7 @@
 #include "glz_classifier.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -55,7 +55,7 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
-             const boost::multi_array<float, 2> & weights,
+             const MLDB::MatrixRef<float, 2> & weights,
              const std::vector<Feature> & features,
              float & Z,
              int) const override;
@@ -79,13 +79,13 @@ public:
 
     float train_weighted(Thread_Context & thread_context,
                          const Training_Data & data,
-                         const boost::multi_array<float, 2> & weights,
+                         const MLDB::MatrixRef<float, 2> & weights,
                          const std::vector<Feature> & features,
                          GLZ_Classifier & result) const;
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__glz_classifier_generator_h__ */

@@ -70,7 +70,8 @@ sudo apt install -y \
   libavformat-dev \
   libavdevice-dev \
   libv8-dev \
-  libgit2-dev
+  libgit2-dev \
+  libarchive-dev \
 ```
 ## Installing Docker
 

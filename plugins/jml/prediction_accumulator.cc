@@ -16,10 +16,10 @@ using namespace std;
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/buckets.h"
 #include <limits>
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include "mldb/compiler/filesystem.h"
 #include "mldb/utils/confidence_intervals.h"
+#include "mldb/utils/lexical_cast.h"
+#include "mldb/utils/split.h"
 
 namespace MLDB {
 
@@ -48,10 +48,10 @@ Prediction_Accumulator(const string& loadFrom) :
     while(getline(file, line))
     {
         vector<string> tokens;
-        boost::split(tokens, line, boost::is_any_of(" "));
+        MLDB::split(tokens, line, ' ');
 
-        int c       = boost::lexical_cast<int>(tokens[0]);
-        float score = boost::lexical_cast<float>(tokens[1]);
+        int c       = MLDB::lexical_cast<int>(tokens[0]);
+        float score = MLDB::lexical_cast<float>(tokens[1]);
         Utf8String uid = std::move(tokens[2]);
         
         addPrediction(c==1, score, uid);
@@ -427,7 +427,7 @@ getBucketsForClass(const vector<pair<float, float>> & preds,
             idx++;
         }
 
-        string bucketName = boost::lexical_cast<string>(topOfBucket - bC.bucket_increment);
+        string bucketName = MLDB::lexical_cast<string>(topOfBucket - bC.bucket_increment);
         buckets.insert(make_pair(bucketName, inBucket/numPred));
     }
 

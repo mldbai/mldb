@@ -16,7 +16,7 @@
 #include "boosting_training.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -73,7 +73,7 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
-                        boost::multi_array<float, 2> & weights,
+                        MLDB::Matrix<float, 2> & weights,
                         const std::vector<Feature> & features) const override;
 
     Stump_Generator weak_learner;
@@ -98,7 +98,7 @@ public:
 
     Stump train_iteration(Thread_Context & context,
                           const Training_Data & data,
-                          boost::multi_array<float, 2> & weights,
+                          MLDB::Matrix<float, 2> & weights,
                           std::vector<Feature> & features,
                           Boosted_Stumps & result,
                           Optimization_Info & opt_info) const;
@@ -106,10 +106,10 @@ public:
     Stump
     train_iteration(Thread_Context & context,
                     const Training_Data & data,
-                    boost::multi_array<float, 2> & weights,
+                    MLDB::Matrix<float, 2> & weights,
                     std::vector<Feature> & features,
                     Boosted_Stumps & result,
-                    boost::multi_array<float, 2> & output,
+                    MLDB::Matrix<float, 2> & output,
                     const distribution<float> & ex_weights,
                     double & training_accuracy,
                     Optimization_Info & opt_info) const;
@@ -143,7 +143,7 @@ public:
     std::vector<Stump>
     train_iteration_fair(Thread_Context & context,
                          const Training_Data & data,
-                         boost::multi_array<float, 2> & weights,
+                         MLDB::Matrix<float, 2> & weights,
                          std::vector<Feature> & features,
                          Boosted_Stumps & result,
                          std::vector<Optimization_Info> & opt_infos) const;
@@ -154,10 +154,10 @@ public:
                     const Optimization_Info & opt_info,
                     const Training_Data & data,
                     const std::vector<Feature> & features,
-                    boost::multi_array<float, 2> & output,
+                    MLDB::Matrix<float, 2> & output,
                     const distribution<float> & ex_weights) const;
 
 };
 
 
-} // namespace ML
+} // namespace MLDB

@@ -12,13 +12,12 @@
 
 #include <string>
 #include <vector>
-#include <boost/lexical_cast.hpp>
 #include "plugins/jml/configuration.h"
 #include "plugins/jml/enum_info.h"
 #include "mldb/plugins/jml/jml/registry.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 class Config_Options;
@@ -51,7 +50,7 @@ option(const std::string & name, const T & value, const std::string & range,
        const std::string & doc)
 {
     return option(name, demangle(typeid(T).name()),
-                  boost::lexical_cast<std::string>(value), range, doc);
+                  MLDB::lexical_cast<std::string>(value), range, doc);
 }
 
 inline Config_Option
@@ -146,4 +145,4 @@ public:
     void dump(std::ostream & stream, int indent = 0, int cols = -1) const;
 };
 
-} // namespace ML
+} // namespace MLDB

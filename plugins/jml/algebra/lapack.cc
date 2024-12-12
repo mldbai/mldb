@@ -152,7 +152,7 @@ extern "C" {
                  float * tau);
 } // extern "C"
 
-namespace ML {
+namespace MLDB {
 namespace LAPack {
 
 namespace {
@@ -493,15 +493,34 @@ int gesdd(const char * jobz, int m, int n,
     MLDB::PossiblyDynamicBuffer<int> iwork_storage(8 * std::min(m, n));
     int * iwork = iwork_storage.data();
 
+    //cerr << "dgesdd alloc interrogation" << endl;
     /* Find out how much to allocate. */
     dgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, &ws_return,
             &workspace_size, iwork, &info);
-    
+    //cerr << "info = " << info << endl;
+
     if (info != 0) return info;
     workspace_size = (int)ws_return;
     
+    //cerr << "workspace_size = " << workspace_size << endl;
+
     std::shared_ptr<double> workspace(new double[workspace_size], [] (double * p) { delete[] p;});
     
+    //cerr << "1: jobz = " << jobz << endl;
+    //cerr << "2: m = " << m << endl;
+    //cerr << "3: n = " << n << endl;
+    //cerr << "4: A = " << A << endl;
+    //cerr << "5: lda = " << lda << endl;
+    //cerr << "6: S = " << S << endl;
+    //cerr << "7: U = " << U << endl;
+    //cerr << "8: ldu = " << ldu << endl;
+    //cerr << "9: vt = " << vt << endl;
+    //cerr << "10: ldvt = " << ldvt << endl;
+    //cerr << "11: workspace.get() = " << workspace.get() << endl;
+    //cerr << "12: workspace_size = " << workspace_size << endl;
+    //cerr << "13: iwork = " << iwork << endl;
+    //cerr << "14: info = " << info << endl;
+
     /* Perform the computation. */
     dgesdd_(jobz, &m, &n, A, &lda, S, U, &ldu, vt, &ldvt, workspace.get(),
             &workspace_size, iwork, &info);
@@ -576,5 +595,5 @@ int geqp3(int m, int n, double * A, int lda, int * jpvt, double * tau)
 }
 
 } // namespace LAPack
-} // namespace ML
+} // namespace MLDB
 

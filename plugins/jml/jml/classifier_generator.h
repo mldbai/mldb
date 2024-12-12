@@ -17,7 +17,7 @@
 #include "mldb/plugins/jml/jml/thread_context.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -94,7 +94,7 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
-             const boost::multi_array<float, 2> & weights,
+             const MLDB::MatrixRef<float, 2> & weights,
              const std::vector<Feature> & features,
              float & Z,
              int recursion = 0) const;
@@ -157,4 +157,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

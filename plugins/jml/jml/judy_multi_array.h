@@ -16,7 +16,7 @@
 #include <algorithm>
 
 
-namespace ML {
+namespace MLDB {
 
 template<typename Key, typename Data, class Extractor,
          size_t MaxLevel, size_t Level>
@@ -387,6 +387,6 @@ size_t memusage(const judy_multi_array<Key, Data, Extractor, MaxLevel> & array)
     return array.memusage_();
 }
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__judy_multi_array_h__ */

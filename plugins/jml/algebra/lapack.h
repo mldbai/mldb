@@ -9,25 +9,25 @@
 
 #pragma once
 
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <numeric>
 
 
-namespace ML {
+namespace MLDB {
 namespace LAPack {
 
 /** Convert a matrix to a fortran compatible version. */
 template<typename Float>
-boost::multi_array<Float, 2>
-fortran(const boost::multi_array<Float, 2> & A)
+MLDB::Matrix<Float, 2>
+fortran(const MLDB::MatrixRef<Float, 2> & A)
 {
     /* We just have to make sure that each of the dimensions is at least
        one.  The copying was probably necessary as most of the LAPACK
        routines destroy their arguments.
     */
-    boost::multi_array<Float, 2> X(boost::extents[A.shape()[0]][std::max<size_t>(A.shape()[1], 1)]);
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    MLDB::MatrixRef<Float, 2> X(A.dim(0), std::max<size_t>(A.dim(1), 1));
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        for (unsigned j = 0;  j < A.dim(1);  ++j)
             X[i][j] = A[i][j];
     return X;
 }
@@ -130,4 +130,4 @@ int gemm(char transa, char transb, int m, int n, int k, double alpha,
          double beta, double * C, int ldc);
 
 } // namespace LAPack
-} // namespace ML
+} // namespace MLDB

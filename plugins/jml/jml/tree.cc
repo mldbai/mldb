@@ -18,7 +18,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -302,7 +302,7 @@ reconstitute(DB::Store_Reader & store, const Feature_Space & fs)
 std::string
 printLabels(const distribution<float> & dist);
 
-std::string print_outcome(const ML::Tree::Leaf & outcome)
+std::string print_outcome(const MLDB::Tree::Leaf & outcome)
 {
     string result;
     const distribution<float> & dist = outcome.pred;
@@ -311,4 +311,4 @@ std::string print_outcome(const ML::Tree::Leaf & outcome)
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB

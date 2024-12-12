@@ -14,12 +14,12 @@
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -128,14 +128,14 @@ std::string Decoded_Classifier::print() const
 Explanation
 Decoded_Classifier::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
     return classifier_.impl->explain(feature_set, label, weight);
 }
 
-std::vector<ML::Feature> Decoded_Classifier::all_features() const
+std::vector<MLDB::Feature> Decoded_Classifier::all_features() const
 {
     return classifier_.all_features();
 }
@@ -239,5 +239,5 @@ Register_Factory<Classifier_Impl, Decoded_Classifier>
 } // file scope
 
 
-} // namespace ML
+} // namespace MLDB
 

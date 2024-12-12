@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -104,7 +104,7 @@ public:
                            PredictionContext * context = 0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
@@ -128,6 +128,6 @@ private:
     bool optimized_;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__committee_h__ */

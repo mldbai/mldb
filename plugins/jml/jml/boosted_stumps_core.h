@@ -14,7 +14,7 @@
 #include "stump.h"
 #include "stump_predict.h"
 
-namespace ML {
+namespace MLDB {
 
 /** The boosting loss function.  It is exponential in the margin. */
 struct Boosting_Loss {
@@ -134,4 +134,4 @@ struct Normal_Update {
     }
 };
 
-} // namespace ML
+} // namespace MLDB

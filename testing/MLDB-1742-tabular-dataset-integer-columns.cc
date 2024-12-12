@@ -7,7 +7,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <boost/test/unit_test.hpp>
 #include "mldb/plugins/tabular/frozen_column.h"
 #include "mldb/plugins/tabular/tabular_dataset_column.h"

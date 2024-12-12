@@ -23,7 +23,6 @@
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <boost/version.hpp>
-#include <boost/lexical_cast.hpp>
 #include "mldb/arch/exception.h"
 #include <errno.h>
 #include <sstream>
@@ -31,6 +30,7 @@
 #include <unordered_map>
 #include "fs_utils.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/lexical_cast.h"
 
 
 using namespace std;
@@ -389,7 +389,7 @@ void addCompression(streambuf & buf,
     int compressionLevel = -1;
     it = options.find("compressionLevel");
     if (it != options.end())
-        compressionLevel = boost::lexical_cast<int>(it->second);
+        compressionLevel = MLDB::lexical_cast<int>(it->second);
     
     addCompression(buf, stream, resource, compression, compressionLevel);
 }

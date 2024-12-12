@@ -20,7 +20,7 @@
 #include "evaluation.h"
 #include "stump_predict.h"
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* LOSS FUNCTIONS                                                            */
@@ -217,7 +217,7 @@ struct Update_Weights {
     float operator () (const Stump & stump,
                        const Optimization_Info & opt_info,
                        float cl_weight,
-                       boost::multi_array<float, 2> & weights,
+                       MLDB::MatrixRef<float, 2> & weights,
                        const Training_Data & data,
                        int start_x = 0, int end_x = -1) const
     {
@@ -241,7 +241,7 @@ struct Update_Weights {
         const std::vector<Label> & labels
             = data.index().labels(stump.predicted());
 
-        int advance = (weights.shape()[1] == 1 ? 0 : 1);
+        int advance = (weights.dim(1) == 1 ? 0 : 1);
 
         for (unsigned x = start_x;  x < end_x;  ++x) {
 
@@ -267,7 +267,7 @@ struct Update_Weights {
     float operator () (const std::vector<Stump> & stumps,
                        const std::vector<Optimization_Info> & opt_infos,
                        const std::vector<float> & cl_weights,
-                       boost::multi_array<float, 2> & sample_weights,
+                       MLDB::MatrixRef<float, 2> & sample_weights,
                        const Training_Data & data) const
     {
         double total = 0.0;
@@ -285,7 +285,7 @@ struct Update_Weights {
     float operator () (const Classifier_Impl & classifier,
                        const Optimization_Info & opt_info,
                        float cl_weight,
-                       boost::multi_array<float, 2> & weights,
+                       MLDB::MatrixRef<float, 2> & weights,
                        const Training_Data & data,
                        int start_x = 0, int end_x = -1) const
     {
@@ -296,7 +296,7 @@ struct Update_Weights {
         const std::vector<Label> & labels
             = data.index().labels(classifier.predicted());
         
-        int advance = (weights.shape()[1] == 1 ? 0 : 1);
+        int advance = (weights.dim(1) == 1 ? 0 : 1);
 
         using namespace std;
         //map<float, int> output;
@@ -388,8 +388,8 @@ struct Update_Weights_And_Scores {
     float operator () (const Stump & stump,
                        const Optimization_Info & opt_info,
                        float cl_weight,
-                       boost::multi_array<float, 2> & weights,
-                       boost::multi_array<float, 2> & output,
+                       MLDB::MatrixRef<float, 2> & weights,
+                       MLDB::MatrixRef<float, 2> & output,
                        const Training_Data & data,
                        const distribution<float> & example_weights,
                        double & accuracy,
@@ -397,7 +397,7 @@ struct Update_Weights_And_Scores {
     {
         if (end_x == -1) end_x = data.example_count();
 
-        size_t nl = output.shape()[1];
+        size_t nl = output.dim(1);
 
         Joint_Index index
             = data.index().joint(stump.predicted(),
@@ -410,7 +410,7 @@ struct Update_Weights_And_Scores {
         const std::vector<Label> & labels
             = data.index().labels(stump.predicted());
 
-        int advance = (weights.shape()[1] == 1 ? 0 : 1);
+        int advance = (weights.dim(1) == 1 ? 0 : 1);
         //cerr << "advance = " << advance << endl;
         //cerr << "cl_weight = " << cl_weight << endl;
 
@@ -469,8 +469,8 @@ struct Update_Weights_And_Scores {
     float operator () (const Classifier_Impl & classifier,
                        const Optimization_Info & opt_info,
                        float cl_weight,
-                       boost::multi_array<float, 2> & weights,
-                       boost::multi_array<float, 2> & output,
+                       MLDB::MatrixRef<float, 2> & weights,
+                       MLDB::MatrixRef<float, 2> & output,
                        const Training_Data & data,
                        const distribution<float> & example_weights,
                        double & accuracy,
@@ -478,7 +478,7 @@ struct Update_Weights_And_Scores {
     {
         if (end_x == -1) end_x = data.example_count();
         
-        size_t nl = output.shape()[1];
+        size_t nl = output.dim(1);
 
         double correct = 0.0;
         double total = 0.0;
@@ -486,7 +486,7 @@ struct Update_Weights_And_Scores {
         const std::vector<Label> & labels
             = data.index().labels(classifier.predicted());
 
-        int advance = (weights.shape()[1] == 1 ? 0 : 1);
+        int advance = (weights.dim(1) == 1 ? 0 : 1);
 
 
         using namespace std;
@@ -563,14 +563,14 @@ struct Update_Scores {
     double operator () (const Stump & stump,
                         const Optimization_Info & opt_info,
                         float cl_weight,
-                        boost::multi_array<float, 2> & output,
+                        MLDB::MatrixRef<float, 2> & output,
                         const Training_Data & data,
                         const distribution<float> & example_weights,
                         int start_x = 0, int end_x = -1) const
     {
         if (end_x == -1) end_x = data.example_count();
 
-        size_t nl = output.shape()[1];
+        size_t nl = output.dim(1);
         
         Joint_Index index
             = data.index().joint(stump.predicted(),
@@ -588,7 +588,7 @@ struct Update_Scores {
                                   Find_Example()));
         Index_Iterator ex_end   = index.end();
 
-        int advance = (output.shape()[1] == 1 ? 0 : 1);
+        int advance = (output.dim(1) == 1 ? 0 : 1);
 
         double correct = 0.0;
 
@@ -624,19 +624,19 @@ struct Update_Scores {
     double operator () (const Classifier_Impl & classifier,
                         const Optimization_Info & opt_info,
                         float cl_weight,
-                        boost::multi_array<float, 2> & output,
+                        MLDB::MatrixRef<float, 2> & output,
                         const Training_Data & data,
                         const distribution<float> & example_weights,
                         int start_x = 0, int end_x = -1) const
     {
         if (end_x == -1) end_x = data.example_count();
 
-        size_t nl = output.shape()[1];
+        size_t nl = output.dim(1);
 
         const std::vector<Label> & labels
             = data.index().labels(classifier.predicted());
 
-        int advance = (output.shape()[1] == 1 ? 0 : 1);
+        int advance = (output.dim(1) == 1 ? 0 : 1);
 
         double correct = 0.0;
 
@@ -656,7 +656,7 @@ struct Update_Scores {
     }
 };
 
-} // namespace ML
+} // namespace MLDB
 
 
 

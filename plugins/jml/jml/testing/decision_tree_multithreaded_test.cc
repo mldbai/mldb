@@ -23,7 +23,7 @@
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/vector_utils.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;

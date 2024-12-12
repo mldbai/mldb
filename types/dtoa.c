@@ -2250,8 +2250,8 @@ soa_dtoa(double dd, int mode, int ndigits,
         /* Infinity or NaN */
         *decpt = 9999;
         if (!word1(&u) && !(word0(&u) & 0xfffff))
-            return nrv_alloc("Infinity", rve, 8);
-        return nrv_alloc("NaN", rve, 3);
+            return nrv_alloc("inf", rve, 8);
+        return nrv_alloc("nan", rve, 3);
     }
     if (!dval(&u)) {
         *decpt = 1;

@@ -13,7 +13,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/distribution.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/utils/log.h"
 #include "mldb/core/dataset_scope.h"
 #include "mldb/types/annotated_exception.h"
@@ -177,7 +177,7 @@ struct Word2VecImporter: public Procedure {
         getline(stream, header);
 
         vector<string> fields;
-        boost::split(fields, header, boost::is_any_of(" "));
+        MLDB::split(fields, header, ' ');
 
         ExcAssertEqual(fields.size(), 2);
 

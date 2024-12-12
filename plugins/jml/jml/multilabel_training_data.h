@@ -10,7 +10,7 @@
 #include "mldb/plugins/jml/jml/training_data.h"
 #include <functional>
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* MULTILABEL_TRAINING_DATA                                                   */
@@ -24,7 +24,7 @@ private:
     class Multilabel_Feature_Set : public Feature_Set {
     public:
 
-        Multilabel_Feature_Set(const std::shared_ptr<ML::Feature_Set> inner_, Feature predicted) : inner(inner_) {
+        Multilabel_Feature_Set(const std::shared_ptr<MLDB::Feature_Set> inner_, Feature predicted) : inner(inner_) {
             initialize(predicted);
         }
 
@@ -50,19 +50,19 @@ private:
         virtual Feature_Set * make_copy() const;
 
     private:
-        const std::shared_ptr<ML::Feature_Set> inner;
+        const std::shared_ptr<MLDB::Feature_Set> inner;
         std::vector<float> newScores;
         int predictedIndex;
     };
 public:
     Multilabel_Training_Data(const Training_Data & training_data, 
-                             ML::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs);
+                             MLDB::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs);
 
     void changePredictedValue(std::function<float(int)> getValue);
 
 private:
 
-    ML::Feature overrideFeature;
+    MLDB::Feature overrideFeature;
     const Training_Data & inner;
 };
 

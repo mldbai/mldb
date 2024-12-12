@@ -17,7 +17,7 @@
 #include <limits>
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 
 template<class Iterator>
 double mean(Iterator first, Iterator last)
@@ -55,7 +55,7 @@ double std_dev(Iterator first, Iterator last, double mean)
     return std::sqrt(total / (double)(count - 1));
 }
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __stats__moments_h__ */

@@ -8,16 +8,14 @@
    Singular value decompositions.
 */
 
-#ifndef __algebra__svd_h__
-#define __algebra__svd_h__
-
+#pragma once
 
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* SVD                                                                       */
@@ -46,12 +44,12 @@ namespace ML {
     Apropos:
 
     \code
-    boost::multi_array<float, 2> A;
+    MLDB::MatrixRef<float, 2> A;
 
     ...
 
     distribution<float> E;
-    boost::multi_array<float, 2> U, V;
+    MLDB::MatrixRef<float, 2> U, V;
     std::tie(E, U, V) = svd(A);
     \endcode
 
@@ -69,26 +67,22 @@ namespace ML {
     pretty good instructions on how to do all of this, although it neglects
     to mention that U and V need to be multiplied by \f$\sqrt{2}\f$!
 */
-std::tuple<distribution<float>, boost::multi_array<float, 2>,
-             boost::multi_array<float, 2> >
-svd(const boost::multi_array<float, 2> & A);
+std::tuple<distribution<float>, MLDB::MatrixRef<float, 2>,
+             MLDB::MatrixRef<float, 2> >
+svd(const MLDB::MatrixRef<float, 2> & A);
 
-std::tuple<distribution<double>, boost::multi_array<double, 2>,
-             boost::multi_array<double, 2> >
-svd(const boost::multi_array<double, 2> & A);
+std::tuple<distribution<double>, MLDB::MatrixRef<double, 2>,
+             MLDB::MatrixRef<double, 2> >
+svd(const MLDB::MatrixRef<double, 2> & A);
 
 /** Same as above, but calculates only the first \p n singular values.
  */
-std::tuple<distribution<float>, boost::multi_array<float, 2>,
-             boost::multi_array<float, 2> >
-svd(const boost::multi_array<float, 2> & A, size_t n);
+std::tuple<distribution<float>, MLDB::MatrixRef<float, 2>,
+             MLDB::MatrixRef<float, 2> >
+svd(const MLDB::MatrixRef<float, 2> & A, size_t n);
 
-std::tuple<distribution<double>, boost::multi_array<double, 2>,
-             boost::multi_array<double, 2> >
-svd(const boost::multi_array<double, 2> & A, size_t n);
+std::tuple<distribution<double>, MLDB::MatrixRef<double, 2>,
+             MLDB::MatrixRef<double, 2> >
+svd(const MLDB::MatrixRef<double, 2> & A, size_t n);
 
-} // namespace ML
-
-
-#endif /* __algebra__svd_h__ */
-
+} // namespace MLDB

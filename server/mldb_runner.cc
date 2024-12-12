@@ -23,7 +23,7 @@
 #include <boost/program_options/positional_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <boost/exception/diagnostic_information.hpp> 
 #include <signal.h>
 

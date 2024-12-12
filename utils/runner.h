@@ -121,6 +121,26 @@ struct Runner : public EpollLoop {
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
 
+    template<typename Command>
+    void run(Command&& command,
+             const OnTerminate & onTerminate,
+             const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+             const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+             std::enable_if_t<!std::is_convertible_v<Command, std::vector<Utf8String>>> * = nullptr)
+    {
+        std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+        run(commandUtf8, onTerminate, stdOutSink, stdErrSink);
+    }
+
+    void run(const std::initializer_list<Utf8String> & command,
+             const OnTerminate & onTerminate,
+             const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+             const std::shared_ptr<InputSink> & stdErrSink = nullptr)
+    {
+        std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+        run(commandUtf8, onTerminate, stdOutSink, stdErrSink);
+    }
+
     /** Run a program synchronously. This method does not need any preliminary
      * registration to a MessageLoop. */
     RunResult runSync(const std::vector<std::string> & command,
@@ -274,13 +294,53 @@ RunResult execute(const std::vector<std::string> & command,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
 
-/** (Deprecated) Execute a command synchronously using the specified message
- * loop. */
-RunResult execute(MessageLoop & loop,
-                  const std::vector<std::string> & command,
+/** Execute a command synchronously. */
+RunResult execute(const std::vector<Utf8String> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
+
+template<typename Command>
+RunResult execute(Command&& command,
+                  const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                  const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                  const std::string & stdInData = "",
+                  bool closeStdin = false,
+                  std::enable_if_t<!std::is_convertible_v<Command, std::vector<Utf8String>>> * = nullptr)
+{
+    std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+    return execute(commandUtf8, stdOutSink, stdErrSink, stdInData, closeStdin);
+}
+
+inline RunResult execute(const std::initializer_list<Utf8String> & command,
+                         const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                         const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                         const std::string & stdInData = "",
+                         bool closeStdin = false)
+{
+    std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+    return execute(commandUtf8, stdOutSink, stdErrSink, stdInData, closeStdin);
+}
+
+/** (Deprecated) Execute a command synchronously using the specified message
+ * loop. */
+RunResult execute(MessageLoop & loop,
+                  const std::vector<Utf8String> & command,
+                  const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                  const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                  const std::string & stdInData = "",
+                  bool closeStdin = false);
+
+inline RunResult execute(MessageLoop & loop,
+                         const std::initializer_list<Utf8String> & command,
+                         const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                         const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                         const std::string & stdInData = "",
+                         bool closeStdin = false)
+{
+    std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+    return execute(loop, commandUtf8, stdOutSink, stdErrSink, stdInData, closeStdin);
+}
 
 } // namespace MLDB

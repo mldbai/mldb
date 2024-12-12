@@ -11,9 +11,7 @@
 #include "feature_set.h"
 
 
-namespace ML {
-
-namespace DB = MLDB::DB;
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -74,4 +72,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

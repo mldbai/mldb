@@ -13,7 +13,7 @@
 
 #include "training_index_iterators.h"
 
-namespace ML {
+namespace MLDB {
 
 
 inline Index_Iterator Joint_Index::begin() const
@@ -42,6 +42,6 @@ inline Index_Iterator Joint_Index::operator [] (int idx) const
 }
 
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__training_index_iterators_impl_h__ */

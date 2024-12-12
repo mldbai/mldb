@@ -13,9 +13,6 @@
 #include <boost/test/unit_test.hpp>
 #include <thread>
 #include "mldb/utils/thread_barrier.h"
-#include <boost/shared_array.hpp>
-#include <boost/scoped_array.hpp>
-#include <boost/timer.hpp>
 #include <vector>
 #include <stdint.h>
 #include <iostream>
@@ -33,7 +30,7 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/arch/timers.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -85,7 +82,7 @@ void run_test(const uint16_t * buckets,
                       on_device,
                       compressed);
 
-    cerr << "planning took " << t.elapsed().wall << endl;
+    cerr << "planning took " << t.elapsed_wall() << endl;
     t.restart();
 
     vector<Test_Context> contexts(num_in_parallel);
@@ -109,7 +106,7 @@ void run_test(const uint16_t * buckets,
         tester.synchronize(*contexts[i].context);
 
     cerr << "execution of " << num_in_parallel
-         << " parallel took " << t.elapsed().wall << endl;
+         << " parallel took " << t.elapsed_wall() << endl;
 }
 
 static const char * xor_dataset = "\
@@ -184,7 +181,7 @@ BOOST_AUTO_TEST_CASE( test_split_cuda2 )
         weights[i]    = 1.0 / array_size;
     }
 
-    boost::timer::cpu_timert;
+    MLDB::Timert;
 
     run_test(buckets.get(),
              0 /* examples */,
@@ -199,7 +196,7 @@ BOOST_AUTO_TEST_CASE( test_split_cuda2 )
              false, /* compressed */
              16 /* num parallel */);
 
-    cerr << "gpu uncompressed took " << t.elapsed().wall << "s" << endl;
+    cerr << "gpu uncompressed took " << t.elapsed_wall() << "s" << endl;
 
     t.restart();
 
@@ -216,7 +213,7 @@ BOOST_AUTO_TEST_CASE( test_split_cuda2 )
              true, /* compressed */
              16 /* num parallel */);
     
-    cerr << "gpu compressed took " << t.elapsed().wall << "s" << endl;
+    cerr << "gpu compressed took " << t.elapsed_wall() << "s" << endl;
 
     t.restart();
 
@@ -233,7 +230,7 @@ BOOST_AUTO_TEST_CASE( test_split_cuda2 )
              false, /* compressed */
              16 /* num parallel */);
     
-    cerr << "cpu uncompressed took " << t.elapsed().wall << "s" << endl;
+    cerr << "cpu uncompressed took " << t.elapsed_wall() << "s" << endl;
 
     t.restart();
 
@@ -250,5 +247,5 @@ BOOST_AUTO_TEST_CASE( test_split_cuda2 )
              true, /* compressed */
              16 /* num parallel */);
     
-    cerr << "cpu compressed took " << t.elapsed().wall << "s" << endl;
+    cerr << "cpu compressed took " << t.elapsed_wall() << "s" << endl;
 }

@@ -9,10 +9,10 @@
 
 #include "mldb/base/exc_assert.h"
 #include "mldb/vfs/filter_streams.h"
-#include <boost/lexical_cast.hpp>
 #include "mldb/io/tcp_acceptor.h"
 #include "http_rest_endpoint.h"
 #include "mldb/utils/log.h"
+#include "mldb/utils/lexical_cast.h"
 #include <iomanip>
 
 using namespace std;
@@ -82,7 +82,7 @@ bindTcpAddress(const std::string & address)
                             + address);
 
     if (portPart[portPart.size() - 1] == '+') {
-        unsigned port = boost::lexical_cast<unsigned>(string(portPart, 0, portPart.size() - 1));
+        unsigned port = MLDB::lexical_cast<unsigned>(string(portPart, 0, portPart.size() - 1));
         if(port < 65536) {
             unsigned last = port + 999;
             return bindTcp(PortRange(port, last), hostPart);
@@ -91,7 +91,7 @@ bindTcpAddress(const std::string & address)
         throw MLDB::Exception("invalid port " + to_string(port));
     }
 
-    return bindTcp(boost::lexical_cast<int>(portPart), hostPart);
+    return bindTcp(MLDB::lexical_cast<int>(portPart), hostPart);
 }
 
 std::string

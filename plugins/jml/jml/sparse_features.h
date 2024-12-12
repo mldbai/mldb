@@ -17,7 +17,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
         
 /*****************************************************************************/
@@ -30,7 +30,7 @@ namespace ML {
     representation, used by the more classical algorithms.
 */
 
-class Sparse_Feature_Space : public ML::Mutable_Feature_Space {
+class Sparse_Feature_Space : public MLDB::Mutable_Feature_Space {
 public:
     Sparse_Feature_Space();
     Sparse_Feature_Space(DB::Store_Reader & store);
@@ -43,14 +43,14 @@ public:
     virtual void set_info(const Feature & feature, const Feature_Info & info);
     
     /** Methods to do with the features. */
-    virtual Feature_Info info(const ML::Feature & feature) const;
-    virtual std::string print(const ML::Feature & feature) const;
-    virtual bool parse(ParseContext & context, ML::Feature & feature) const;
-    virtual void expect(ParseContext & context, ML::Feature & feature) const;
+    virtual Feature_Info info(const MLDB::Feature & feature) const;
+    virtual std::string print(const MLDB::Feature & feature) const;
+    virtual bool parse(ParseContext & context, MLDB::Feature & feature) const;
+    virtual void expect(ParseContext & context, MLDB::Feature & feature) const;
     virtual void serialize(DB::Store_Writer & store,
-                           const ML::Feature & feature) const;
+                           const MLDB::Feature & feature) const;
     virtual void reconstitute(DB::Store_Reader & store,
-                              ML::Feature & feature) const;
+                              MLDB::Feature & feature) const;
 
     /* Methods to deal with the feature space as a whole. */
     virtual Sparse_Feature_Space * make_copy() const;
@@ -121,7 +121,7 @@ protected:
     "0:12.7,0.93" are all valid.
 */
 
-class Sparse_Training_Data : public ML::Training_Data {
+class Sparse_Training_Data : public MLDB::Training_Data {
 public:
     /** Default do-nothing constructor.  Requires that init() be called
         afterwards. */
@@ -167,5 +167,5 @@ private:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 

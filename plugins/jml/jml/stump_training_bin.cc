@@ -8,7 +8,7 @@
 
 #include "stump_training_bin.h"
 
-namespace ML {
+namespace MLDB {
 
 #if 0
 const double Z_binsym::worst;
@@ -16,6 +16,6 @@ const double Z_binsym::none;
 const double Z_binsym::perfect;
 #endif
 
-} // namespace ML
+} // namespace MLDB
 
 

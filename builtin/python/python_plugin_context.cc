@@ -15,7 +15,8 @@
 #include "mldb/utils/log.h"
 #include "mldb/base/scope.h"
 #include <regex>
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
+#include "mldb/utils/replace_all.h"
 #include <memory>
 #include "frameobject.h"
 #include "pointer_fix.h"
@@ -523,7 +524,7 @@ serveStaticFolder(const std::string & route, const std::string & dir)
                 "not exist: " + fullDir.string());
     }
 
-    string route_pattern = "/" + boost::replace_all_copy(route, "/", "") + "/(.*)";
+    string route_pattern = "/" + MLDB::replace_all_copy(route, "/", "") + "/(.*)";
     router.addRoute(Rx(route_pattern, "<resource>"),
                     "GET", "Static content",
                     engine->getStaticRouteHandler("file://" + fullDir.string()),

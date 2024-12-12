@@ -15,7 +15,6 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "mldb/plugins/jml/jml/probabilizer.h"
 #include "mldb/utils/vector_utils.h"
-#include <boost/timer/timer.hpp>
 #include <regex>
 #include "mldb/plugins/jml/jml/null_classifier.h"
 #include "mldb/plugins/jml/jml/null_feature_space.h"
@@ -26,12 +25,13 @@
 #include "mldb/plugins/jml/jml/weighted_training.h"
 #include "mldb/utils/xdiv.h"
 #include "mldb/utils/distribution_ops.h"
+#include "mldb/arch/timers.h"
 #include <memory>
 
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -571,7 +571,7 @@ void remove_aliased_examples(Training_Data & data, const Feature & predicted,
 {
     /** Clean the dataset by removing those examples which are aliased (where
         the features are the same). */
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
     
     /* Check for aliased rows in the training data. */
     vector<Alias> aliases = remove_aliases(data, predicted);
@@ -602,7 +602,7 @@ void remove_aliased_examples(Training_Data & data, const Feature & predicted,
     }
     
     if (profile)
-        cerr << "[aliased: " << timer.elapsed().wall << "s]" << endl;
+        cerr << "[aliased: " << timer.elapsed_wall() << "s]" << endl;
 }
 
 void do_features(const Training_Data & data,
@@ -875,5 +875,5 @@ void print_weight_spec(const std::vector<Weight_Spec> & weight_spec,
     }
 }
 
-} // namespace ML
+} // namespace MLDB
 

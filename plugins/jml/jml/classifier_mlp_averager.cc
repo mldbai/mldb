@@ -19,7 +19,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -110,4 +110,4 @@ bool Classifier_MLP_Averager::valid() const
 }
 
 
-} // namespace ML
+} // namespace MLDB

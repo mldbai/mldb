@@ -14,7 +14,7 @@
 #include <string>
 #include <functional>
 #include <algorithm>
-#include <boost/lexical_cast.hpp>
+#include "mldb/utils/lexical_cast.h"
 #include "mldb/arch/exception.h"
 #include <iostream>
 #include "mldb/utils/string_functions.h"
@@ -24,7 +24,7 @@ namespace MLDB {
 struct ParseContext;
 } // namespace MLDB
 
-namespace ML {
+namespace MLDB {
 using namespace MLDB;
 
 /*****************************************************************************/
@@ -136,7 +136,7 @@ public:
                      const std::string & full_key, Not_Enum_Tag) const
     {
         try {
-            val = boost::lexical_cast<X>(str);
+            val = MLDB::lexical_cast<X>(str);
         }
         catch (const std::exception & exc) {
             throw Exception("couldn't parse value " + str + " from key "
@@ -234,4 +234,4 @@ private:
 std::ostream & operator << (std::ostream & stream,
                             const Configuration::Accessor & acc);
 
-} // namespace ML
+} // namespace MLDB

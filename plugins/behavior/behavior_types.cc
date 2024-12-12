@@ -36,6 +36,10 @@ recordOnce(uint64_t beh, Date ts, uint32_t count)
     return true;
 }
 
+#if __GNUC__ >= 14
+#  pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
+
 void
 SubjectInfo::
 sort()

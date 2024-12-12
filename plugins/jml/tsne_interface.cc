@@ -12,7 +12,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/pair_utils.h"
@@ -121,22 +121,22 @@ struct TsneItl {
         stream.close();
     }
 
-    ML::TSNE_Params params;
-    boost::multi_array<float, 2> inputPath;
-    boost::multi_array<float, 2> outputPath;
+    MLDB::TSNE_Params params;
+    MLDB::Matrix<float, 2> inputPath;
+    MLDB::Matrix<float, 2> outputPath;
     std::unique_ptr<MLDB::VantagePointTree> vpTree;
     std::unique_ptr<MLDB::Quadtree> qtree;
     std::vector<Utf8String> inputColumnNames;
     std::vector<Utf8String> outputColumnNames;
     std::shared_ptr<const std::vector<ColumnPath> > outputColumnNamesShared;
 
-    size_t numOutputDimensions() const { return outputPath.shape()[1]; }
+    size_t numOutputDimensions() const { return outputPath.dim(1); }
 
     int64_t memusage() const
     {
         int64_t result = sizeof(*this);
-        result += sizeof(float) * inputPath.shape()[0] * inputPath.shape()[1];
-        result += sizeof(float) * outputPath.shape()[0] * outputPath.shape()[1];
+        result += sizeof(float) * inputPath.dim(0) * inputPath.dim(1);
+        result += sizeof(float) * outputPath.dim(0) * outputPath.dim(1);
         result += vpTree->memusage();
         result += qtree->root->memusage();
         return result;
@@ -155,9 +155,9 @@ struct TsneItl {
 
         store << string("TSNE") << compact_size_t(2);
         
-        size_t rows = inputPath.shape()[0];
-        size_t dimsIn = inputPath.shape()[1];
-        size_t dimsOut = outputPath.shape()[1];
+        size_t rows = inputPath.dim(0);
+        size_t dimsIn = inputPath.dim(1);
+        size_t dimsOut = outputPath.dim(1);
 
 
         store << compact_size_t(rows)
@@ -274,8 +274,8 @@ run(const ProcedureRunConfig & run,
 
     DEBUG_MSG(logger) << "numDims = " << numDims;
 
-    boost::multi_array<float, 2> coords
-        (boost::extents[rows.size()][numDims]);
+    MLDB::Matrix<float, 2> coords
+        (rows.size(), numDims);
 
     for (unsigned i = 0;  i < rows.size();  ++i) {
         for (auto & e: std::get<2>(rows[i]))
@@ -284,7 +284,7 @@ run(const ProcedureRunConfig & run,
                   &coords[i][0]);
     }
 
-    if (coords.size() == 0)
+    if (coords.num_elements() == 0)
         throw AnnotatedException(400, "t-sne training requires at least 1 datapoint. "
                                   "Make sure your dataset is not empty and that your WHERE, offset "
                                   "and limit expressions do not filter all the rows");
@@ -300,10 +300,10 @@ run(const ProcedureRunConfig & run,
 //     DEBUG_MSG(logger) << "rows[0] dist rows[2] = " << (rows[0].second - rows[2].second).two_norm();
 //     DEBUG_MSG(logger) << "rows[1] dist rows[2] = " << (rows[1].second - rows[2].second).two_norm();
 
-    itl->inputPath.resize(boost::extents[rows.size()][numDims]);
+    itl->inputPath.resize(rows.size(), numDims);
     itl->inputPath = coords;
 
-    ML::TSNE_Callback callback = [&] (int iter, float cost,
+    MLDB::TSNE_Callback callback = [&] (int iter, float cost,
                                       std::string phase)
         {
             if (iter == 1 || iter % 10 == 0)
@@ -314,9 +314,9 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertGreaterEqual(runProcConf.numOutputDimensions, 1);
 
-    itl->outputPath.resize(boost::extents[rows.size()][runProcConf.numOutputDimensions]);
+    itl->outputPath.resize(rows.size(), runProcConf.numOutputDimensions);
     itl->outputPath
-        = ML::tsneApproxFromCoords(coords, runProcConf.numOutputDimensions,
+        = MLDB::tsneApproxFromCoords(coords, runProcConf.numOutputDimensions,
                                    itl->params, callback, &itl->vpTree,
                                    &itl->qtree);
 

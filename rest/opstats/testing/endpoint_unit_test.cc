@@ -22,7 +22,7 @@
 #include "test_connection_error.h"
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB;
 
 #if 0 // zeromq aborts when it can't get an fd

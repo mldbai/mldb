@@ -28,7 +28,7 @@ using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -779,7 +779,7 @@ predict(const Training_Data & data,
 Explanation
 Classifier_Impl::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -1025,6 +1025,6 @@ Factory_Base<Classifier_Impl>::~Factory_Base()
 {
 }
 
-} // namespace ML
+} // namespace MLDB
 
 

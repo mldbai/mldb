@@ -9,9 +9,9 @@
 
 #include "dense_shared_reverse_layer_impl.h"
 
-namespace ML {
+namespace MLDB {
 
 extern template class Dense_Shared_Reverse_Layer<float>;
 extern template class Dense_Shared_Reverse_Layer<double>;
 
-} // namespace ML
+} // namespace MLDB

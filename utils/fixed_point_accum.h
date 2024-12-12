@@ -12,7 +12,7 @@
 #include "mldb/utils/float_traits.h"
 #include <limits>
 
-namespace ML {
+namespace MLDB {
 
 /** A structure to accumulate values between zero and one in a single 32
     bit integer. */

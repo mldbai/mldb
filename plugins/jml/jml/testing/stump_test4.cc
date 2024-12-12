@@ -20,7 +20,7 @@
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/plugins/jml/jml/sparse_features.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 void test()
@@ -44,7 +44,7 @@ void test()
     typedef Stump_Trainer<W> Trainer;
     Trainer trainer;
 
-    boost::multi_array<float, 2> weights(data.example_count(), 2);
+    MLDB::MatrixRef<float, 2> weights(data.example_count(), 2);
     weights.fill(1.0 / (float)(data.example_count() * 2));
     
     W default_w = trainer.calc_default_w(data, weights);

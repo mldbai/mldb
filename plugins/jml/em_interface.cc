@@ -14,7 +14,7 @@
 #include "mldb/engine/procedure_collection.h"
 #include "mldb/engine/function_collection.h"
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "base/parallel.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/arch/timers.h"
@@ -36,12 +36,12 @@ using namespace std;
 
 namespace MLDB {
 
-std::vector<double> tovector(boost::multi_array<double, 2>& m)
+std::vector<double> tovector(MLDB::MatrixRef<double, 2>& m)
 {
     std::vector<double> embedding;
-    for(int i = 0; i < m.shape()[0]; i++)
+    for(int i = 0; i < m.dim(0); i++)
     {
-        for(int j = 0; j < m.shape()[1]; j++) {
+        for(int j = 0; j < m.dim(1); j++) {
              embedding.push_back(m[i][j]); // multiply by elements on diagonal
         }
     }
@@ -165,7 +165,7 @@ run(const ProcedureRunConfig & run,
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
 
-    ML::EstimationMaximisation em;
+    MLDB::EstimationMaximisation em;
     vector<int> inCluster;
 
     int numClusters = emConfig.numClusters;
@@ -308,7 +308,7 @@ EMOutputDescription::EMOutputDescription()
 
 
 struct EMFunction::Impl {
-    ML::EstimationMaximisation em;
+    MLDB::EstimationMaximisation em;
     std::vector<ColumnPath> columnNames;
 
     Impl(const Url & modelFileUrl) {

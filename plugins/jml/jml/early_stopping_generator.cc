@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -116,4 +116,4 @@ generate(Thread_Context & context,
                     features, recursion + 1);
 }
 
-} // namespace ML
+} // namespace MLDB

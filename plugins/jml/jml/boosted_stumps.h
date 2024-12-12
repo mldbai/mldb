@@ -13,9 +13,8 @@
 #include "stump.h"
 #include "plugins/jml/enum_info.h"
 #include "mldb/utils/floating_point.h"
-#include <boost/iterator/transform_iterator.hpp>
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -282,7 +281,7 @@ public:
     merge(const Classifier_Impl & other, float weight = 1.0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
     
@@ -296,6 +295,6 @@ private:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
-DECLARE_ENUM_INFO(ML::Boosted_Stumps::Output, 3);
+DECLARE_ENUM_INFO(MLDB::Boosted_Stumps::Output, 3);

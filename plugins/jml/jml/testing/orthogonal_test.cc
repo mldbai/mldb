@@ -10,20 +10,19 @@
 
 #include <iostream>
 #include "mldb/plugins/jml/jml/config_impl.h"
-#include <boost/multi_array.hpp>
 #include "mldb/utils/distribution.h"
 
 using namespace std;
 
 
-typedef boost::multi_array<unsigned char, 2> Array;
+typedef MLDB::MatrixRef<unsigned char, 2> Array;
 
 /** Calculate the Hamming distance between two points. */
 
 int distance(const Array & array, int n1, int n2)
 {
     int result = 0;
-    int l = array.shape()[1];
+    int l = array.dim(1);
 
     for (unsigned i = 0;  i < l;  ++i)
         result += (array[n1][i] != array[n2][i]);
@@ -33,8 +32,8 @@ int distance(const Array & array, int n1, int n2)
 
 void test(const Array & array, const distribution<float> & weights)
 {
-    int n = array.shape()[0];
-    int l = array.shape()[1];
+    int n = array.dim(0);
+    int l = array.dim(1);
     
     int min_dist = 1000;
 

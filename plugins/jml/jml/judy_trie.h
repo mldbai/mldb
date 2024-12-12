@@ -12,7 +12,7 @@
 #ifndef __boosting__judy_trie_h__
 #define __boosting__judy_trie_h__
 
-namespace ML {
+namespace MLDB {
 
 template<typename Key, typename Data, typename Encoder>
 struct judy_multi_array {
@@ -20,7 +20,7 @@ struct judy_multi_array {
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 

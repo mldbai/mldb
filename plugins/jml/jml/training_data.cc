@@ -19,8 +19,8 @@
 #include "mldb/types/db/persistent.h"
 #include "mldb/arch/demangle.h"
 #include "thread_context.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/arch/timers.h"
 
 
 using namespace std;
@@ -28,7 +28,7 @@ using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -255,7 +255,7 @@ std::shared_ptr<Feature_Set> & Training_Data::modify(int example)
 {
     std::shared_ptr<Feature_Set> & fs = data_.at(example);
     dirty_ = true;
-    if (!ML::dangerous_shared_pointer_is_unique(fs))
+    if (!MLDB::dangerous_shared_pointer_is_unique(fs))
         fs.reset(fs->make_copy());
     return fs;
 }
@@ -331,7 +331,7 @@ Training_Data::
 fixup_grouping_features(const std::vector<Feature> & group_features,
                         std::vector<float> & offset)
 {
-    boost::timer::cpu_timer t;
+    MLDB::Timer t;
 
     size_t nf = group_features.size();
 
@@ -386,7 +386,7 @@ fixup_grouping_features(const std::vector<Feature> & group_features,
         offset[f] += last[f] + 1.0;
     }
 
-    //cerr << "fixup_grouping_features: " << t.elapsed().wall << "s" << endl;
+    //cerr << "fixup_grouping_features: " << t.elapsed_wall() << "s" << endl;
 }
 
 void Training_Data::
@@ -396,11 +396,11 @@ preindex(const Feature & label, const std::vector<Feature> & features)
     if (index_)
         throw Exception("preindex: already has index");
 
-    //boost::timer::cpu_timer timer;
+    //MLDB::Timer timer;
     index_.reset(new Dataset_Index());
     index_->init(*this, label, features);
     dirty_ = false;
-    //cerr << "preindex(): " << timer.elapsed().wall << "s for "
+    //cerr << "preindex(): " << timer.elapsed_wall() << "s for "
     //     << example_count() << " examples" << endl;
 }
 
@@ -563,11 +563,11 @@ const Dataset_Index & Training_Data::generate_index() const
     std::unique_lock<std::mutex> guard(index_lock);
     if (!dirty_ && index_) return *index_;
 
-    //boost::timer::cpu_timer timer;
+    //MLDB::Timer timer;
     index_.reset(new Dataset_Index());
     index_->init(*this);
     dirty_ = false;
-    //cerr << "generate_index(): " << timer.elapsed().wall << "s for "
+    //cerr << "generate_index(): " << timer.elapsed_wall() << "s for "
     //     << example_count() << " examples" << endl;
     return *index_;
 }
@@ -590,5 +590,5 @@ row_comment(size_t row) const
                     + " doesn't support row comments");
 }
 
-} // namespace ML
+} // namespace MLDB
 

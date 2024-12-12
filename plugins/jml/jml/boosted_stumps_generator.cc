@@ -10,7 +10,6 @@
 
 #include "boosted_stumps_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer/timer.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/arch/simd_vector.h"
@@ -21,13 +20,13 @@
 #include "binary_symmetric.h"
 #include "mldb/arch/tick_counter.h"
 #include "mldb/utils/smart_ptr_utils.h"
-#include <boost/scoped_ptr.hpp>
 #include "stump_predict.h"
+#include "mldb/arch/timers.h"
 
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 uint64_t bin_sym_ticks = 0, weak_learner_ticks = 0, update_ticks = 0;
@@ -159,7 +158,7 @@ generate_stumps(Thread_Context & context,
 
     vector<Feature> features = features_;
 
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
@@ -212,13 +211,13 @@ generate_stumps(Thread_Context & context,
     //cerr << "trace = " << trace << endl;
     stumps.output = output_function;
 
-    boost::multi_array<float, 2> training_output
-        (boost::extents[training_set.example_count()][nl]);
+    MLDB::Matrix<float, 2> training_output
+        (training_set.example_count(), nl);
 
-    boost::multi_array<float, 2> validation_output
-        (boost::extents[validation_set.example_count()][nl]);
+    MLDB::Matrix<float, 2> validation_output
+        (validation_set.example_count(), nl);
     
-    boost::multi_array<float, 2> weights
+    MLDB::Matrix<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
     
     if (verbosity == 1 || verbosity == 2) {
@@ -263,7 +262,7 @@ generate_stumps(Thread_Context & context,
 
     for (unsigned i = 0;  i < max_iter;  ++i) {
 
-        //vector<ML::Feature> features;
+        //vector<MLDB::Feature> features;
 
         if (!fair) {
 
@@ -350,7 +349,7 @@ generate_stumps(Thread_Context & context,
     }
     
     if (profile)
-        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
+        cerr << "training time: " << timer.elapsed_wall() << "s" << endl;
     
     if (verbosity > 0) {
         cerr << format("best was %6.2f%% on iteration %d", best_acc * 100.0,
@@ -365,25 +364,25 @@ std::shared_ptr<Classifier_Impl>
 Boosted_Stumps_Generator::
 generate_and_update(Thread_Context & context,
                     const Training_Data & training_set,
-                    boost::multi_array<float, 2> & weights,
+                    MLDB::Matrix<float, 2> & weights,
                     const std::vector<Feature> & features_) const
 {
     const Feature_Space & fs = *training_set.feature_space();
 
     vector<Feature> features = features_;
 
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     unsigned nl = training_set.label_count(predicted);
 
     float best_acc = 0.0;
     int best_iter = 0;
 
-    boost::multi_array<float, 2> training_output
-        (boost::extents[training_set.example_count()][nl]);
+    MLDB::Matrix<float, 2> training_output
+        (training_set.example_count(), nl);
 
-    if (weights.shape()[0] != training_set.example_count()
-        || weights.shape()[1] != nl)
+    if (weights.dim(0) != training_set.example_count()
+        || weights.dim(1) != nl)
         throw Exception("Boosting_Generator::generate_and_update(): "
                         "weights have the wrong shape");
 
@@ -462,7 +461,7 @@ generate_and_update(Thread_Context & context,
     }
     
     if (profile)
-        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
+        cerr << "training time: " << timer.elapsed_wall() << "s" << endl;
     
     std::shared_ptr<Boosted_Stumps>
         result(new Boosted_Stumps(stumps));
@@ -474,7 +473,7 @@ std::vector<Stump>
 Boosted_Stumps_Generator::
 train_iteration_fair(Thread_Context & context,
                      const Training_Data & data,
-                     boost::multi_array<float, 2> & weights,
+                     MLDB::Matrix<float, 2> & weights,
                      std::vector<Feature> & features,
                      Boosted_Stumps & result,
                      vector<Optimization_Info> & opt_infos) const
@@ -528,7 +527,7 @@ Stump
 Boosted_Stumps_Generator::
 train_iteration(Thread_Context & context,
                 const Training_Data & data,
-                boost::multi_array<float, 2> & weights, vector<Feature> & features,
+                MLDB::Matrix<float, 2> & weights, vector<Feature> & features,
                 Boosted_Stumps & result,
                 Optimization_Info & opt_info) const
 {
@@ -550,7 +549,7 @@ train_iteration(Thread_Context & context,
     /* Update the d distribution. */
     double total = 0.0;
 
-    size_t nl = weights.shape()[1];
+    size_t nl = weights.dim(1);
 
     if (cost_function == CF_EXPONENTIAL) {
         typedef Boosting_Loss Loss;
@@ -617,10 +616,10 @@ Stump
 Boosted_Stumps_Generator::
 train_iteration(Thread_Context & context,
                 const Training_Data & data,
-                boost::multi_array<float, 2> & weights,
+                MLDB::Matrix<float, 2> & weights,
                 vector<Feature> & features,
                 Boosted_Stumps & result,
-                boost::multi_array<float, 2> & output,
+                MLDB::Matrix<float, 2> & output,
                 const distribution<float> & ex_weights,
                 double & training_accuracy,
                 Optimization_Info & opt_info) const
@@ -652,7 +651,7 @@ train_iteration(Thread_Context & context,
     double correct = 0.0;
 
     size_t nx = data.example_count();
-    if (nx != output.shape()[0])
+    if (nx != output.dim(0))
         throw Exception("update_scores: example counts don't match");
 
     typedef Normal_Updater<Boosting_Predict> Output_Updater;
@@ -743,7 +742,7 @@ update_accuracy(Thread_Context & context,
                 const Optimization_Info & opt_info,
                 const Training_Data & data,
                 const vector<Feature> & features,
-                boost::multi_array<float, 2> & output,
+                MLDB::Matrix<float, 2> & output,
                 const distribution<float> & ex_weights) const
 {
     size_t ticks_before = ticks();
@@ -792,4 +791,4 @@ Register_Factory<Classifier_Generator, Boosted_Stumps_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* NULL_CLASSIFIER_GENERATOR                                                 */
@@ -87,4 +87,4 @@ Register_Factory<Classifier_Generator, Null_Classifier_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

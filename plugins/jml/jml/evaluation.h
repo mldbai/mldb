@@ -11,10 +11,10 @@
 #include "mldb/utils/distribution.h"
 #include "feature_set.h"
 #include <algorithm>
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 
 
-namespace ML {
+namespace MLDB {
 
 using MLDB::distribution;
     
@@ -145,16 +145,16 @@ float accuracy(const std::vector<distribution<float> > & output,
     \returns                  a number between 0 and 1, giving the
                               proportion of the examples in data that were
                               correct.
-    \pre                      data.size() == output.shape()[0]
-    \pre                      label_count() == output.shape()[1]
+    \pre                      data.size() == output.dim(0)
+    \pre                      label_count() == output.dim(1)
 
     Note that this method cannot be overridden, as it is a static
     method.  Again, it is provided for the boosting algorithm.
 */
-float accuracy(const boost::multi_array<float, 2> & output,
+float accuracy(const MLDB::MatrixRef<float, 2> & output,
                const Training_Data & data,
                const Feature & label,
                const distribution<float> & example_weights
                    = UNIFORM_WEIGHTS);
 
-} // namespace ML
+} // namespace MLDB

@@ -30,7 +30,6 @@
 #include "mldb/core/bucket.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 #include "mldb/engine/dataset_utils.h"
-#include <boost/algorithm/clamp.hpp>
 #include "mldb/utils/log.h"
 
 using namespace std;
@@ -53,6 +52,17 @@ operator << (MLDB::DB::Store_Writer & store, const Path & coords);
 MLDB::DB::Store_Reader &
 operator >> (MLDB::DB::Store_Reader & store, Path & coords);
 
+namespace {
+
+template<typename T, typename T2, typename T3>
+T clamp(T val, T2 min, T3 max)
+{
+    if (val < min) return min;
+    if (val > max) return max;
+    return val;
+}
+
+} // file scope
 
 /*****************************************************************************/
 /* EMBEDDING DATASET CONFIG                                                  */
@@ -1490,8 +1500,8 @@ applyT(const ApplierT & applier_, ReadPixelsInput input) const
     //We clamp, we do not currently provide interpolation
     int x = input.x.coerceToInteger().toInt();
     int y = input.y.coerceToInteger().toInt();
-    x = boost::algorithm::clamp(x, 0, shape[0]-1);
-    y = boost::algorithm::clamp(y, 0, shape[1]-1);
+    x = clamp(x, 0, shape[0]-1);
+    y = clamp(y, 0, shape[1]-1);
 
     ColumnPath columnPath;
     columnPath = columnPath + PathElement(y);

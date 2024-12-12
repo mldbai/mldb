@@ -22,7 +22,7 @@
 
 using namespace std;
 using namespace MLDB;
-using namespace ML;
+using namespace MLDB;
 
 namespace {
 

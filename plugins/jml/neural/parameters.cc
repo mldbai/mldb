@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -402,7 +402,7 @@ Parameters &
 Parameters::
 add(int index,
     const std::string & name,
-    boost::multi_array<float, 2> & values)
+    MLDB::MatrixRef<float, 2> & values)
 {
     return add<float>(index, name, values);
 }
@@ -411,7 +411,7 @@ Parameters &
 Parameters::
 add(int index,
     const std::string & name,
-    boost::multi_array<double, 2> & values)
+    MLDB::MatrixRef<double, 2> & values)
 {
     return add<double>(index, name, values);
 }
@@ -754,5 +754,5 @@ template class Parameters_Copy<float>;
 template class Parameters_Copy<double>;
 
 
-} // namespace ML
+} // namespace MLDB
 

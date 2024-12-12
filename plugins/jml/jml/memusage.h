@@ -17,7 +17,7 @@
 #include "types/pair_fwd.h"
 
 
-namespace ML {
+namespace MLDB {
 
 template<class X>
 size_t memusage(const X &)
@@ -119,4 +119,4 @@ size_t memusage(const std::basic_string<Char, Traits, Alloc> & str)
     return str.capacity() * sizeof(Char) + sizeof(str);
 }
 
-} // namespace ML
+} // namespace MLDB

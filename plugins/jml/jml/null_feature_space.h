@@ -17,7 +17,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -73,7 +73,7 @@ public:
     virtual std::string print() const;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__null_feature_space_h__ */

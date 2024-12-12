@@ -14,7 +14,7 @@
 #include <atomic>
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 
 namespace MLDB {
@@ -43,17 +43,17 @@ init(const DenseClassifier & classifier,
 void
 DenseClassifierScorer::
 train(const DataPartition & partition,
-      std::shared_ptr<ML::Classifier_Generator> trainer,
+      std::shared_ptr<MLDB::Classifier_Generator> trainer,
       std::shared_ptr<DenseFeatureGenerator> featureGenerator,
       int randomSeed,
       float equalizationFactor,
       const std::regex & excludeFeatures)
 {
-    std::shared_ptr<ML::Dense_Feature_Space>
-        training_fs(new ML::Dense_Feature_Space());
-    training_fs->add_feature("LABEL", ML::Feature_Info(BOOLEAN, false /* opt */,
+    std::shared_ptr<MLDB::Dense_Feature_Space>
+        training_fs(new MLDB::Dense_Feature_Space());
+    training_fs->add_feature("LABEL", MLDB::Feature_Info(BOOLEAN, false /* opt */,
                                                        true /* biased */));
-    std::shared_ptr<ML::Dense_Feature_Space> runtime_fs
+    std::shared_ptr<MLDB::Dense_Feature_Space> runtime_fs
         = featureGenerator->featureSpace();
     training_fs->add(*runtime_fs);
 
@@ -64,9 +64,9 @@ train(const DataPartition & partition,
     labelWeights[0].resize(nx);
     labelWeights[1].resize(nx);
 
-    std::vector<ML::Feature> allFeatures = training_fs->dense_features();
+    std::vector<MLDB::Feature> allFeatures = training_fs->dense_features();
 
-    std::vector<ML::Feature> trainingFeatures;
+    std::vector<MLDB::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
         string featureName = training_fs->print(allFeatures[i]);
@@ -165,8 +165,8 @@ dumpFeatureVectorHeader(std::ostream & stream,
     cerr << "featureGenerator->featureSpace() = "
          << featureGenerator->featureSpace() << endl;
     
-    stream << "LABEL:" << ML::Feature_Info(BOOLEAN, false, true)
-           << " WEIGHT:" << ML::Feature_Info(REAL, false, true)
+    stream << "LABEL:" << MLDB::Feature_Info(BOOLEAN, false, true)
+           << " WEIGHT:" << MLDB::Feature_Info(REAL, false, true)
            << " " << extraFeatures
            << featureGenerator->featureSpace()->print()
            << endl;
@@ -179,7 +179,7 @@ dumpFeatureVectors(std::ostream & stream,
                    GetFeaturesAndComment gfac,
                    bool multiThread)
 {
-    std::shared_ptr<ML::Dense_Feature_Space> runtime_fs
+    std::shared_ptr<MLDB::Dense_Feature_Space> runtime_fs
         = featureGenerator->featureSpace();
 
     auto getFeatures = [&] (int exampleNum)
@@ -233,18 +233,18 @@ dumpFeatureVectors(std::ostream & stream,
     }
 }
 
-ML::Training_Data
+MLDB::Training_Data
 DenseClassifierScorer::
 generateFeatures(const DataPartition & partition,
                  std::shared_ptr<DenseFeatureGenerator> featureGenerator) const
 {
-    std::shared_ptr<ML::Dense_Feature_Space>
-        training_fs(new ML::Dense_Feature_Space());
-    training_fs->add_feature("LABEL", ML::Feature_Info(BOOLEAN, false /* opt */,
+    std::shared_ptr<MLDB::Dense_Feature_Space>
+        training_fs(new MLDB::Dense_Feature_Space());
+    training_fs->add_feature("LABEL", MLDB::Feature_Info(BOOLEAN, false /* opt */,
                                                        true /* biased */));
-    training_fs->add_feature("WEIGHT", ML::Feature_Info(REAL, false /* opt */,
+    training_fs->add_feature("WEIGHT", MLDB::Feature_Info(REAL, false /* opt */,
                                                        true /* biased */));
-    std::shared_ptr<ML::Dense_Feature_Space> runtime_fs
+    std::shared_ptr<MLDB::Dense_Feature_Space> runtime_fs
         = featureGenerator->featureSpace();
     training_fs->add(*runtime_fs);
 
@@ -292,7 +292,7 @@ trainProbabilizer(const DataPartition & partition,
     
     /* Convert to the correct data structures. */
 
-    boost::multi_array<double, 2> outputs(boost::extents[2][nd]);  // value, bias
+    MLDB::Matrix<double, 2> outputs(2, nd);  // value, bias
     distribution<double> correct(nd);
 
     Date before = Date::now();
@@ -379,7 +379,7 @@ trainProbabilizer(const DataPartition & partition,
 
     Ridge_Regressor regressor;
     distribution<double> probParams
-        = ML::run_irls(correct, outputs, weights, LOGIT, regressor);
+        = MLDB::run_irls(correct, outputs, weights, LOGIT, regressor);
     
     cerr << "probParams = " << probParams << endl;
 
@@ -405,7 +405,7 @@ trainProbabilizer(const DataPartition & partition,
     probabilizer.params[0] = probParams;
 }
 
-ML::Explanation
+MLDB::Explanation
 DenseClassifierScorer::
 explain(const DataPartition & partition) const
 {
@@ -454,17 +454,17 @@ float
 DenseClassifierScorer::
 probabilityGeneric(const std::any & args) const
 {
-    return probabilizer.apply(ML::Label_Dist(1, scoreGeneric(args)))[0];
+    return probabilizer.apply(MLDB::Label_Dist(1, scoreGeneric(args)))[0];
 }
 
-ML::Label_Dist
+MLDB::Label_Dist
 DenseClassifierScorer::
 labelScoresGeneric(const std::any & args) const
 {
     return classifier.labelScores(featureGenerator->featuresGeneric(args));
 }
 
-std::pair<ML::Explanation, std::shared_ptr<ML::Feature_Set> >
+std::pair<MLDB::Explanation, std::shared_ptr<MLDB::Feature_Set> >
 DenseClassifierScorer::
 explainGeneric(const std::any & args, int label) const
 {
@@ -476,13 +476,13 @@ explainGeneric(const std::any & args, int label) const
 
 FeatureExplanation
 DenseClassifierScorer::
-explainFeaturesGeneric(const ML::Explanation & explanation,
+explainFeaturesGeneric(const MLDB::Explanation & explanation,
                        const std::any & args) const
 {
     int arity = featureGenerator->featureSpace()->variable_count();
 
     // Map back onto the feature space for the feature generator
-    const ML::Dense_Feature_Space::Mapping & mapping
+    const MLDB::Dense_Feature_Space::Mapping & mapping
         = classifier.mapping();
 
     // Get the feature weights
@@ -557,7 +557,7 @@ reconstitute(MLDB::DB::Store_Reader & store)
     else
         truePositiveRate = -1.;
     featureGenerator = DenseFeatureGenerator::polyReconstitute(store);
-    std::shared_ptr<ML::Dense_Feature_Space> fs
+    std::shared_ptr<MLDB::Dense_Feature_Space> fs
         = featureGenerator->featureSpace();
     classifier.reconstitute(store, fs);
 

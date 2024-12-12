@@ -17,7 +17,7 @@
 #include <iostream>
 #include <stdint.h>
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -225,4 +225,4 @@ std::string print(Split::Op op);
 std::ostream & operator << (std::ostream & stream, Split::Op op);
 
 
-} // namespace ML
+} // namespace MLDB

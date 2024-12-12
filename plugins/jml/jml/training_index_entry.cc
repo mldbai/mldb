@@ -19,7 +19,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -806,4 +806,4 @@ if (bucket_splits[bucket] != value) {
 #endif // potential bug
 
 
-} // namespace ML
+} // namespace MLDB

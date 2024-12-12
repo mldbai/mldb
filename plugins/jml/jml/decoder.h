@@ -17,7 +17,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 
 
-namespace ML {
+namespace MLDB {
 
 class Classifier;
 class Classifier_Impl;
@@ -121,4 +121,4 @@ DB::Store_Reader &
 operator >> (DB::Store_Reader & store, Decoder & decoder);
 
 
-} // namespace ML
+} // namespace MLDB

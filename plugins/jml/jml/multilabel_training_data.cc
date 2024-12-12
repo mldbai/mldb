@@ -9,7 +9,7 @@
 #include "multilabel_training_data.h"
 #include "training_index.h"
 
-namespace ML {
+namespace MLDB {
 
 void
 Multilabel_Training_Data::Multilabel_Feature_Set::
@@ -48,7 +48,7 @@ make_copy() const
 
 Multilabel_Training_Data::
 Multilabel_Training_Data(const Training_Data & training_data, 
-                             ML::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs) :
+                             MLDB::Feature overrideFeature, std::shared_ptr<const Feature_Space> fs) :
     Training_Data(fs),
     overrideFeature(overrideFeature), inner(training_data)  
 {

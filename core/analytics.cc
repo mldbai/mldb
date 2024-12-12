@@ -15,7 +15,7 @@
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/core/dataset_scope.h"
 #include "mldb/sql/execution_pipeline.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/core/bound_queries.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/distribution.h"

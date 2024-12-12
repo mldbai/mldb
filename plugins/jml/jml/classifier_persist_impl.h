@@ -17,7 +17,7 @@
 #include "mldb/plugins/jml/jml/registry.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -63,7 +63,7 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 

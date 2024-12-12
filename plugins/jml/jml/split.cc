@@ -16,7 +16,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -85,7 +85,7 @@ print(const Feature_Space & fs, int branch) const
         if (op_ != LESS || split_val_ != 0.5)
             throw Exception("unknown boolean branch: op %s, split_val %f, "
                             "branch %d",
-                            ML::print((Op)op_).c_str(), split_val_, branch);
+                            MLDB::print((Op)op_).c_str(), split_val_, branch);
         switch (branch) {
         case true: return "!" + feat_name;
         case false: return " " + feat_name;
@@ -204,7 +204,7 @@ void
 Split::
 throw_invalid_op_exception(Op op)
 {
-    throw Exception("invalid split op: " + ML::print(op));
+    throw Exception("invalid split op: " + MLDB::print(op));
 }
 
 std::string print(Split::Op op)
@@ -223,4 +223,4 @@ std::ostream & operator << (std::ostream & stream, Split::Op op)
 }
  
 
-} // namespace ML
+} // namespace MLDB

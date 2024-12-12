@@ -21,7 +21,7 @@
 #include "mldb_js.h"
 #include "libplatform/libplatform.h"
 #include "mldb/base/thread_pool.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <regex>
 #include "mldb/compiler/filesystem.h"
 #include "mldb/arch/wait_on_address.h"
@@ -388,8 +388,7 @@ ScriptException convertException(const v8::TryCatch & trycatch,
                 string traceMessage = JS::cstr(stack2);
 
                 vector<string> traceLines;
-                boost::split(traceLines, traceMessage,
-                             boost::is_any_of("\n"));
+                MLDB::split(traceLines, traceMessage, '\n');
 
                 for (unsigned i = 1;  i < traceLines.size();  ++i) {
                     ScriptStackFrame frame = parseV8StackFrame(traceLines[i]);

@@ -15,7 +15,7 @@
 #include <functional>
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 namespace MLDB {
 

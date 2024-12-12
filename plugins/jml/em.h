@@ -7,22 +7,20 @@
 #pragma once
 
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/string.h"
 
-namespace ML {
-
-using MLDB::distribution;
+namespace MLDB {
 
 struct EstimationMaximisation
 {
     struct Cluster {
         double totalWeight;
         distribution<double> centroid;
-        boost::multi_array<double, 2> covarianceMatrix;
-        boost::multi_array<double, 2> invertCovarianceMatrix;
+        MLDB::Matrix<double, 2> covarianceMatrix;
+        MLDB::Matrix<double, 2> invertCovarianceMatrix;
         double pseudoDeterminant;
     };
 
@@ -38,7 +36,7 @@ struct EstimationMaximisation
 
     int
     assign(const distribution<double> & point,
-           boost::multi_array<double, 2>& distanceMatrix,
+           MLDB::MatrixRef<double, 2>& distanceMatrix,
            int pIndex) const;
     int
     assign(const distribution<double> & point) const;
@@ -50,4 +48,4 @@ struct EstimationMaximisation
 
 };
 
-} // namespace ML
+} // namespace MLDB

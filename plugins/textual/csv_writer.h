@@ -11,7 +11,6 @@
 #include <iostream>
 #include <string>
 #include <ostream>
-#include <boost/algorithm/string/replace.hpp>
 
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/string.h"

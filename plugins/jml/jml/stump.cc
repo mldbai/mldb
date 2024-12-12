@@ -11,7 +11,6 @@
 #include "classifier_persist_impl.h"
 #include "training_data.h"
 #include <algorithm>
-#include <boost/timer/timer.hpp>
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/utils/vector_utils.h"
@@ -26,7 +25,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 size_t num_bucketed = 0, num_non_bucketed = 0;
 size_t num_real_early = 0, num_real_not_early = 0;
@@ -284,9 +283,9 @@ std::string Stump::summary() const
 #endif
 }
 
-std::vector<ML::Feature> Stump::all_features() const
+std::vector<MLDB::Feature> Stump::all_features() const
 {
-    std::vector<ML::Feature> result;
+    std::vector<MLDB::Feature> result;
     result.push_back(split.feature());
     return result;
 }
@@ -429,14 +428,14 @@ Register_Factory<Classifier_Impl, Stump> STUMP_REGISTER("STUMP");
 } // file scope
 
 
-const Enum_Opt<ML::Stump::Update>
-Enum_Info<ML::Stump::Update>::OPT[3] = {
-    { "normal",      ML::Stump::NORMAL   },
-    { "gentle",      ML::Stump::GENTLE   },
-    { "prob",        ML::Stump::PROB     } };
+const Enum_Opt<MLDB::Stump::Update>
+Enum_Info<MLDB::Stump::Update>::OPT[3] = {
+    { "normal",      MLDB::Stump::NORMAL   },
+    { "gentle",      MLDB::Stump::GENTLE   },
+    { "prob",        MLDB::Stump::PROB     } };
 
-const char * Enum_Info<ML::Stump::Update>::NAME
+const char * Enum_Info<MLDB::Stump::Update>::NAME
    = "Stump::Update";
 
-} // namespace ML
+} // namespace MLDB
 

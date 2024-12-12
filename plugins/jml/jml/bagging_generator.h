@@ -13,7 +13,7 @@
 #include "mldb/plugins/jml/jml/early_stopping_generator.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -63,4 +63,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

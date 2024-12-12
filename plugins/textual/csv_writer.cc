@@ -8,6 +8,7 @@
 
 #include "csv_writer.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/utils/replace_all.h"
 
 namespace MLDB {
 
@@ -59,8 +60,8 @@ operator<< (const std::string & val)
 
     {
         // escaping
-        auto newVal = boost::replace_all_copy(val, quoteChar,
-                                                quoteChar + quoteChar);
+        // TODO: use std::quoted when we switch to C++20
+        auto newVal = MLDB::replace_all_copy(val, quoteChar, quoteChar + quoteChar);
         if (val.find(delimiterChar) != std::string::npos
             || newVal.size() != val.size())
         {

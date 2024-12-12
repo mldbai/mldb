@@ -14,7 +14,7 @@
 #include "mldb/plugins/jml/jml/feature_info.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 enum Feature_Space_Type {
@@ -491,4 +491,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

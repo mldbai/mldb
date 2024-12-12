@@ -16,7 +16,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -62,7 +62,7 @@ public:
     virtual Null_Classifier * make_copy() const;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 
 

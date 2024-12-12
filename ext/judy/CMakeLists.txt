@@ -27,13 +27,5 @@ set(LIBJUDY_SOURCES
     j__udyLGet.cc
 )
 
-# Compilation options for GCC 4.9
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 4.9)
-    target_compile_options(judy PRIVATE -fno-strict-aliasing -Wno-array-bounds)
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 5)
-        target_compile_options(judy PRIVATE -Wno-stringop-overflow)
-    endif()
-endif()
-
 # Create the Judy library
 add_library(judy ${LIBJUDY_SOURCES})

@@ -13,7 +13,7 @@
 #include <iostream>
 #include <cmath>
 
-namespace ML {
+namespace MLDB {
 
 
 namespace {
@@ -593,12 +593,12 @@ Parameters &
 Parameters::
 add(int index,
     const std::string & name,
-    boost::multi_array<Float, 2> & values)
+    MLDB::MatrixRef<Float, 2> & values)
 {
     return add(index,
                new Matrix_RefT<Float>(name, values.data(),
-                                      values.shape()[0],
-                                      values.shape()[1]));
+                                      values.dim(0),
+                                      values.dim(1)));
 }
 
 
@@ -942,4 +942,4 @@ make_copy() const
     return new Parameters_Copy(*this);
 }
 
-} // namespace ML
+} // namespace MLDB

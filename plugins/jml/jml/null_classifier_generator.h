@@ -16,7 +16,7 @@
 #include "null_classifier.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -67,7 +67,7 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__null_classifier_generator_h__ */

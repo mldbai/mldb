@@ -11,12 +11,13 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/builtin/plugin_resource.h"
 #include "mldb/types/value_description.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
+#include "mldb/utils/starts_with.h"
 #include <boost/test/unit_test.hpp>
 
 
@@ -58,7 +59,7 @@ BOOST_AUTO_TEST_CASE( test_plugin_loading )
 
         // can we fetch the static content?
         auto getResult = proxy.get("/v1/plugins/myplugin/routes/"+path);
-        BOOST_CHECK(boost::starts_with(getResult.body(), "a"));
+        BOOST_CHECK(MLDB::starts_with(getResult.body(), "a"));
 
         auto delResult = proxy.perform("DELETE", "/v1/plugins/myplugin");
         BOOST_CHECK_EQUAL(delResult.code(), 204);

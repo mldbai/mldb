@@ -292,7 +292,7 @@ struct PartitionData {
         typedef Float FloatType;
     };
 
-    typedef WT<ML::FixedPointAccum64> W;
+    typedef WT<MLDB::FixedPointAccum64> W;
 
     /** Split the partition here. */
     std::pair<PartitionData, PartitionData>
@@ -603,7 +603,7 @@ struct PartitionData {
         return std::make_tuple(bestScore, bestFeature, bestSplit, bestLeft, bestRight, wAll);
     }
 
-    static void fillinBase(ML::Tree::Base * node, const W & wAll)
+    static void fillinBase(MLDB::Tree::Base * node, const W & wAll)
     {
 
         float total = float(wAll[0]) + float(wAll[1]);
@@ -613,14 +613,14 @@ struct PartitionData {
              float(wAll[1]) / total };
     }
 
-    ML::Tree::Ptr getLeaf(ML::Tree & tree, const W& w)
+    MLDB::Tree::Ptr getLeaf(MLDB::Tree & tree, const W& w)
     {     
-        ML::Tree::Leaf * node = tree.new_leaf();
+        MLDB::Tree::Leaf * node = tree.new_leaf();
         fillinBase(node, w);
         return node;
     }
 
-    ML::Tree::Ptr getLeaf(ML::Tree & tree)
+    MLDB::Tree::Ptr getLeaf(MLDB::Tree & tree)
     {
         W wAll;
         for (auto & r: rows) {
@@ -636,15 +636,15 @@ struct PartitionData {
     /** Trains the tree.  Note that this is destructive; it can only be called once as it
      *  frees its internal memory as it's going to ensure that memory usage is reasonable.
      */
-    ML::Tree::Ptr train(int depth, int maxDepth,
-                        ML::Tree & tree,
+    MLDB::Tree::Ptr train(int depth, int maxDepth,
+                        MLDB::Tree & tree,
                         MappedSerializer & serializer)
     {
         //std::cerr << format("depth=%d maxDepth=%d this=%p features.size()=%zd\n",
         //                    depth, maxDepth, this, features.size());
 
         if (rows.empty())
-            return ML::Tree::Ptr();
+            return MLDB::Tree::Ptr();
         if (rows.size() < 2)
             return getLeaf(tree);
 
@@ -662,7 +662,7 @@ struct PartitionData {
             = testAll(depth);
 
         if (bestFeature == -1) {
-            ML::Tree::Leaf * leaf = tree.new_leaf();
+            MLDB::Tree::Leaf * leaf = tree.new_leaf();
             fillinBase(leaf, /*wLeft + wRight*/ wAll);
             
             return leaf;
@@ -678,12 +678,12 @@ struct PartitionData {
         ExcAssertGreaterEqual(bestFeature, 0);
         ExcAssertLessEqual(bestFeature, features.size());
 
-        //cerr << "done split in " << timer.elapsed().wall << endl;
+        //cerr << "done split in " << timer.elapsed_wall() << endl;
 
         //cerr << "left had " << splits.first.rows.size() << " rows" << endl;
         //cerr << "right had " << splits.second.rows.size() << " rows" << endl;
 
-        ML::Tree::Ptr left, right;
+        MLDB::Tree::Ptr left, right;
         auto runLeft = [&] () { left = splits.first.train(depth + 1, maxDepth, tree, serializer); };
         auto runRight = [&] () { right = splits.second.train(depth + 1, maxDepth, tree, serializer); };
 
@@ -716,8 +716,8 @@ struct PartitionData {
         ExcAssertLessEqual(bestFeature, features.size());
 
         if (left && right) {
-            ML::Tree::Node * node = tree.new_node();
-            ML::Feature feature = fs->getFeature(features.at(bestFeature).info->columnName);
+            MLDB::Tree::Node * node = tree.new_node();
+            MLDB::Feature feature = fs->getFeature(features.at(bestFeature).info->columnName);
             float splitVal = 0;
             if (features[bestFeature].ordinal) {
                 auto splitCell = features[bestFeature].info->bucketDescriptions
@@ -730,9 +730,9 @@ struct PartitionData {
                 splitVal = bestSplit;
             }
 
-            ML::Split split(feature, splitVal,
+            MLDB::Split split(feature, splitVal,
                             features.at(bestFeature).ordinal
-                            ? ML::Split::LESS : ML::Split::EQUAL);
+                            ? MLDB::Split::LESS : MLDB::Split::EQUAL);
             
             node->split = split;
             node->child_true = left;
@@ -747,7 +747,7 @@ struct PartitionData {
             return node;
         }
         else {
-            ML::Tree::Leaf * leaf = tree.new_leaf();
+            MLDB::Tree::Leaf * leaf = tree.new_leaf();
             fillinBase(leaf, wLeft + wRight);
 
             return leaf;

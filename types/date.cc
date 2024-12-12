@@ -22,6 +22,20 @@
 #include <errno.h>
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
+extern "C" {
+
+char *
+soa_dtoa(double dd, int mode, int ndigits,
+          int *decpt, int *sign, char **rve);
+
+void
+soa_freedtoa(char *s);
+
+double
+soa_strtod(const char *s00, char **se);
+
+} // extern "C"
+
 
 
 using namespace std;
@@ -144,8 +158,10 @@ fromIso8601Week(int year, int week, int day)
 
 Date
 Date::
-parseSecondsSinceEpoch(const std::string & date)
+parseSecondsSinceEpoch(std::string_view date_)
 {
+    // TODO: don't copy the string
+    std::string date(date_);
     errno = 0;
     char * end = 0;
     double seconds = strtod(date.c_str(), &end);
@@ -187,13 +203,18 @@ parseIso8601(const std::string & date)
 
 Date
 Date::
-parseIso8601DateTime(const std::string & dateTimeStr)
+parseIso8601DateTime(std::string_view dateTimeStr)
 {
-    if (dateTimeStr == "NaD" || dateTimeStr == "NaN")
+    constexpr std::string_view NaD_pattern_1 = "NaD";
+    constexpr std::string_view NaD_pattern_2 = "NaN";
+    constexpr std::string_view Inf_pattern = "Inf";
+    constexpr std::string_view NegInf_pattern = "-Inf";
+
+    if (dateTimeStr == NaD_pattern_1 || dateTimeStr == NaD_pattern_2)
         return notADate();
-    else if (dateTimeStr == "Inf")
+    else if (dateTimeStr == Inf_pattern)
         return positiveInfinity();
-    else if (dateTimeStr == "-Inf")
+    else if (dateTimeStr == NegInf_pattern)
         return negativeInfinity();
     else {
         Date date;
@@ -1502,7 +1523,8 @@ fromTm(const tm & t)
 }
 
 
-void Date::addFromString(string str){
+void Date::addFromString(string str)
+{
     {
         using namespace boost;
         string format = "^[1-9][0-9]*[SMHd]$";
@@ -1538,15 +1560,24 @@ void Date::addFromString(string str){
     }
 }
 
+std::string lexical_cast_to_string(const Date & date, Date *)
+{
+    return date.printIso8601();
+}
+
+Date lexical_cast_from_string(std::string_view str, Date *)
+{
+    return Date::parseIso8601DateTime(str);
+}
+
 
 /*****************************************************************************/
 /* ISO8601PARSER                                                             */
 /*****************************************************************************/
 
 Iso8601Parser::
-Iso8601Parser(const std::string & dateStr)
-    : parser(new ParseContext(dateStr, dateStr.c_str(),
-                               dateStr.c_str() + dateStr.size()))
+Iso8601Parser(std::string_view dateStr)
+    : parser(new ParseContext(string(), dateStr.begin(), dateStr.end()))
 {
 }
 

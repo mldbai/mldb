@@ -47,7 +47,7 @@
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 
 namespace MLDB {
@@ -214,53 +214,53 @@ run(const ProcedureRunConfig & run,
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
-    std::shared_ptr<ML::Mutable_Categorical_Info> categorical;
+    std::shared_ptr<MLDB::Mutable_Categorical_Info> categorical;
 
-    ML::Mutable_Feature_Info labelInfo;
+    MLDB::Mutable_Feature_Info labelInfo;
 
     switch (runProcConf.mode) {
     case CM_REGRESSION:
-        labelInfo = ML::Mutable_Feature_Info(ML::REAL);
+        labelInfo = MLDB::Mutable_Feature_Info(MLDB::REAL);
         break;
     case CM_BOOLEAN:
-        labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
+        labelInfo = MLDB::Mutable_Feature_Info(MLDB::BOOLEAN);
         break;
     case CM_CATEGORICAL:
-        categorical = std::make_shared<ML::Mutable_Categorical_Info>();
-        labelInfo = ML::Feature_Info(categorical);
+        categorical = std::make_shared<MLDB::Mutable_Categorical_Info>();
+        labelInfo = MLDB::Feature_Info(categorical);
         break;
     case CM_MULTILABEL:
-        categorical = std::make_shared<ML::Mutable_Categorical_Info>();
-        labelInfo = ML::Feature_Info(categorical);
+        categorical = std::make_shared<MLDB::Mutable_Categorical_Info>();
+        labelInfo = MLDB::Feature_Info(categorical);
         break;
     default:
         throw AnnotatedException(400, "Unknown classifier mode");
     }
 
-    ML::Configuration classifierConfig;
+    MLDB::Configuration classifierConfig;
 
     if (!runProcConf.configuration.isNull()) {
         classifierConfig =
-            jsonDecode<ML::Configuration>(runProcConf.configuration);
+            jsonDecode<MLDB::Configuration>(runProcConf.configuration);
     }
     else {
         filter_istream stream(runProcConf.configurationFile.size() > 0 ?
                                   runProcConf.configurationFile :
                                   "/opt/bin/classifiers.json");
-        classifierConfig = jsonDecodeStream<ML::Configuration>(stream);
+        classifierConfig = jsonDecodeStream<MLDB::Configuration>(stream);
     }
 
     auto algorithm = runProcConf.algorithm;
 
-    std::shared_ptr<ML::Classifier_Generator> trainer
-        = ML::get_trainer(runProcConf.algorithm,
+    std::shared_ptr<MLDB::Classifier_Generator> trainer
+        = MLDB::get_trainer(runProcConf.algorithm,
                           classifierConfig);
 
-    std::shared_ptr<ML::OneVsAll_Classifier_Generator> multilabelGenerator;
+    std::shared_ptr<MLDB::OneVsAll_Classifier_Generator> multilabelGenerator;
     if (runProcConf.mode == CM_MULTILABEL
         && runProcConf.multilabelStrategy == MULTILABEL_ONEVSALL) {
         multilabelGenerator
-            = make_shared<ML::OneVsAll_Classifier_Generator>(trainer);
+            = make_shared<MLDB::OneVsAll_Classifier_Generator>(trainer);
         trainer = multilabelGenerator;
     }
 
@@ -361,14 +361,14 @@ run(const ProcedureRunConfig & run,
         }
 
         Fv(RowPath rowName,
-           ML::Mutable_Feature_Set featureSet)
+           MLDB::Mutable_Feature_Set featureSet)
             : rowName(std::move(rowName)),
               featureSet(std::move(featureSet))
         {
         }
 
         RowPath rowName;
-        ML::Mutable_Feature_Set featureSet;
+        MLDB::Mutable_Feature_Set featureSet;
 
         float label() const
         {
@@ -486,7 +486,7 @@ run(const ProcedureRunConfig & run,
         DEBUG_MSG(logger) << "got row " << jsonEncode(row);
         ++numRows;
 
-        std::vector<std::pair<ML::Feature, float> > features
+        std::vector<std::pair<MLDB::Feature, float> > features
         = { { labelFeature, encodedLabel }, { weightFeature, weight } };
 
         unordered_set<Path> unique_known_features;
@@ -821,7 +821,7 @@ run(const ProcedureRunConfig & run,
 
     timer.restart();
 
-    ML::Training_Data trainingSet(featureSpace);
+    MLDB::Training_Data trainingSet(featureSpace);
 
 
     unsigned num_weight_labels;
@@ -866,7 +866,7 @@ run(const ProcedureRunConfig & run,
                  "or preprocess your labels with `replace_not_finite(label, 0)`?");
         }
 
-        trainingSet.add_example(std::make_shared<ML::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
+        trainingSet.add_example(std::make_shared<MLDB::Mutable_Feature_Set>(std::move(fvs[i].featureSet)));
 
         if(runProcConf.mode != CM_REGRESSION) {
 
@@ -903,11 +903,11 @@ run(const ProcedureRunConfig & run,
     //trainingSet.dump("training_set.txt.gz");
 
     // Find all features
-    std::vector<ML::Feature> allFeatures = trainingSet.index().all_features();
+    std::vector<MLDB::Feature> allFeatures = trainingSet.index().all_features();
 
     INFO_MSG(logger) << "Training with " << allFeatures.size() << " features";
 
-    std::vector<ML::Feature> trainingFeatures;
+    std::vector<MLDB::Feature> trainingFeatures;
 
     for (unsigned i = 0;  i < allFeatures.size();  ++i) {
         DEBUG_MSG(logger) << "allFeatures[i] = " << allFeatures[i];
@@ -939,7 +939,7 @@ run(const ProcedureRunConfig & run,
 
     double equalizationFactor = runProcConf.equalizationFactor;
 
-    ML::Thread_Context threadContext;
+    MLDB::Thread_Context threadContext;
     threadContext.seed(randomSeed);
 
     distribution<float> weights;
@@ -972,7 +972,7 @@ run(const ProcedureRunConfig & run,
     }
 
     DEBUG_MSG(logger) << "training classifier";
-    ML::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
+    MLDB::Classifier classifier(trainer->generate(threadContext, trainingSet, weights,
                                                 trainingFeatures));
     DEBUG_MSG(logger) << "done training classifier";
 
@@ -1026,9 +1026,9 @@ ClassifyFunctionConfigDescription()
 }
 
 struct ClassifyFunction::Itl {
-    ML::Classifier classifier;
+    MLDB::Classifier classifier;
     std::shared_ptr<const DatasetFeatureSpace> featureSpace;
-    ML::Feature_Info labelInfo;
+    MLDB::Feature_Info labelInfo;
     ClassifierMode mode;
 };
 
@@ -1046,7 +1046,7 @@ ClassifyFunction(MldbEngine * owner,
 
     itl->featureSpace = itl->classifier.feature_space<DatasetFeatureSpace>();
 
-    ML::Feature_Info labelInfo = itl->featureSpace->info(labelFeature);
+    MLDB::Feature_Info labelInfo = itl->featureSpace->info(labelFeature);
 
     itl->labelInfo = labelInfo;
 
@@ -1077,7 +1077,7 @@ getDetails() const
     return result;
 }
 
-std::tuple<std::vector<float>, std::shared_ptr<ML::Mutable_Feature_Set>, Date>
+std::tuple<std::vector<float>, std::shared_ptr<MLDB::Mutable_Feature_Set>, Date>
 ClassifyFunction::
 getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 {
@@ -1122,7 +1122,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
     }
 
 
-    std::vector<std::pair<ML::Feature, float> > features;
+    std::vector<std::pair<MLDB::Feature, float> > features;
 
     auto onAtom = [&] (const Path & suffix,
                        const Path & prefix,
@@ -1147,7 +1147,7 @@ getFeatureSet(const ExpressionValue & context, bool attemptDense) const
 
     std::sort(features.begin(), features.end());
 
-    auto fset = std::make_shared<ML::Mutable_Feature_Set>
+    auto fset = std::make_shared<MLDB::Mutable_Feature_Set>
         (features.begin(), features.end());
     fset->locked = true;
     
@@ -1161,7 +1161,7 @@ struct ClassifyFunctionApplier: public FunctionApplier {
         info = owner->getFunctionInfo();
     }
 
-    ML::Optimization_Info optInfo;
+    MLDB::Optimization_Info optInfo;
 };
 
 std::unique_ptr<FunctionApplier>
@@ -1170,7 +1170,7 @@ bind(SqlBindingScope & outerContext,
      const std::vector<std::shared_ptr<ExpressionValueInfo> > & input) const
 {
     // Assume there is one of each features
-    vector<ML::Feature> features(itl->featureSpace->columnInfo.size());
+    vector<MLDB::Feature> features(itl->featureSpace->columnInfo.size());
 
     for (auto & col: itl->featureSpace->columnInfo)
         features[col.second.index] = itl->featureSpace->getFeature(col.first);
@@ -1192,7 +1192,7 @@ apply(const FunctionApplier & applier_,
     int labelCount = itl->classifier.label_count();
 
     std::vector<float> dense;
-    std::shared_ptr<ML::Mutable_Feature_Set> fset;
+    std::shared_ptr<MLDB::Mutable_Feature_Set> fset;
     Date ts;
 
     std::tie(dense, fset, ts)
@@ -1205,7 +1205,7 @@ apply(const FunctionApplier & applier_,
     if (!dense.empty() && applier.optInfo) {
         if (cat) {
 
-            ML::Label_Dist scores
+            MLDB::Label_Dist scores
                 = itl->classifier.impl->predict(dense, applier.optInfo);
             ExcAssertEqual(scores.size(), labelCount);
 
@@ -1217,7 +1217,7 @@ apply(const FunctionApplier & applier_,
 
             result.emplace_back("scores", std::move(row));
         }
-        else if (itl->labelInfo.type() == ML::REAL) {
+        else if (itl->labelInfo.type() == MLDB::REAL) {
             ExcAssertEqual(labelCount, 1);
             float score
                 = itl->classifier.impl->predict(0, dense, applier.optInfo);
@@ -1248,7 +1248,7 @@ apply(const FunctionApplier & applier_,
             }
             result.emplace_back("scores", std::move(row));
         }
-        else if (itl->labelInfo.type() == ML::REAL) {
+        else if (itl->labelInfo.type() == MLDB::REAL) {
             ExcAssertEqual(labelCount, 1);
             float score = itl->classifier.predict(0, *fset);
             result.emplace_back("score", ExpressionValue(score, ts));
@@ -1282,26 +1282,26 @@ getFunctionInfo() const
         // Be specific about what type we're looking for.  This will allow
         // us to be more leniant when encoding for input.
         switch (col.second.info.type()) {
-        case ML::BOOLEAN:
+        case MLDB::BOOLEAN:
             featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<BooleanValueInfo>(),
                                       sparsity);
             break;
 
-        case ML::REAL:
+        case MLDB::REAL:
             featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<Float32ValueInfo>(),
                                       sparsity);
             break;
 
-        case ML::CATEGORICAL:
-        case ML::STRING:
+        case MLDB::CATEGORICAL:
+        case MLDB::STRING:
             featureColumns.emplace_back(col.second.columnName,
                                       std::make_shared<StringValueInfo>(),
                                       sparsity);
             break;
 
-        case ML::INUTILE:
+        case MLDB::INUTILE:
             // inutile, ignore it
             break;
 
@@ -1390,7 +1390,7 @@ apply(const FunctionApplier & applier,
       const ExpressionValue & context) const
 {
     std::vector<float> dense;
-    std::shared_ptr<ML::Mutable_Feature_Set> fset;
+    std::shared_ptr<MLDB::Mutable_Feature_Set> fset;
     Date ts;
 
     std::tie(dense, fset, ts) = getFeatureSet(context, false /* attempt to optimize */);
@@ -1403,7 +1403,7 @@ apply(const FunctionApplier & applier,
 
     CellValue label = context.getColumn("label").getAtom();
 
-    ML::Explanation expl
+    MLDB::Explanation expl
         = itl->classifier.impl
         ->explain(*fset, itl->featureSpace->encodeLabel(label, isRegression));
 
@@ -1463,8 +1463,8 @@ void jmlclassifierMacro(MacroContext & context,
     string classifierType = args.rawString();
 
     try {
-        std::shared_ptr<ML::Classifier_Generator> generator
-            = ML::Registry<ML::Classifier_Generator>::singleton().create(classifierType);
+        std::shared_ptr<MLDB::Classifier_Generator> generator
+            = MLDB::Registry<MLDB::Classifier_Generator>::singleton().create(classifierType);
 
 
         context.writeHtml("<table><tr><th>Parameter</th><th>Range</th>"

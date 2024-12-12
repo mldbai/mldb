@@ -20,7 +20,7 @@
 #include "mldb/plugins/jml/jml/stump_accum.h"
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -57,7 +57,7 @@ void test_dense(const string & dataset)
     /* Test with one dimensional weights. */
     cerr << "one dimensional..." << endl;
 
-    boost::multi_array<float, 2> weights1(data->example_count(), 1);
+    MLDB::MatrixRef<float, 2> weights1(data->example_count(), 1);
     weights1.fill(1.0 / (float)(data->example_count() * 2));
 
     cerr << "default w... " << endl;
@@ -74,7 +74,7 @@ void test_dense(const string & dataset)
     
     /* Test with 2 dimensional weights. */
     cerr << "two dimensional..." << endl;
-    boost::multi_array<float, 2> weights2(data->example_count(), 2);
+    MLDB::MatrixRef<float, 2> weights2(data->example_count(), 2);
     weights2.fill(1.0 / (float)(data->example_count() * 2));
 
     cerr << "default w... " << endl;
@@ -121,7 +121,7 @@ void test_sparse(const string & dataset)
     /* Test with one dimensional weights. */
     cerr << "one dimensional..." << endl;
 
-    boost::multi_array<float, 2> weights1(data.example_count(), 1);
+    MLDB::MatrixRef<float, 2> weights1(data.example_count(), 1);
     weights1.fill(1.0 / (float)(data.example_count() * 2));
 
     cerr << "default w... " << endl;
@@ -138,7 +138,7 @@ void test_sparse(const string & dataset)
     
     /* Test with 2 dimensional weights. */
     cerr << "two dimensional..." << endl;
-    boost::multi_array<float, 2> weights2(data.example_count(), 2);
+    MLDB::MatrixRef<float, 2> weights2(data.example_count(), 2);
     weights2.fill(1.0 / (float)(data.example_count() * 2));
 
     cerr << "default w... " << endl;

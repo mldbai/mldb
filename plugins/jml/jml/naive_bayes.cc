@@ -28,7 +28,7 @@ using namespace MLDB::DB;
 /*****************************************************************************/
 
 
-namespace ML {
+namespace MLDB {
 
 Naive_Bayes::Naive_Bayes()
 {
@@ -49,7 +49,7 @@ void Naive_Bayes::swap(Naive_Bayes & other)
 {
     Classifier_Impl::swap(other);
     features.swap(other.features);
-    swap_multi_arrays(probs, other.probs);
+    probs.swap(other.probs);
     label_priors.swap(other.label_priors);
 }
 
@@ -304,9 +304,9 @@ std::string Naive_Bayes::print() const
     return "Naive Bayes classifier";
 }
 
-std::vector<ML::Feature> Naive_Bayes::all_features() const
+std::vector<MLDB::Feature> Naive_Bayes::all_features() const
 {
-    std::vector<ML::Feature> result;
+    std::vector<MLDB::Feature> result;
     for (std::vector<Bayes_Feature>::const_iterator it = features.begin();
          it != features.end();  ++it)
         result.push_back(it->feature);
@@ -436,5 +436,5 @@ Register_Factory<Classifier_Impl, Naive_Bayes>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 

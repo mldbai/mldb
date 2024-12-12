@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "feature_transformer.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -90,6 +90,6 @@ private:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__transformed_classifier_h__ */
