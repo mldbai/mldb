@@ -13,7 +13,6 @@
 #include "stump.h"
 #include "plugins/jml/enum_info.h"
 #include "mldb/utils/floating_point.h"
-#include <boost/iterator/transform_iterator.hpp>
 
 namespace ML {
 

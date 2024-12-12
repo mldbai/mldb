@@ -17,7 +17,6 @@
 #include <stdint.h>
 #include <algorithm>
 #include <atomic>
-#include <boost/iterator/iterator_facade.hpp>
 
 
 namespace MLDB {
@@ -794,11 +793,13 @@ private:
 };
 
 template<typename Value, typename Array = Value>
-struct BitArrayIterator
-    : public boost::iterator_facade<BitArrayIterator<Value, Array>,
-                                    Value,
-                                    boost::random_access_traversal_tag,
-                                    Value> {
+struct BitArrayIterator {
+    using value_type = Value;
+    using difference_type = ssize_t;
+    using pointer = Value *;
+    using reference = Value &;
+    using iterator_category = std::random_access_iterator_tag;
+
     BitArrayIterator(const Array * data = 0, int numBits = -1, int index = -1)
         : data(data), numBits(numBits), index(index)
     {
@@ -808,36 +809,94 @@ struct BitArrayIterator
     int numBits;
     int index;
 
-    Value dereference() const
+    Value operator * () const
     {
         MLDB::Bit_Extractor<Value, Bit_Buffer<Value, Simple_Mem_Buffer<Array>>> extractor(data);
         extractor.advance(index * numBits);
         return extractor.template extract<Value>(numBits);
     }
 
-    bool equal(const BitArrayIterator & other) const
+    bool operator == (const BitArrayIterator & other) const
     {
         return data == other.data && index == other.index;
     }
 
-    void increment()
+    BitArrayIterator& operator ++()
     {
         ++index;
+        return *this;
     }
 
-    void decrement()
+    BitArrayIterator& operator --()
     {
         --index;
+        return *this;
     }
 
-    void advance(int n)
+    BitArrayIterator operator ++(int)
+    {
+        BitArrayIterator res = *this;
+        ++index;
+        return res;
+    }
+
+    BitArrayIterator operator --(int)
+    {
+        BitArrayIterator res = *this;
+        --index;
+        return res;
+    }
+
+    bool operator != (const BitArrayIterator & other) const
+    {
+        return !(*this == other);
+    }
+
+    BitArrayIterator operator + (int n) const
+    {
+        return BitArrayIterator(data, numBits, index + n);
+    }
+
+    BitArrayIterator& operator += (int n)
     {
         index += n;
+        return *this;
     }
 
-    ssize_t distance_to(const BitArrayIterator & other) const
+    BitArrayIterator& operator -= (int n)
     {
-        return other.index - index;
+        index += n;
+        return *this;
+    }
+
+    BitArrayIterator operator - (int n) const
+    {
+        return BitArrayIterator(data, numBits, index - n);
+    }
+
+    ssize_t operator - (const BitArrayIterator & other) const
+    {
+        return index - other.index;
+    }
+
+    bool operator < (const BitArrayIterator & other) const
+    {
+        return index < other.index;
+    }
+
+    bool operator > (const BitArrayIterator & other) const
+    {
+        return index > other.index;
+    }
+
+    bool operator <= (const BitArrayIterator & other) const
+    {
+        return index <= other.index;
+    }
+
+    bool operator >= (const BitArrayIterator & other) const
+    {
+        return index >= other.index;
     }
 };
 
