@@ -17,7 +17,7 @@
 #include <chrono>
 #include <thread>
 #include "mldb/io/message_loop.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/utils/string_functions.h"
 
 #include <sys/wait.h>

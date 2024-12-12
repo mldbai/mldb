@@ -381,7 +381,7 @@ get_compiler_with_version=$(if $(findstring clang,$(toolchain)),clang$(CLANG_VER
 
 # Make sure we have a filter for compiler options for this toolchain
 COMPILER_WITH_VERSION:=$(call get_compiler_with_version)
-$(warning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
+#$(warning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
 $(if $(call filter_compiler_option_$(COMPILER_WITH_VERSION),$(COMPILER_WITH_VERSION),true),,$(error need to add a filter_compiler_option_$(COMPILER_WITH_VERSION) function for $(toolchain)))
 
 

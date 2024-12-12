@@ -14,7 +14,7 @@ CXX_VERSION?=$(CLANG_VERSION)
 CXX := $(COMPILER_CACHE) $(CLANGXX)
 BUILDING_WITH_CLANG:=1
 
-$(warning building with clang++ version $(CLANG_VERSION))
+#$(warning building with clang++ version $(CLANG_VERSION))
 
 CLANGXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Wno-deprecated -Winit-self -Qunused-arguments -Wno-mismatched-tags -Wno-unused-function -ftemplate-backtrace-limit=0 -Wno-inconsistent-missing-override
 

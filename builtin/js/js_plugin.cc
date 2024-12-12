@@ -35,7 +35,7 @@
 
 #include "mldb/types/string.h"
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 using namespace std;
 

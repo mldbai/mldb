@@ -20,7 +20,7 @@
 #include "mldb/utils/log.h"
 #include "mldb/arch/demangle.h"
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 #include "mldb/utils/profile.h"
 

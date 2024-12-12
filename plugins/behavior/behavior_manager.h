@@ -16,12 +16,13 @@
 #include <string>
 #include <thread>
 #include <vector>
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
+#include <list>
 
 #include "mldb/types/date.h"
 #include "behavior_domain.h"
 #include "mapped_behavior_domain.h"
+#include "mldb/utils/split.h"
+#include "mldb/utils/lexical_cast.h"
 
 namespace MLDB {
 
@@ -222,7 +223,6 @@ private:
     RemoteCacheStats cacheStats_;
 };
 
-
 template <typename T>
 std::vector<T>
 BehaviorManager::
@@ -231,17 +231,17 @@ splitSpec(const std::string & spec) const
     using namespace std;
     vector<T> result;
     vector<string> commaSplit;
-    boost::split(commaSplit, spec, boost::is_any_of(","));
+    MLDB::split(commaSplit, spec, ',');
 
     for (string x : commaSplit) {
         auto dash = x.find("-");
         if (dash == string::npos)
-            result.push_back(boost::lexical_cast<T>(x));
+            result.push_back(MLDB::lexical_cast<T>(x));
         else {
-            int begin = boost::lexical_cast<int>(x.substr(0,dash));
-            int end = boost::lexical_cast<int>(x.substr(dash+1));
+            int begin = std::stoi(x.substr(0,dash));
+            int end = std::stoi(x.substr(dash+1));
             for (int i=begin; i < end; ++i)
-                result.push_back(boost::lexical_cast<T>(i));
+                result.push_back(MLDB::lexical_cast<T>(i));
         }
     }
     return result;

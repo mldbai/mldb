@@ -16,7 +16,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/base/parallel.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/utils/log.h"
 

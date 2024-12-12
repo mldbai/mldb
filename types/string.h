@@ -369,6 +369,21 @@ inline Utf8String lowercase(const Utf8String & str)
 
 std::ostream & operator << (std::ostream & stream, const Utf8String & str);
 
+inline size_t size(const Utf8String & str)
+{
+    return str.length();
+}
+
+inline auto begin(Utf8String & str) -> decltype(str.begin())
+{
+    return str.begin();
+}
+
+inline auto end(Utf8String & str) -> decltype(str.end())
+{
+    return str.end();
+}
+
 
 /*****************************************************************************/
 /* UTF32 STRING                                                              */

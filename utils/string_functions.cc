@@ -17,7 +17,7 @@
 #include "mldb/arch/exception.h"
 #include <sys/errno.h>
 #include <stdlib.h>
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/base/exc_assert.h"
 #include <iostream>
 

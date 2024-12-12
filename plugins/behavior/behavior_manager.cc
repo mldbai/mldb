@@ -40,6 +40,7 @@
 #include "mldb/types/date.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/scope.h"
+#include "mldb/utils/split.h"
 
 #include "mapped_behavior_domain.h"
 #include "merged_behavior_domain.h"
@@ -886,18 +887,16 @@ BehaviorManager::
 parseSpecs(const std::string & specs) const
 {
     vector<string> splitStr;
-    boost::split(splitStr, specs, boost::is_any_of(" "));
+    MLDB::split(splitStr, specs, ' ');
     map<std::string, std::string> result;
     for (auto k_vStr : splitStr) {
         vector<string> key_value;
-        boost::split(key_value, k_vStr, boost::is_any_of(":"));
+        MLDB::split(key_value, k_vStr, ':');
         if (key_value.size() != 2)
             throw MLDB::Exception("invalid key " + k_vStr + " in specs");
         result[key_value[0]] = key_value[1];
     }
     return result;
 }
-
-
 
 } // namespace MLDB

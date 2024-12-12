@@ -1,12 +1,12 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-$(eval $(call library,config,config.cc,boost_program_options))
+$(eval $(call library,config,config.cc,boost_program_options arch))
 $(eval $(call library,log,log.cc, arch config))
 
 
 LIBUTILS_SOURCES := \
-        environment.cc \
-        string_functions.cc \
+    environment.cc \
+    string_functions.cc \
 	csv.cc \
 	floating_point.cc \
 	buckets.cc \

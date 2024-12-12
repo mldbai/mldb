@@ -47,7 +47,7 @@ LIB_v8_LINKER_OPTIONS:=-L$(V8_ROOT)
 LIB_v8_DEPS:= 
 PYTHON_VERSION_DETECTED:=$(if $(PYTHON_VERSION_DETECTED),$(PYTHON_VERSION_DETECTED),$(shell $(JML_BUILD)/detect_python.sh))
 PYTHON_VERSION?=$(PYTHON_VERSION_DETECTED)
-$(warning PYTHON_VERSION=$(PYTHON_VERSION))
+#$(warning PYTHON_VERSION=$(PYTHON_VERSION))
 PYTHON_INCLUDE_PATH:=$(call find_subdirectory,\
 	/usr/local/Frameworks/Python.framework/Versions/$(PYTHON_VERSION)/include/python$(PYTHON_VERSION) \
 	/opt/homebrew/opt/python@$(PYTHON_VERSION)/Frameworks/Python.framework/Versions/$(PYTHON_VERSION)/include/python$(PYTHON_VERSION))

@@ -13,7 +13,7 @@
 #include "mldb/sql/expression_value.h"
 #include "mldb/sql/sql_expression.h"
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 using namespace std;
 
@@ -237,8 +237,7 @@ BoundFunction bindJsEval(const Utf8String & name,
                                               nullptr /* no plugin context */));
                           
     string params = args[1].constantValue().toString();
-    boost::split(runner->params, params,
-                 boost::is_any_of(","));
+    MLDB::split(runner->params, params, ',');
     
     // 3.  We don't know what it returns; TODO: allow it to be specified
     auto info = std::make_shared<AnyValueInfo>();

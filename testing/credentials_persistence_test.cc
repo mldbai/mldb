@@ -7,7 +7,7 @@
     Test for the persistence of credentials.
 */
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 #include "mldb/engine/credential_collection.h"
 #include "mldb/rest/collection_config_store.h"
@@ -18,7 +18,7 @@
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/types/value_description.h"
 #include "mldb/utils/environment.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 #include <future>
 #include <chrono>
@@ -99,7 +99,7 @@ struct SubprocessMldbRunner {
         onStdOut = [&] (const std::string & data)
             {
                 vector<string> lines;
-                boost::split(lines, data, boost::is_any_of("\n"));
+                MLDB::split(lines, data, '\n');
 
                 for (auto & l: lines) {
                     // cerr << l << endl;

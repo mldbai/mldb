@@ -20,7 +20,6 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/join_utils.h"
 #include "mldb/sql/binding_contexts.h"
-#include <boost/lexical_cast.hpp>
 #include <boost/algorithm/clamp.hpp>
 #include "mldb/ext/edlib/edlib/include/edlib.h"
 #include "mldb/types/structure_description.h"

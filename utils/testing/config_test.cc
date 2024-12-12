@@ -10,8 +10,8 @@
 #define BOOST_TEST_DYN_LINK
 
 #include "mldb/utils/config.h"
+#include "mldb/arch/exception.h"
 #include <boost/test/unit_test.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <iostream>
@@ -42,8 +42,8 @@ BOOST_AUTO_TEST_CASE(test_map_config)
     BOOST_CHECK_EQUAL(config->getBool("bool_str_true", false), true);
     BOOST_CHECK_EQUAL(config->getBool("bool_str_false", true), false);
     BOOST_CHECK_EQUAL(config->getBool("bool_str_true_case", false), true);
-    BOOST_CHECK_EQUAL(config->getBool("string", true), false); // any string other than "true" are interpreted as false
-    BOOST_CHECK_EQUAL(config->getInt("string", 123), 123);
+    BOOST_CHECK_THROW(config->getBool("string", true), MLDB::Exception);
+    BOOST_CHECK_THROW(config->getInt("string", 123), MLDB::Exception);
 }
 
 BOOST_AUTO_TEST_CASE(test_options_config)
@@ -60,8 +60,8 @@ auto parsed_options = parse_config_file<char>("mldb/utils/testing/config_test.co
     BOOST_CHECK_EQUAL(config->getBool("bool_str_true", false), true);
     BOOST_CHECK_EQUAL(config->getBool("bool_str_false", true), false);
     BOOST_CHECK_EQUAL(config->getBool("bool_str_true_case", false), true);
-    BOOST_CHECK_EQUAL(config->getBool("string", true), false); // any string other than "true" are interpreted as false
-    BOOST_CHECK_EQUAL(config->getInt("string", 123), 123);
+    BOOST_CHECK_THROW(config->getBool("string", true), MLDB::Exception); // any string other than "true" are interpreted as false
+    BOOST_CHECK_THROW(config->getInt("string", 123), MLDB::Exception);
 }
 
 

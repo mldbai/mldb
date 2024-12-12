@@ -35,7 +35,7 @@
 
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 
 
 using namespace std;

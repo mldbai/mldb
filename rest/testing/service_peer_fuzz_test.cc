@@ -12,7 +12,7 @@
 #include "mldb/utils/runner.h"
 #include "mldb/rest/rest_service_endpoint.h"
 #include "mldb/rest/rest_request_router.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <sys/wait.h>
 #include "test_peer.h"
 #include <thread>

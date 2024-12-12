@@ -13,8 +13,7 @@
 #include "mldb/arch/backtrace.h"
 #include "mldb/types/date.h"
 #include "mldb/types/string.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/foreach.hpp>
+#include "mldb/utils/lexical_cast.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/basic_value_descriptions.h"
 
@@ -171,7 +170,7 @@ void to_js(JSValue & jsval, const Json::Value & value)
         {
             v8::EscapableHandleScope scope(isolate);
             v8::Local<v8::Object> obj = v8::Object::New(isolate);
-            BOOST_FOREACH(string key, value.getMemberNames()) {
+            for (auto key: value.getMemberNames()) {
                 JSValue member;
                 to_js(member, value[key]);
                 check(obj->Set(context, createString(isolate, key),
@@ -262,8 +261,8 @@ int64_t check_to_int2(const JSValue & val)
 
         string s = MLDB::lowercase(cstr(val));
         try {
-            return boost::lexical_cast<int64_t>(s);
-        } catch (const boost::bad_lexical_cast & error) {
+            return MLDB::lexical_cast<int64_t>(s);
+        } catch (const std::exception & error) {
             throw Exception("cannot convert string value \""
                             + cstr(val) + "\" (\"" + s + "\") to integer");
         }

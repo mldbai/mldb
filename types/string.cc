@@ -11,7 +11,7 @@
 #include "mldb/arch/exception.h"
 #include <unicode/unistr.h>
 #include "mldb/base/exc_assert.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <locale>
 #include "mldb/arch/demangle.h"
 #include <cxxabi.h>
