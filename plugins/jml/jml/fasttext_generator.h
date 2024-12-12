@@ -11,7 +11,7 @@
 #include "classifier_generator.h"
 #include "fasttext_classifier.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/

@@ -12,7 +12,7 @@
 #include <cstdint>
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* FEATURE                                                                   */
@@ -104,4 +104,4 @@ extern const Feature MISSING_FEATURE;
 
 std::ostream & operator << (std::ostream & stream, const Feature & feature);
 
-} // namespace ML
+} // namespace MLDB

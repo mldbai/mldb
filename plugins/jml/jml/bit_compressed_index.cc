@@ -17,7 +17,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* BIT_COMPRESSED_INDEX                                                      */
@@ -107,4 +107,4 @@ init(const uint16_t * buckets,
     cerr << "total_bits = " << total_bits << endl;
 }
 
-} // namespace ML
+} // namespace MLDB

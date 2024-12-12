@@ -12,7 +12,7 @@
 
 #include "layer.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -273,7 +273,7 @@ struct Auto_Encoder : public Layer {
     /// @}
 };
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __jml__neural__auto_encoder_h__ */

@@ -15,7 +15,7 @@
 #include <mutex>
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* UPDATE_WEIGHTS_PARALLEL                                                   */
@@ -39,7 +39,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
     void operator () (const Stump & stump,
                       const Optimization_Info & opt_info,
                       float cl_weight,
-                      boost::multi_array<float, 2> & weights,
+                      MLDB::MatrixRef<float, 2> & weights,
                       const Training_Data & data,
                       double & total)
     {
@@ -50,10 +50,10 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
            otherwise the overhead gets too high.
         */
 
-        size_t nx = weights.shape()[0];
+        size_t nx = weights.dim(0);
         
         size_t ENTRIES_PER_CHUNK = 4096;
-        size_t examples_per_chunk = ENTRIES_PER_CHUNK / weights.shape()[1];
+        size_t examples_per_chunk = ENTRIES_PER_CHUNK / weights.dim(1);
 
         total = 0.0;
 
@@ -78,7 +78,7 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
     void operator () (const Classifier_Impl & classifier,
                       const Optimization_Info & opt_info,
                       float cl_weight,
-                      boost::multi_array<float, 2> & weights,
+                      MLDB::MatrixRef<float, 2> & weights,
                       const Training_Data & data,
                       double & total)
     {
@@ -89,10 +89,10 @@ struct Update_Weights_Parallel : public Update_Weights<Updater> {
            otherwise the overhead gets too high.
         */
         
-        size_t nx = weights.shape()[0];
+        size_t nx = weights.dim(0);
         
         size_t ENTRIES_PER_CHUNK = 4096;
-        size_t examples_per_chunk = ENTRIES_PER_CHUNK / weights.shape()[1];
+        size_t examples_per_chunk = ENTRIES_PER_CHUNK / weights.dim(1);
 
         total = 0.0;
 
@@ -139,7 +139,7 @@ struct Update_Scores_Parallel
         const Stump & stump;
         const Optimization_Info & opt_info;
         float cl_weight;
-        boost::multi_array<float, 2> & output;
+        MLDB::MatrixRef<float, 2> & output;
         const Training_Data & data;
         const distribution<float> & example_weights;
 
@@ -154,7 +154,7 @@ struct Update_Scores_Parallel
         Job_Info(const Stump & stump,
                  const Optimization_Info & opt_info,
                  float cl_weight,
-                 boost::multi_array<float, 2> & output, const Training_Data & data,
+                 MLDB::MatrixRef<float, 2> & output, const Training_Data & data,
                  const distribution<float> & example_weights,                 
                  double & correct,
                  const Updater & updater)
@@ -204,7 +204,7 @@ struct Update_Scores_Parallel
     void operator () (const Stump & stump,
                       const Optimization_Info & opt_info,
                       float cl_weight,
-                      boost::multi_array<float, 2> & output,
+                      MLDB::MatrixRef<float, 2> & output,
                       const Training_Data & data,
                       const distribution<float> & example_weights,
                       double & correct)
@@ -222,10 +222,10 @@ struct Update_Scores_Parallel
            otherwise the overhead gets too high.
         */
 
-        size_t nx = output.shape()[0];
+        size_t nx = output.dim(0);
         
         size_t ENTRIES_PER_CHUNK = 2048;
-        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.shape()[1];
+        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.dim(1);
 
         auto doJob = [&] (size_t x0, size_t x1)
             {
@@ -239,7 +239,7 @@ struct Update_Scores_Parallel
         const Classifier_Impl & classifier;
         const Optimization_Info & opt_info;
         float cl_weight;
-        boost::multi_array<float, 2> & output;
+        MLDB::MatrixRef<float, 2> & output;
         const Training_Data & data;
         const distribution<float> & example_weights;
 
@@ -253,7 +253,7 @@ struct Update_Scores_Parallel
         Job_Info_Classifier(const Classifier_Impl & classifier,
                             const Optimization_Info & opt_info,
                             float cl_weight,
-                            boost::multi_array<float, 2> & output,
+                            MLDB::MatrixRef<float, 2> & output,
                             const Training_Data & data,
                             const distribution<float> & example_weights,
                             double & correct,
@@ -301,7 +301,7 @@ struct Update_Scores_Parallel
     void operator () (const Classifier_Impl & classifier,
                       const Optimization_Info & opt_info,
                       float cl_weight,
-                      boost::multi_array<float, 2> & output,
+                      MLDB::MatrixRef<float, 2> & output,
                       const Training_Data & data,
                       const distribution<float> & example_weights,
                       double & correct)
@@ -319,10 +319,10 @@ struct Update_Scores_Parallel
            otherwise the overhead gets too high.
         */
 
-        size_t nx = output.shape()[0];
+        size_t nx = output.dim(0);
         
         size_t ENTRIES_PER_CHUNK = 2048;
-        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.shape()[1];
+        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.dim(1);
 
         auto doJob = [&] (size_t x0, size_t x1)
             {
@@ -359,8 +359,8 @@ struct Update_Weights_And_Scores_Parallel
         const Stump & stump;
         const Optimization_Info & opt_info;
         float cl_weight;
-        boost::multi_array<float, 2> & weights;
-        boost::multi_array<float, 2> & output;
+        MLDB::MatrixRef<float, 2> & weights;
+        MLDB::MatrixRef<float, 2> & output;
         const Training_Data & data;
         const distribution<float> & example_weights;
 
@@ -373,8 +373,8 @@ struct Update_Weights_And_Scores_Parallel
         Job_Info(const Stump & stump,
                  const Optimization_Info & opt_info,
                  float cl_weight,
-                 boost::multi_array<float, 2> & weights,
-                 boost::multi_array<float, 2> & output,
+                 MLDB::MatrixRef<float, 2> & weights,
+                 MLDB::MatrixRef<float, 2> & output,
                  const Training_Data & data,
                  const distribution<float> & example_weights,                 
                  double & correct,
@@ -407,7 +407,7 @@ struct Update_Weights_And_Scores_Parallel
             cerr << endl;
 #endif
 
-            //boost::timer::cpu_timer timer;
+            //MLDB::Timer timer;
             double sub_correct = 0.0;
             double subtotal
                 = updater(stump, opt_info, cl_weight, weights, output, data,
@@ -416,7 +416,7 @@ struct Update_Weights_And_Scores_Parallel
 #if 0
             cerr << "updating between " << x_begin << " and " << x_end
                 //<< " with " << stump.summary()
-                 << ": " << timer.elapsed().wall << endl;
+                 << ": " << timer.elapsed_wall() << endl;
 
             //if (timer.elapsed() > 0.1)
 #endif
@@ -448,8 +448,8 @@ struct Update_Weights_And_Scores_Parallel
     void operator () (const Stump & stump,
                       const Optimization_Info & opt_info,
                       float cl_weight,
-                      boost::multi_array<float, 2> & weights,
-                      boost::multi_array<float, 2> & output,
+                      MLDB::MatrixRef<float, 2> & weights,
+                      MLDB::MatrixRef<float, 2> & output,
                       const Training_Data & data,
                       const distribution<float> & example_weights,
                       double & correct,
@@ -469,10 +469,10 @@ struct Update_Weights_And_Scores_Parallel
            otherwise the overhead gets too high.
         */
 
-        size_t nx = output.shape()[0];
+        size_t nx = output.dim(0);
         
         size_t ENTRIES_PER_CHUNK = 2048;
-        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.shape()[1];
+        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.dim(1);
 
         auto doJob = [&] (size_t x0, size_t x1)
             {
@@ -486,8 +486,8 @@ struct Update_Weights_And_Scores_Parallel
         const Classifier_Impl & classifier;
         const Optimization_Info & opt_info;
         float cl_weight;
-        boost::multi_array<float, 2> & weights;
-        boost::multi_array<float, 2> & output;
+        MLDB::MatrixRef<float, 2> & weights;
+        MLDB::MatrixRef<float, 2> & output;
         const Training_Data & data;
         const distribution<float> & example_weights;
 
@@ -500,8 +500,8 @@ struct Update_Weights_And_Scores_Parallel
         Job_Info_Classifier(const Classifier_Impl & classifier,
                             const Optimization_Info & opt_info,
                             float cl_weight,
-                            boost::multi_array<float, 2> & weights,
-                            boost::multi_array<float, 2> & output,
+                            MLDB::MatrixRef<float, 2> & weights,
+                            MLDB::MatrixRef<float, 2> & output,
                             const Training_Data & data,
                             const distribution<float> & example_weights,                 
                             double & correct,
@@ -551,8 +551,8 @@ struct Update_Weights_And_Scores_Parallel
     void operator () (const Classifier_Impl & classifier,
                       const Optimization_Info & opt_info,
                       float cl_weight,
-                      boost::multi_array<float, 2> & weights,
-                      boost::multi_array<float, 2> & output,
+                      MLDB::MatrixRef<float, 2> & weights,
+                      MLDB::MatrixRef<float, 2> & output,
                       const Training_Data & data,
                       const distribution<float> & example_weights,
                       double & correct,
@@ -571,10 +571,10 @@ struct Update_Weights_And_Scores_Parallel
            otherwise the overhead gets too high.
         */
 
-        size_t nx = output.shape()[0];
+        size_t nx = output.dim(0);
         
         size_t ENTRIES_PER_CHUNK = 2048;
-        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.shape()[1];
+        size_t examples_per_chunk = ENTRIES_PER_CHUNK / output.dim(1);
 
         auto doJob = [&] (size_t x0, size_t x1)
             {
@@ -586,4 +586,4 @@ struct Update_Weights_And_Scores_Parallel
 };
 
 
-} // namespace ML
+} // namespace MLDB

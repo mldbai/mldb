@@ -15,7 +15,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -457,4 +457,4 @@ rbprop(const double * inputs,
 
 #endif // default versions OK
 
-} // namespace ML
+} // namespace MLDB

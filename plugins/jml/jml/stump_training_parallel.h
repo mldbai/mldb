@@ -11,15 +11,16 @@
 
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
+#include "mldb/utils/noncopyable.h"
 
-namespace ML {
+namespace MLDB {
 
 using std::cerr;
 using std::endl;
 
 template<class W, class Z, class Tracer=No_Trace>
 struct Stump_Trainer_Parallel
-  : public Stump_Trainer<W, Z, Tracer>, boost::noncopyable {
+  : public Stump_Trainer<W, Z, Tracer>, MLDB::noncopyable {
     explicit Stump_Trainer_Parallel()
     {
     }
@@ -154,4 +155,4 @@ struct Stump_Trainer_Parallel
 };
 
 
-} // namespace ML
+} // namespace MLDB

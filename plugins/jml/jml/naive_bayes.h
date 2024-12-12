@@ -4,7 +4,7 @@
    Jeremy Barnes, 6 June 2003
    Copyright (c) 2003 Jeremy Barnes.  All rights reserved.
 
-   Naïve Bayes classifier.
+   Naï¿½ve Bayes classifier.
 */
 
 #pragma once
@@ -15,7 +15,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 class Training_Data;
@@ -95,7 +95,7 @@ public:
     };
 
     std::vector<Bayes_Feature> features;
-    boost::multi_array<float, 3> probs;  /* num features x 3 x num labels matrix */
+    MLDB::Matrix<float, 3> probs;  /* num features x 3 x num labels matrix */
     distribution<float> label_priors;
     distribution<float> missing_total; /* sum of all missing distributions. */
 
@@ -127,4 +127,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

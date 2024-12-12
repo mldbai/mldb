@@ -24,7 +24,6 @@
 #include <random>
 #include "mldb/base/parallel.h"
 #include "mldb/base/thread_pool.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/arch/timers.h"
 #if MLDB_INTEL_ISA
 # include "mldb/arch/sse2.h"
@@ -40,17 +39,17 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 template<typename Float>
 struct V2D_Job {
-    const boost::multi_array<Float, 2> & X;
-    boost::multi_array<Float, 2> & D;
+    const MLDB::Matrix<Float, 2> & X;
+    MLDB::Matrix<Float, 2> & D;
     const Float * sum_X;
     int i0, i1;
     
-    V2D_Job(const boost::multi_array<Float, 2> & X,
-            boost::multi_array<Float, 2> & D,
+    V2D_Job(const MLDB::Matrix<Float, 2> & X,
+            MLDB::Matrix<Float, 2> & D,
             const Float * sum_X,
             int i0, int i1)
         : X(X), D(D), sum_X(sum_X), i0(i0), i1(i1)
@@ -59,7 +58,7 @@ struct V2D_Job {
 
     void operator () ()
     {
-        int d = X.shape()[1];
+        int d = X.dim(1);
         
         if (d == 2) {
             unsigned i = i0;
@@ -129,8 +128,8 @@ struct V2D_Job {
 
 template<typename Float>
 void
-vectors_to_distances(const boost::multi_array<Float, 2> & X,
-                     boost::multi_array<Float, 2> & D,
+vectors_to_distances(const MLDB::MatrixRef<Float, 2> & X,
+                     MLDB::Matrix<Float, 2> & D,
                      bool fill_upper)
 {
     // again, ||y_i - y_j||^2 
@@ -139,12 +138,12 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
     //     = sum_d ( y_id^2) + sum_d(y_jd^2) - 2 sum_d(y_id y_jd)
     //     = ||y_i||^2 + ||y_j||^2 - 2 sum_d(y_id y_jd)
     
-    int n = X.shape()[0];
+    int n = X.dim(0);
 
-    if (D.shape()[0] != n || D.shape()[1] != n)
+    if (D.dim(0) != n || D.dim(1) != n)
         throw Exception("D matrix should be square with (n x n) shape");
     
-    int d = X.shape()[1];
+    int d = X.dim(1);
 
     distribution<Float> sum_X(n);
 
@@ -175,16 +174,16 @@ vectors_to_distances(const boost::multi_array<Float, 2> & X,
 }
 
 void
-vectors_to_distances(const boost::multi_array<float, 2> & X,
-                     boost::multi_array<float, 2> & D,
+vectors_to_distances(const MLDB::MatrixRef<float, 2> & X,
+                     MLDB::Matrix<float, 2> & D,
                      bool fill_upper)
 {
     return vectors_to_distances<float>(X, D, fill_upper);
 }
 
 void
-vectors_to_distances(const boost::multi_array<double, 2> & X,
-                     boost::multi_array<double, 2> & D,
+vectors_to_distances(const MLDB::MatrixRef<double, 2> & X,
+                     MLDB::Matrix<double, 2> & D,
                      bool fill_upper)
 {
     return vectors_to_distances<double>(X, D, fill_upper);
@@ -327,18 +326,18 @@ binary_search_perplexity(const distribution<float> & Di,
 
 struct Distance_To_Probabilities_Job {
 
-    boost::multi_array<float, 2> & D;
+    MLDB::MatrixRef<float, 2> D;
     double tolerance;
     double perplexity;
-    boost::multi_array<float, 2> & P;
+    MLDB::Matrix<float, 2> & P;
     distribution<float> & beta;
     int i0;
     int i1;
 
-    Distance_To_Probabilities_Job(boost::multi_array<float, 2> & D,
+    Distance_To_Probabilities_Job(MLDB::MatrixRef<float, 2> D,
                                   double tolerance,
                                   double perplexity,
-                                  boost::multi_array<float, 2> & P,
+                                  MLDB::Matrix<float, 2> & P,
                                   distribution<float> & beta,
                                   int i0,
                                   int i1)
@@ -349,7 +348,7 @@ struct Distance_To_Probabilities_Job {
 
     void operator () ()
     {
-        int n = D.shape()[0];
+        int n = D.dim(0);
 
         for (unsigned i = i0;  i < i1;  ++i) {
             //cerr << "i = " << i << endl;
@@ -389,16 +388,16 @@ struct Distance_To_Probabilities_Job {
 
 
 /* Given a matrix of distances, convert to probabilities */
-boost::multi_array<float, 2>
-distances_to_probabilities(boost::multi_array<float, 2> & D,
+MLDB::Matrix<float, 2>
+distances_to_probabilities(MLDB::MatrixRef<float, 2> & D,
                            double tolerance,
                            double perplexity)
 {
-    int n = D.shape()[0];
-    if (D.shape()[1] != n)
+    int n = D.dim(0);
+    if (D.dim(1) != n)
         throw Exception("D is not square");
 
-    boost::multi_array<float, 2> P(boost::extents[n][n]);
+    MLDB::Matrix<float, 2> P(n, n);
     distribution<float> beta(n, 1.0);
 
     int chunk_size = 256;
@@ -416,14 +415,14 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
     return P;
 }
 
-boost::multi_array<float, 2>
-pca(boost::multi_array<float, 2> & coords, int num_dims)
+MLDB::Matrix<float, 2>
+pca(MLDB::Matrix<float, 2> & coords, int num_dims)
 {
     // TODO: normalize the input coordinates (especially if it seems to be
     // ill conditioned)
 
-    int nx = coords.shape()[0];
-    int nd = coords.shape()[1];
+    int nx = coords.dim(0);
+    int nd = coords.dim(1);
 
     int nvalues = std::min(nd, nx);
 
@@ -433,8 +432,8 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
         throw Exception("svd_reduction: num_dims not low enough");
         
     distribution<float> svalues(nvalues);
-    boost::multi_array<float, 2> lvectorsT(boost::extents[nvalues][nd]);
-    boost::multi_array<float, 2> rvectors(boost::extents[nx][nvalues]);
+    MLDB::Matrix<float, 2> lvectorsT(nvalues, nd);
+    MLDB::Matrix<float, 2> rvectors(nx, nvalues);
 
     int res = LAPack::gesdd("S", nd, nx,
                             coords.data(), nd,
@@ -448,7 +447,7 @@ pca(boost::multi_array<float, 2> & coords, int num_dims)
     if (res != 0)
         throw Exception("gesdd returned non-zero");
         
-    boost::multi_array<float, 2> result(boost::extents[nx][ndr]);
+    MLDB::Matrix<float, 2> result(nx, ndr);
     for (unsigned i = 0;  i < nx;  ++i)
         std::copy(&rvectors[i][0], &rvectors[i][0] + ndr, &result[i][0]);
 
@@ -565,12 +564,12 @@ struct AtEnd {
 
 struct Calc_D_Job {
 
-    boost::multi_array<float, 2> & D;
+    MLDB::Matrix<float, 2> & D;
     int i0;
     int i1;
     double * d_totals;
 
-    Calc_D_Job(boost::multi_array<float, 2> & D,
+    Calc_D_Job(MLDB::Matrix<float, 2> & D,
                int i0,
                int i1,
                double * d_totals)
@@ -647,15 +646,15 @@ double calc_stiffness_row(float * Di, const float * Pi, float qfactor,
 
 struct Calc_Stiffness_Job {
 
-    boost::multi_array<float, 2> & D;
-    const boost::multi_array<float, 2> & P;
+    MLDB::Matrix<float, 2> & D;
+    const MLDB::Matrix<float, 2> & P;
     float min_prob;
     float qfactor;
     double * costs;
     int i0, i1;
 
-    Calc_Stiffness_Job(boost::multi_array<float, 2> & D,
-                       const boost::multi_array<float, 2> & P,
+    Calc_Stiffness_Job(MLDB::Matrix<float, 2> & D,
+                       const MLDB::Matrix<float, 2> & P,
                        float min_prob,
                        float qfactor,
                        double * costs,
@@ -677,18 +676,18 @@ struct Calc_Stiffness_Job {
     }
 };
 
-double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
-                           const boost::multi_array<float, 2> & P,
+double tsne_calc_stiffness(MLDB::Matrix<float, 2> & D,
+                           const MLDB::Matrix<float, 2> & P,
                            float min_prob,
                            bool calc_cost)
 {
-    boost::timer::cpu_timer t;
+    MLDB::Timer t;
 
-    int n = D.shape()[0];
-    if (D.shape()[1] != n)
+    int n = D.dim(0);
+    if (D.dim(1) != n)
         throw Exception("D has wrong shape");
 
-    if (P.shape()[0] != n || P.shape()[1] != n)
+    if (P.dim(0) != n || P.dim(1) != n)
         throw Exception("P has wrong shape");
 
     PossiblyDynamicBuffer<double> d_totals_storage(n);
@@ -706,7 +705,7 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
 
     double d_total_offdiag = SIMD::vec_sum(d_totals, n);
 
-    t_D += t.elapsed().wall;  t.start();
+    t_D += t.elapsed_wall();  t.restart();
     
     // Cost accumulated for each row
     PossiblyDynamicBuffer<double> row_costs_storage(n);
@@ -730,19 +729,19 @@ double tsne_calc_stiffness(boost::multi_array<float, 2> & D,
     double cost = 0.0;
     if (calc_cost) cost = SIMD::vec_sum(row_costs, n);
 
-    t_PmQxD += t.elapsed().wall;  t.start();
+    t_PmQxD += t.elapsed_wall();  t.restart();
     
     copy_lower_to_upper(D);
     
-    t_clu += t.elapsed().wall;  t.start();
+    t_clu += t.elapsed_wall();  t.restart();
 
     return cost;
 }
 
 inline void
-calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
-                const boost::multi_array<float, 2> & PmQxD,
-                const boost::multi_array<float, 2> & Y,
+calc_dY_rows_2d(MLDB::Matrix<float, 2> & dY,
+                const MLDB::Matrix<float, 2> & PmQxD,
+                const MLDB::Matrix<float, 2> & Y,
                 int i, int n)
 {
 #if MLDB_INTEL_ISA
@@ -807,7 +806,7 @@ calc_dY_rows_2d(boost::multi_array<float, 2> & dY,
 
 inline void
 calc_dY_row_2d(float * dYi, const float * PmQxDi,
-               const boost::multi_array<float, 2> & Y,
+               const MLDB::Matrix<float, 2> & Y,
                int i,
                int n)
 {
@@ -824,14 +823,14 @@ calc_dY_row_2d(float * dYi, const float * PmQxDi,
 
 
 struct Calc_Gradient_Job {
-    boost::multi_array<float, 2> & dY;
-    const boost::multi_array<float, 2> & Y;
-    const boost::multi_array<float, 2> & PmQxD;
+    MLDB::Matrix<float, 2> & dY;
+    const MLDB::Matrix<float, 2> & Y;
+    const MLDB::Matrix<float, 2> & PmQxD;
     int i0, i1;
 
-    Calc_Gradient_Job(boost::multi_array<float, 2> & dY,
-                      const boost::multi_array<float, 2> & Y,
-                      const boost::multi_array<float, 2> & PmQxD,
+    Calc_Gradient_Job(MLDB::Matrix<float, 2> & dY,
+                      const MLDB::Matrix<float, 2> & Y,
+                      const MLDB::Matrix<float, 2> & PmQxD,
                       int i0,
                       int i1)
         : dY(dY),
@@ -844,8 +843,8 @@ struct Calc_Gradient_Job {
     
     void operator () ()
     {
-        int n = Y.shape()[0];
-        int d = Y.shape()[1];
+        int n = Y.dim(0);
+        int d = Y.dim(1);
 
         if (d == 2) {
             unsigned i = i0;
@@ -874,22 +873,22 @@ struct Calc_Gradient_Job {
 };
 
 
-void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
-                        const boost::multi_array<float, 2> & Y,
-                        const boost::multi_array<float, 2> & PmQxD)
+void tsne_calc_gradient(MLDB::Matrix<float, 2> & dY,
+                        const MLDB::Matrix<float, 2> & Y,
+                        const MLDB::Matrix<float, 2> & PmQxD)
 {
     // Gradient
     // Implements formula 5 in (Van der Maaten and Hinton, 2008)
     // dC/dy_i = 4 * sum_j ( (p_ij - q_ij)(y_i - y_j)d_ij )
 
     
-    int n = Y.shape()[0];
-    int d = Y.shape()[1];
+    int n = Y.dim(0);
+    int d = Y.dim(1);
     
-    if (dY.shape()[0] != n || dY.shape()[1] != d)
+    if (dY.dim(0) != n || dY.dim(1) != d)
         throw Exception("dY matrix has wrong shape");
 
-    if (PmQxD.shape()[0] != n || PmQxD.shape()[1] != n)
+    if (PmQxD.dim(0) != n || PmQxD.dim(1) != n)
         throw Exception("PmQxD matrix has wrong shape");
 
     int chunk_size = 64;
@@ -902,17 +901,17 @@ void tsne_calc_gradient(boost::multi_array<float, 2> & dY,
     MLDB::parallelMapChunked(0, n, chunk_size, doJob);
 }
 
-void tsne_update(boost::multi_array<float, 2> & Y,
-                 boost::multi_array<float, 2> & dY,
-                 boost::multi_array<float, 2> & iY,
-                 boost::multi_array<float, 2> & gains,
+void tsne_update(MLDB::Matrix<float, 2> & Y,
+                 MLDB::Matrix<float, 2> & dY,
+                 MLDB::Matrix<float, 2> & iY,
+                 MLDB::Matrix<float, 2> & gains,
                  bool first_iter,
                  float momentum,
                  float eta,
                  float min_gain)
 {
-    int n = Y.shape()[0];
-    int d = Y.shape()[1];
+    int n = Y.dim(0);
+    int d = Y.dim(1);
 
     // Implement scheme in Jacobs, 1988.  If we go in the same direction as
     // last time, we increase the learning speed of the parameter a bit.
@@ -937,10 +936,10 @@ void tsne_update(boost::multi_array<float, 2> & Y,
 }
     
 template<typename Float>
-void recenter_about_origin(boost::multi_array<Float, 2> & Y)
+void recenter_about_origin(MLDB::Matrix<Float, 2> & Y)
 {
-    int n = Y.shape()[0];
-    int d = Y.shape()[1];
+    int n = Y.dim(0);
+    int d = Y.dim(1);
 
     // Recenter Y values about the origin
     PossiblyDynamicBuffer<double> Y_means_storage(d);
@@ -957,7 +956,7 @@ void recenter_about_origin(boost::multi_array<Float, 2> & Y)
             Y[i][j] -= Y_means[j] * n_recip;
 }
 
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 tsne_init(int nx, int nd, int randomSeed)
 {
     mt19937 rng;
@@ -967,7 +966,7 @@ tsne_init(int nx, int nd, int randomSeed)
 
     std::function<double()> randn(std::bind(norm, rng));
 
-    boost::multi_array<float, 2> Y(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> Y(nx, nd);
     for (unsigned i = 0;  i < nx;  ++i)
         for (unsigned j = 0;  j < nd;  ++j)
             Y[i][j] = 0.0001 * randn();
@@ -975,23 +974,23 @@ tsne_init(int nx, int nd, int randomSeed)
     return Y;
 }
 
-boost::multi_array<float, 2>
-tsne(const boost::multi_array<float, 2> & probs,
+MLDB::Matrix<float, 2>
+tsne(const MLDB::MatrixRef<float, 2> & probs,
      int num_dims,
      const TSNE_Params & params,
      const TSNE_Callback & callback)
 {
-    int n = probs.shape()[0];
-    if (n != probs.shape()[1])
+    int n = probs.dim(0);
+    if (n != probs.dim(1))
         throw Exception("probabilities were the wrong shape");
 
     int d = num_dims;
 
     // Coordinates
-    boost::multi_array<float, 2> Y = tsne_init(n, d, params.randomSeed);
+    MLDB::Matrix<float, 2> Y = tsne_init(n, d, params.randomSeed);
 
     // Symmetrize and probabilize P
-    boost::multi_array<float, 2> P = probs + transpose(probs);
+    MLDB::Matrix<float, 2> P = probs + transpose(probs);
 
     // TODO: symmetric so only need to total the upper diagonal
     double sumP = 0.0;
@@ -1025,16 +1024,16 @@ tsne(const boost::multi_array<float, 2> & probs,
     Timer timer;
 
     // Pseudo-distance array for reduced space.  Q = D * qfactor
-    boost::multi_array<float, 2> D(boost::extents[n][n]);
+    MLDB::Matrix<float, 2> D(n, n);
 
     // Y delta
-    boost::multi_array<float, 2> dY(boost::extents[n][d]);
+    MLDB::Matrix<float, 2> dY(n, d);
 
     // Last change in Y; so that we can see if we're going in the same dir
-    boost::multi_array<float, 2> iY(boost::extents[n][d]);
+    MLDB::Matrix<float, 2> iY(n, d);
 
     // Per-variable factors to multiply the gradient by to improve convergence
-    boost::multi_array<float, 2> gains(boost::extents[n][d]);
+    MLDB::Matrix<float, 2> gains(n, d);
     std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
 
 
@@ -1046,7 +1045,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
     for (int iter = 0;  iter < params.max_iter;  ++iter) {
 
-        boost::timer::cpu_timer t;
+        MLDB::Timer t;
 
         /*********************************************************************/
         // Pairwise affinities Qij
@@ -1059,7 +1058,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         vectors_to_distances(Y, D, false /* fill_upper */);
 
-        t_v2d += t.elapsed().wall;  t.start();
+        t_v2d += t.elapsed_wall();  t.restart();
         
         if (callback
             && !callback(iter, cost, "v2d")) return Y;
@@ -1082,10 +1081,10 @@ tsne(const boost::multi_array<float, 2> & probs,
         if (callback
             && !callback(iter, cost, "stiffness")) return Y;
 
-        t_stiffness += t.elapsed().wall;  t.start();
+        t_stiffness += t.elapsed_wall();  t.restart();
 
         // D is now the stiffness
-        const boost::multi_array<float, 2> & stiffness = D;
+        const MLDB::Matrix<float, 2> & stiffness = D;
 
         
         /*********************************************************************/
@@ -1095,7 +1094,7 @@ tsne(const boost::multi_array<float, 2> & probs,
 
         tsne_calc_gradient(dY, Y, stiffness);
 
-        t_dY += t.elapsed().wall;  t.start();
+        t_dY += t.elapsed_wall();  t.restart();
 
         if (callback
             && !callback(iter, cost, "gradient")) return Y;
@@ -1135,7 +1134,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         if (callback
             && !callback(iter, cost, "update")) return Y;
 
-        t_update += t.elapsed().wall;  t.start();
+        t_update += t.elapsed_wall();  t.restart();
 
 
         /*********************************************************************/
@@ -1146,7 +1145,7 @@ tsne(const boost::multi_array<float, 2> & probs,
         if (callback
             && !callback(iter, cost, "recenter")) return Y;
 
-        t_recenter += t.elapsed().wall;  t.start();
+        t_recenter += t.elapsed_wall();  t.restart();
 
 
         /*********************************************************************/
@@ -1159,7 +1158,7 @@ tsne(const boost::multi_array<float, 2> & probs,
             timer.restart();
         }
         
-        t_cost += t.elapsed().wall;  t.start();
+        t_cost += t.elapsed_wall();  t.restart();
 
         // Stop lying about P values if we're finished
         if (iter == 100) {
@@ -1300,7 +1299,7 @@ sparseProbsFromCoords(const std::function<float (int)> & dist,
 #if 0
     if (exNeighbours.empty()) {
         cerr << "no neighbours" << endl;
-        cerr << "nx = " << coords.shape()[0];
+        cerr << "nx = " << coords.dim(0);
         cerr << "nd = " << nd << endl;
 
         for (unsigned i = 0;  i < nd;  ++i) {
@@ -1462,8 +1461,8 @@ symmetrize(const std::vector<TsneSparseProbs> & input)
     return result;
 }
 
-boost::multi_array<float, 2>
-tsneApproxFromCoords(const boost::multi_array<float, 2> & coords,
+MLDB::Matrix<float, 2>
+tsneApproxFromCoords(const MLDB::MatrixRef<float, 2> & coords,
                      int num_dims,
                      const TSNE_Params & params,
                      const TSNE_Callback & callback,
@@ -1479,16 +1478,16 @@ tsneApproxFromCoords(const boost::multi_array<float, 2> & coords,
     std::vector<TsneSparseProbs> symmetricNeighbours
         = symmetrize(neighbours);
     
-    boost::multi_array<float, 2> embedding
+    MLDB::Matrix<float, 2> embedding
         = tsneApproxFromSparse(symmetricNeighbours, num_dims, params, callback, qtreeOut);
     
     return embedding;
 }
 
 PythagDistFromCoords::
-PythagDistFromCoords(const boost::multi_array<float, 2> & coords)
-    : coords(coords), sum_dist(coords.shape()[0]),
-      nx(coords.shape()[0]), nd(coords.shape()[1])
+PythagDistFromCoords(const MLDB::MatrixRef<float, 2> & coords)
+    : coords(coords), sum_dist(coords.dim(0)),
+      nx(coords.dim(0)), nd(coords.dim(1))
 {
     for (unsigned i = 0;  i < nx;  ++i) {
         sum_dist[i] = SIMD::vec_dotprod_dp(&coords[i][0], &coords[i][0], nd);
@@ -1692,7 +1691,7 @@ void calcRep(const QuadtreeNode & node,
     context.calc(node, depth, inside, pointsOfInterest);
 }
 
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
                      int num_dims,
                      const TSNE_Params & params,
@@ -1730,29 +1729,29 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         }
     }
 
-    boost::multi_array<float, 2> Y = tsne_init(nx, nd, params.randomSeed);
+    MLDB::Matrix<float, 2> Y = tsne_init(nx, nd, params.randomSeed);
 
     // Do we force calculations to be made exactly?
     bool forceExactSolution = false;
     //forceExactSolution = true;
 
     // Z * Frep
-    boost::multi_array<double, 2> FrepZ(boost::extents[nx][nd]);
+    MLDB::Matrix<double, 2> FrepZ(nx, nd);
 
     // Y delta
-    boost::multi_array<float, 2> dY(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> dY(nx, nd);
 
     // Last change in Y; so that we can see if we're going in the same dir
-    boost::multi_array<float, 2> iY(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> iY(nx, nd);
 
     // Per-variable factors to multiply the gradient by to improve convergence
-    boost::multi_array<float, 2> gains(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> gains(nx, nd);
     std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
 
-    boost::multi_array<double, 2> FattrApprox(boost::extents[nx][nd]);
-    boost::multi_array<double, 2> FrepApprox(boost::extents[nx][nd]);
+    MLDB::Matrix<double, 2> FattrApprox(nx, nd);
+    MLDB::Matrix<double, 2> FrepApprox(nx, nd);
 
-    boost::multi_array<float, 2> lastNormalizedY(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> lastNormalizedY(nx, nd);
 
     double cost = INFINITY;
     double last_cost = INFINITY;
@@ -2109,9 +2108,9 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 #if 0  // exact calculations for verification        
         double Z = 0.0, C = 0.0;
 
-        boost::multi_array<float, 2> QZ(boost::extents[nx][nx]);
-        boost::multi_array<double, 2> Fattr(boost::extents[nx][nd]);
-        boost::multi_array<double, 2> Frep(boost::extents[nx][nd]);
+        MLDB::Matrix<float, 2> QZ(nx, nx);
+        MLDB::Matrix<double, 2> Fattr(nx, nd);
+        MLDB::Matrix<double, 2> Frep(nx, nd);
         
         for (unsigned x = 0;  x < nx;  ++x) {
 
@@ -2350,7 +2349,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         PossiblyDynamicBuffer<float> maxAbsCoord(nd);
         std::fill(maxAbsCoord.data(), maxAbsCoord.data() + nd, 0.0);
 
-        boost::multi_array<float, 2> normalizedY(boost::extents[nx][nd]);
+        MLDB::Matrix<float, 2> normalizedY(nx, nd);
         for (unsigned x = 0;  x < nx;  ++x) {
             for (unsigned i = 0;  i < nd;  ++i) {
                 maxAbsCoord[i] = std::max(maxAbsCoord[i], fabs(Y[x][i]));
@@ -2391,13 +2390,13 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 
 distribution<float>
 retsneApproxFromCoords(const distribution<float> & newExampleCoords,
-                       const boost::multi_array<float, 2> & coreCoords,
-                       const boost::multi_array<float, 2> & prevOutput,
+                       const MLDB::MatrixRef<float, 2> & coreCoords,
+                       const MLDB::MatrixRef<float, 2> & prevOutput,
                        const Quadtree & qtree,
                        const VantagePointTreeT<int> & vpTree,
                        const TSNE_Params & params)
 {
-    int nd = coreCoords.shape()[1];
+    int nd = coreCoords.dim(1);
 
     // Distance between neighbours.  Must satisfy the triangle inequality,
     // so the sqrt is important.
@@ -2420,12 +2419,12 @@ retsneApproxFromCoords(const distribution<float> & newExampleCoords,
 
 distribution<float>
 retsneApproxFromSparse(const TsneSparseProbs & neighbours,
-                       const boost::multi_array<float, 2> & prevOutput,
+                       const MLDB::MatrixRef<float, 2> & prevOutput,
                        const Quadtree & qtree,
                        const TSNE_Params & params)
 {
-    int nx MLDB_UNUSED = prevOutput.shape()[0];
-    int nd = prevOutput.shape()[1];
+    int nx MLDB_UNUSED = prevOutput.dim(0);
+    int nd = prevOutput.dim(1);
     int nn = neighbours.indexes.size();
 
     ExcAssert(qtree.root);
@@ -2662,4 +2661,4 @@ retsneApproxFromSparse(const TsneSparseProbs & neighbours,
 
 
 
-} // namespace ML
+} // namespace MLDB

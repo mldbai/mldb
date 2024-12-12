@@ -1,6 +1,6 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-BOOSTING_TESTING_EXTRA_LIBS:=base utils value_description arch boosting jml_utils
+BOOSTING_TESTING_EXTRA_LIBS:=base utils value_description arch boosting jml_utils algebra
 
 $(eval $(call test,decision_tree_xor_test,boosting utils arch $(BOOSTING_TESTING_EXTRA_LIBS),boost))
 $(eval $(call test,split_test,boosting $(BOOSTING_TESTING_EXTRA_LIBS),boost))

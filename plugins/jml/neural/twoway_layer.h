@@ -15,7 +15,7 @@
 #include "layer_stack.h"
 #include "auto_encoder.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -347,7 +347,7 @@ IMPL_SERIALIZE_RECONSTITUTE(Twoway_Layer);
 
 extern template class Layer_Stack<Twoway_Layer>;
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __jml__neural__twoway_layer_h__ */

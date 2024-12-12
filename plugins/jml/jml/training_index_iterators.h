@@ -18,7 +18,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/plugins/jml/jml/label.h"
 
-namespace ML {
+namespace MLDB {
 
 class Index_Iterator;
 
@@ -285,6 +285,6 @@ private:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 #include "training_index_iterators_impl.h"

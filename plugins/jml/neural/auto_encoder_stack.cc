@@ -18,7 +18,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -479,4 +479,4 @@ AES_REGISTER("Auto_Encoder_Stack");
 template class Layer_Stack<Auto_Encoder>;
 
 
-} // namespace ML
+} // namespace MLDB

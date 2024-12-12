@@ -11,12 +11,13 @@
 #include "mldb/arch/exception.h"
 #include <unicode/unistr.h>
 #include "mldb/base/exc_assert.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <locale>
 #include "mldb/arch/demangle.h"
 #include <cxxabi.h>
 #include <unicode/unistr.h>
 #include <clocale>
+#include <algorithm>
 
 using namespace std;
 
@@ -78,6 +79,11 @@ Utf8String::fromLatin1(std::string && lat1Str)
     return Utf8String(std::move(utf8Str), false /* check */);
 }
 
+Utf8String::Utf8String(const std_filesystem_path & path, bool check)
+    : Utf8String(path.u8string(), check)
+{
+}
+
 Utf8String::Utf8String(const Utf8String & str, size_t startAt, ssize_t endAt)
 {
     auto it = str.begin(), end = str.end();
@@ -95,11 +101,149 @@ Utf8String::Utf8String(const Utf8String & str, size_t startAt, ssize_t endAt)
     data_ = string(it, fin);
 }
 
-Utf8String::Utf8String(const string & in, bool check)
-    : data_(in)
+template<typename InputIterator>
+void
+Utf8String::
+init_from_range(InputIterator start, InputIterator end, bool check)
 {
-    if (check)
-        doCheck();
+    constexpr size_t size_of_char = sizeof(typename std::iterator_traits<InputIterator>::value_type);
+    if constexpr (size_of_char == 1) {
+        init_from_range_u8(start, end, check);
+    } else if constexpr (size_of_char == 2) {
+        init_from_range_u16(start, end, check);
+    } else if constexpr (size_of_char == 4) {
+        init_from_range_u32(start, end, check);
+    } else {
+        throw MLDB::Exception("Unsupported character size: " + std::to_string(size_of_char));
+    }
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_null_terminated(const Char * start, bool check)
+{
+    constexpr size_t size_of_char = sizeof(*start);
+    if constexpr (size_of_char == 1) {
+        init_from_null_terminated_u8(start, check);
+    } else if constexpr (size_of_char == 2) {
+        init_from_null_terminated_u16(start, check);
+    } else if constexpr (size_of_char == 4) {
+        init_from_null_terminated_u32(start, check);
+    } else {
+        throw MLDB::Exception("Unsupported character size: " + std::to_string(size_of_char));
+    }
+}
+
+template<typename InputIterator>
+void
+Utf8String::
+init_from_range_u8(InputIterator start, InputIterator end, bool check)
+{
+    data_ = std::string(start, end);
+    if (check) doCheck();
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_range_u8(const Char * start, const Char * end, bool check)
+{
+    data_ = string((const char *)start, (const char *)end);
+    if (check) doCheck();
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_null_terminated_u8(const Char * start, bool check)
+{
+    static_assert(sizeof(Char) == 1, "Char must be 1 byte");
+    data_ = std::string((const char *)start);
+    if (check) doCheck();
+}
+
+template<typename InputIterator>
+void
+Utf8String::
+inefficient_init_from_range_wide(InputIterator start, InputIterator end, bool check)
+{
+    // TODO: less inefficient way of doing it...
+
+    Utf8String result;
+    for (auto it = start; it != end; ++it)
+        result += *it;
+    
+    *this = std::move(result);
+
+    // No need to check, we did it one character at a time
+}
+
+template<typename Char>
+void
+Utf8String::
+inefficient_init_from_null_terminated_wide(const Char * start, bool check)
+{
+    // TODO: less inefficient way of doing it...
+
+    Utf8String result;
+    for (; *start; ++start)
+        result += *start;
+
+    *this = std::move(result);
+
+    // no need to check, we did it one character at a time
+}
+
+template<typename InputIterator>
+void
+Utf8String::
+init_from_range_u16(InputIterator start, InputIterator end, bool check)
+{
+    inefficient_init_from_range_wide(start, end, check);
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_range_u16(const Char * start, const Char * end, bool check)
+{
+    inefficient_init_from_range_wide(start, end, check);
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_null_terminated_u16(const Char * start, bool check)
+{
+    static_assert(sizeof(Char) == 2, "Char must be 2 bytes");
+    inefficient_init_from_null_terminated_wide(start, check);
+}
+
+template<typename InputIterator>
+void
+Utf8String::
+init_from_range_u32(InputIterator start, InputIterator end, bool check)
+{
+    inefficient_init_from_range_wide(start, end, check);
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_range_u32(const Char * start, const Char * end, bool check)
+{
+    static_assert(sizeof(Char) == 4, "Char must be 4 bytes");
+    inefficient_init_from_range_wide(start, end, check);
+}
+
+template<typename Char>
+void
+Utf8String::
+init_from_null_terminated_u32(const Char * start, bool check)
+{
+    static_assert(sizeof(Char) == 4, "Char must be 4 bytes");
+    inefficient_init_from_null_terminated_wide(start, check);
 }
 
 Utf8String::Utf8String(const char *start, size_t len, bool check)
@@ -109,64 +253,133 @@ Utf8String::Utf8String(const char *start, size_t len, bool check)
         doCheck();
 }
 
-Utf8String::Utf8String(string && in, bool check)
-    : data_(std::move(in))
+Utf8String::Utf8String(const char *start, const char * end, bool check)
+    :data_(start, end)
 {
     if (check)
         doCheck();
+}
+
+Utf8String::Utf8String(std::string str, bool check)
+    : data_(std::move(str))
+{
+    if (check)
+        doCheck();
+}
+
+Utf8String::Utf8String(const std::wstring & str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(const std::u8string & str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(const std::u16string & str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(const std::u32string & str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
 }
 
 Utf8String::Utf8String(const char * in, bool check)
-    : data_(in)
 {
-    if (check)
-        doCheck();
+    init_from_null_terminated(in, check);
 }
 
 Utf8String::Utf8String(const char8_t *start, size_t len, bool check)
-    :data_((const char *)start, len)
 {
-    if (check)
-        doCheck();
+    init_from_range(start, start + len, check);
+}
+
+Utf8String::Utf8String(const char8_t *start, const char8_t * end, bool check)
+{
+    init_from_range(start, end, check);
 }
 
 Utf8String::Utf8String(const char8_t * in, bool check)
-    : data_((const char *)in)
 {
-    if (check)
-        doCheck();
+    init_from_null_terminated(in, check);
 }
 
-Utf8String::Utf8String(const std::basic_string<char32_t> & str)
+Utf8String::Utf8String(const wchar_t * in, bool check)
 {
-    // TODO: less inefficient way of doing it...
-
-    Utf8String result;
-    for (auto & c: str)
-        result += c;
-    
-    *this = std::move(result);
+    init_from_null_terminated(in, check);
 }
 
-Utf8String::Utf8String(const wchar_t * str)
+Utf8String::Utf8String(const char16_t *start, bool check)
 {
-    // TODO: less inefficient way of doing it...
-
-    Utf8String result;
-    for (; *str; ++str)
-        result += *str;
-    
-    *this = std::move(result);
+    init_from_null_terminated(start, check);
 }
 
-Utf8String::Utf8String(const const_iterator & first, const const_iterator & last)
+Utf8String::Utf8String(const char32_t *start, bool check)
+{
+    init_from_null_terminated(start, check);
+}
+
+Utf8String::Utf8String(std::string_view str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::wstring_view str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::u8string_view str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::u16string_view str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::u32string_view str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::span<char> str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::span<wchar_t> str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::span<char8_t> str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::span<char16_t> str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(std::span<char32_t> str, bool check)
+{
+    init_from_range(str.begin(), str.end(), check);
+}
+
+Utf8String::Utf8String(const const_iterator & first, const const_iterator & last, bool /* check */)
     : data_(first.base(), last.base())
 {
     // No need to check, since it comes from an Utf8String where it must
     // have been checked already.
 }
 
-Utf8String::Utf8String(const iterator & first, const iterator & last)
+Utf8String::Utf8String(const iterator & first, const iterator & last, bool /* check */)
     : data_(first.base(), last.base())
 {
     // No need to check, since it comes from an Utf8String where it must
@@ -600,7 +813,7 @@ void Utf8String::replace(ssize_t startIndex, ssize_t endIndex,
 
     str.replace(startIndex, endIndex, replaceWith2);
 
-    Utf8String result(str);
+    Utf8String result(std::u32string_view{str});
     *this = std::move(result);
 }
 
@@ -610,11 +823,11 @@ erase(iterator first, iterator last)
 {
     // Assuming it's a valid range, we can perform the operation on the
     // underlying string
-    ExcAssert(first.base() >= data_.begin());
-    ExcAssert(first.base() <= data_.end());
-    ExcAssert(last.base() >= data_.begin());
-    ExcAssert(last.base() <= data_.end());
-    ExcAssert(first.base() < last.base() || first.base() == last.base());
+    ExcCheck(first.base() >= data_.begin(), "erase: first is off-the-front");
+    ExcCheck(first.base() <= data_.end(), "erase: first is past-the-end");
+    ExcCheck(last.base() >= data_.begin(), "erase: last is off-the-front");
+    ExcCheck(last.base() <= data_.end(), "erase: last is past-the-end");
+    ExcCheck(first.base() < last.base() || first.base() == last.base(), "erase: first is after last");
     data_.erase(first.base(), last.base());
 }
 
@@ -716,6 +929,11 @@ struct AtInit {
 Utf8String getUtf8ExceptionString()
 {
     return getExceptionString();
+}
+
+void to_lower(Utf8String & s)
+{
+    s = s.toLower();
 }
 
 } // namespace MLDB

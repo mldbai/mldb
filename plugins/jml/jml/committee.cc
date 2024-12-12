@@ -22,7 +22,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -183,7 +183,7 @@ optimized_predict_impl(int label,
 Explanation
 Committee::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -337,4 +337,4 @@ Register_Factory<Classifier_Impl, Committee>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

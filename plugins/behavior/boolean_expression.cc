@@ -10,7 +10,7 @@
 #include "mldb/arch/exception.h"
 #include "mldb/arch/format.h"
 #include <sstream>
-#include "boost/lexical_cast.hpp"
+#include "mldb/utils/lexical_cast.h"
 #include "boolean_expression_parser.h"
 #include <regex>
 #include <mutex>
@@ -865,7 +865,7 @@ print()
         result += exprs[i]->print();
         if (i != exprs.size() - 1)
             result += " WITHIN{" + 
-                boost::lexical_cast<string>(within_secs[i]) +
+                MLDB::lexical_cast<string>(within_secs[i]) +
                 ",SECONDS} ";
     }
     result += ")";

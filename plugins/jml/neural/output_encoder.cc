@@ -13,7 +13,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 BYTE_PERSISTENT_ENUM_IMPL(Output_Encoder::Mode);
 
@@ -203,5 +203,5 @@ reconstitute(DB::Store_Reader & store)
     store >> mode >> value_true >> value_false >> num_inputs >> num_outputs;
 }
 
-} // namespace ML
+} // namespace MLDB
 

@@ -59,7 +59,7 @@ struct DenseFeatureGenerator {
     virtual const std::type_info & paramType() const = 0;
 
     /** What features does this feature generator produce? */
-    virtual std::shared_ptr<ML::Dense_Feature_Space>
+    virtual std::shared_ptr<MLDB::Dense_Feature_Space>
     featureSpace() const = 0;
 
     /** Generate the features for the given user. */
@@ -211,7 +211,7 @@ struct DenseFeatureGeneratorT
 
 struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
 
-    typedef std::function<std::shared_ptr<ML::Dense_Feature_Space> ()>
+    typedef std::function<std::shared_ptr<MLDB::Dense_Feature_Space> ()>
     FeatureSpaceFn;
     typedef std::function<distribution<float> (const std::any &)>
     FeaturesFn;
@@ -240,7 +240,7 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
     }
 
     /** What features does this feature generator produce? */
-    virtual std::shared_ptr<ML::Dense_Feature_Space>
+    virtual std::shared_ptr<MLDB::Dense_Feature_Space>
     featureSpace() const
     {
         return onGetFeatureSpace();
@@ -293,7 +293,7 @@ struct CustomDenseFeatureGenerator : public DenseFeatureGenerator {
 template<typename... Args>
 struct CustomDenseFeatureGeneratorT : public DenseFeatureGeneratorT<Args...> {
 
-    typedef std::function<std::shared_ptr<ML::Dense_Feature_Space> ()>
+    typedef std::function<std::shared_ptr<MLDB::Dense_Feature_Space> ()>
     FeatureSpaceFn;
     typedef std::function<distribution<float> (Args... args)>
     FeaturesFn;
@@ -320,7 +320,7 @@ struct CustomDenseFeatureGeneratorT : public DenseFeatureGeneratorT<Args...> {
     }
 
     /** What features does this feature generator produce? */
-    virtual std::shared_ptr<ML::Dense_Feature_Space>
+    virtual std::shared_ptr<MLDB::Dense_Feature_Space>
     featureSpace() const
     {
         return onGetFeatureSpace();
@@ -367,7 +367,7 @@ struct DoInitialize {
 struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
 
     CombinedFeatureGenerator()
-        : featureSpace_(new ML::Dense_Feature_Space())
+        : featureSpace_(new MLDB::Dense_Feature_Space())
     {
     }
 
@@ -378,7 +378,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
     virtual const std::type_info & paramType() const;
 
     /** What features does this feature generator produce? */
-    virtual std::shared_ptr<ML::Dense_Feature_Space>
+    virtual std::shared_ptr<MLDB::Dense_Feature_Space>
     featureSpace() const
     {
         return featureSpace_;
@@ -466,7 +466,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
         //using namespace std;
         //cerr << "reconstituting " << ngen << " feature generators" << endl;
 
-        featureSpace_.reset(new ML::Dense_Feature_Space());
+        featureSpace_.reset(new MLDB::Dense_Feature_Space());
         generators.clear();
 
         for (unsigned i = 0;  i < ngen;  ++i) {
@@ -501,7 +501,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
     /** Information about a single generator */
     struct GeneratorEntry {
         std::shared_ptr<DenseFeatureGenerator> generator;
-        std::shared_ptr<ML::Dense_Feature_Space> featureSpace;
+        std::shared_ptr<MLDB::Dense_Feature_Space> featureSpace;
         int numFeatures;
         std::string prefix;
     };
@@ -510,7 +510,7 @@ struct CombinedFeatureGenerator: virtual public DenseFeatureGenerator {
     std::vector<GeneratorEntry> generators;
 
     /** Current feature space. */
-    std::shared_ptr<ML::Dense_Feature_Space> featureSpace_;
+    std::shared_ptr<MLDB::Dense_Feature_Space> featureSpace_;
 };
 
 

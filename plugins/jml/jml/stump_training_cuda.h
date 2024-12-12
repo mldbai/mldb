@@ -14,7 +14,7 @@
 
 #include "mldb/utils/fixed_point_accum.h"
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 
@@ -52,7 +52,7 @@ struct Test_Buckets_Binsym {
 };
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __jml__stump_training_cuda_h__ */

@@ -17,9 +17,9 @@
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "mldb/plugins/jml/value_descriptions.h"
 
-namespace ML {
+namespace MLDB {
 struct GLZ_Probabilizer;
-} // namespace ML
+} // namespace MLDB
 
 
 namespace MLDB {
@@ -32,7 +32,7 @@ struct ProbabilizerConfig : public ProcedureConfig {
     static constexpr const char * name = "probabilizer.train";
 
     ProbabilizerConfig()
-        : link(ML::LOGIT)
+        : link(MLDB::LOGIT)
     {
     }
 
@@ -43,7 +43,7 @@ struct ProbabilizerConfig : public ProcedureConfig {
     Url modelFileUrl;
 
     /// Link function to use
-    ML::Link_Function link;
+    MLDB::Link_Function link;
 
     Utf8String functionName;
 };
@@ -90,7 +90,7 @@ struct ProbabilizeFunction: public Function {
                      PolyConfig config,
                      const std::function<bool (const Json::Value &)> & onProgress);
 
-    ProbabilizeFunction(MldbEngine * owner, const ML::GLZ_Probabilizer & in);
+    ProbabilizeFunction(MldbEngine * owner, const MLDB::GLZ_Probabilizer & in);
 
     ~ProbabilizeFunction();
 

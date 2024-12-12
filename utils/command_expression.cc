@@ -17,8 +17,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/utils/json_utils.h"
-#include <boost/lexical_cast.hpp>
-#include <boost/range/adaptor/reversed.hpp>
+#include "mldb/utils/lexical_cast.h"
 
 
 using namespace std;
@@ -251,7 +250,7 @@ applyFunction(const std::string & functionName,
     } catch (const std::exception & exc) {
         throw MLDB::Exception("error trying to apply %s to args %s: %s",
                             functionName.c_str(),
-                            boost::lexical_cast<std::string>(functionArgs).c_str(),
+                            MLDB::lexical_cast<std::string>(functionArgs).c_str(),
                             exc.what());
     }
 }

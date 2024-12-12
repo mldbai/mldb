@@ -10,7 +10,6 @@
 
 #include "behavior_domain.h"
 #include "mldb/types/value_description_fwd.h"
-#include <boost/iterator/iterator_facade.hpp>
 
 using namespace std;
 
@@ -136,11 +135,12 @@ std::ostream &
 operator << (std::ostream & stream, const TrancheSpec & spec);
 
 
-struct TrancheSpec::iterator
-    : public boost::iterator_facade<iterator, TrancheSpec,
-                                    std::random_access_iterator_tag,
-                                    TrancheSpec> {
-    friend class boost::iterator_core_access;
+struct TrancheSpec::iterator {
+    using value_type = TrancheSpec;
+    using difference_type = ssize_t;
+    using pointer = TrancheSpec *;
+    using reference = TrancheSpec &;
+    using iterator_category = std::random_access_iterator_tag;
 
     iterator(std::vector<int>::const_iterator it,
              int numTranches)
@@ -156,29 +156,77 @@ struct TrancheSpec::iterator
         return it == other.it;
     }
     
-    TrancheSpec dereference() const
+    TrancheSpec operator * () const
     {
         return TrancheSpec(*it, numTranches);
     }
     
-    void increment()
+    iterator& operator ++ ()
     {
         ++it;
+        return *this;
     }
     
-    void decrement()
+    iterator& operator -- ()
     {
         --it;
+        return *this;
     }
 
-    void advance(ssize_t amount)
+    iterator operator ++ (int)
+    {
+        auto res = *this;
+        ++it;
+        return res;
+    }
+
+    iterator operator -- (int)
+    {
+        auto res = *this;
+        --it;
+        return res;
+    }
+
+    bool operator == (const iterator & other) const
+    {
+        return it == other.it;
+    }
+
+    bool operator != (const iterator & other) const
+    {
+        return it != other.it;
+    }
+
+    bool operator < (const iterator & other) const
+    {
+        return it < other.it;
+    }
+
+    iterator operator + (ssize_t amount) const
+    {
+        return iterator(it + amount, numTranches);
+    }
+
+    iterator operator - (ssize_t amount) const
+    {
+        return iterator(it - amount, numTranches);
+    }
+
+    iterator & operator += (ssize_t amount)
     {
         it += amount;
+        return *this;
     }
 
-    ssize_t distance_to(const iterator & other) const
+    iterator & operator -= (ssize_t amount)
     {
-        return other.it - it;
+        it -= amount;
+        return *this;
+    }
+
+    ssize_t operator - (const iterator & other) const
+    {
+        return it - other.it;
     }
 };
 

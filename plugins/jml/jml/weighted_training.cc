@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 Weight_Spec
@@ -285,7 +285,7 @@ apply_weight_spec(const Training_Data & data,
     return result;
 }
 
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 expand_weights(const Training_Data & data,
                const distribution<float> & weights,
                const Feature & predicted)
@@ -296,8 +296,8 @@ expand_weights(const Training_Data & data,
     
     int nl = data.label_count(predicted);
     
-    boost::multi_array<float, 2> result
-        (boost::extents[data.example_count()][nl]);
+    MLDB::Matrix<float, 2> result
+        (data.example_count(), nl);
     double recip = 1.0 / (nl * weights.total());
 
     for (unsigned x = 0;  x < data.example_count();  ++x)
@@ -380,5 +380,5 @@ parse_weight_spec(const Feature_Space & fs,
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB
 

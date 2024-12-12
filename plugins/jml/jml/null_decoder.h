@@ -14,7 +14,7 @@
 #include "decoder.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -45,7 +45,7 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 

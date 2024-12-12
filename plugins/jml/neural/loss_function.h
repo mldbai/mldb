@@ -10,7 +10,7 @@
 
 #include "mldb/utils/distribution.h"
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -101,4 +101,4 @@ struct MSE_Loss {
 
 // ...
 
-} // namespace ML
+} // namespace MLDB

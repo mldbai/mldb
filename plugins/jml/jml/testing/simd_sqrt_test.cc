@@ -10,7 +10,6 @@
 
 #include "mldb/plugins/jml/jml/config_impl.h"
 #include "mldb/arch/sse.h"
-#include <boost/timer.hpp>
 #include <vector>
 #include <cmath>
 #include "mldb/arch/tick_counter.h"

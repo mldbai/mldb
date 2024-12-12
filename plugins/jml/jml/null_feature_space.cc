@@ -14,7 +14,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -123,5 +123,5 @@ std::string Null_Feature_Space::print() const
 Register_Factory<Feature_Space, Null_Feature_Space> NULL_REG("NULL_FS");
 
 
-} // namespace ML
+} // namespace MLDB
 

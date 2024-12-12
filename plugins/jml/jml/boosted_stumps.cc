@@ -15,9 +15,9 @@
 #include "boosted_stumps_impl.h"
 #include "stump_predict.h"
 #include "mldb/utils/environment.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/utils/floating_point.h"
 #include "mldb/utils/vector_utils.h"
+#include "mldb/utils/profile.h"
 #include "boosting_core.h"
 #include "boosting_training.h"
 
@@ -30,7 +30,7 @@
 using namespace std;
 using namespace MLDB::DB;
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -50,25 +50,6 @@ struct Stats {
         }
     }
 } stats;
-
-class Function_Profiler {
-public:
-    boost::timer::cpu_timer* t = nullptr;
-    double & var;
-    Function_Profiler(double & var)
-        : t(0), var(var)
-    {
-        if (profile) t = new boost::timer::cpu_timer();
-    }
-    ~Function_Profiler()
-    {
-        if (t) var += t->elapsed().wall;
-        delete t;
-    }
-};
-
-#define PROFILE_FUNCTION(var) \
-Function_Profiler __profiler(var);
 
 } // file scope
 
@@ -291,7 +272,7 @@ struct Accuracy_Job_Info {
     const distribution<float> & example_weights;
     const Boosted_Stumps & stumps;
     const Optimization_Info & opt_info;
-    boost::multi_array<float, 2> & output;
+    MLDB::MatrixRef<float, 2> & output;
     bool bin_sym;
 
     Lock lock;
@@ -302,7 +283,7 @@ struct Accuracy_Job_Info {
                       const distribution<float> & example_weights,
                       const Boosted_Stumps & stumps,
                       const Optimization_Info & opt_info,
-                      boost::multi_array<float, 2> & output,
+                      MLDB::MatrixRef<float, 2> & output,
                       bool bin_sym,
                       double & correct, double & margin)
         : data(data), example_weights(example_weights),
@@ -315,7 +296,7 @@ struct Accuracy_Job_Info {
     {
         double sub_correct = 0.0, sub_margin = 0.0;
 
-        int nl = output.shape()[1];
+        int nl = output.dim(1);
 
         const std::vector<Label> & labels
             = data.index().labels(stumps.predicted());
@@ -408,7 +389,7 @@ accuracy(const Training_Data & data,
     unsigned nx = data.example_count();
     unsigned nl = label_count();
     
-    boost::multi_array<float, 2> scores(boost::extents[nx][nl]);
+    MLDB::MatrixRef<float, 2> scores(nx, nl);
 
     bool bin_sym = convert_bin_sym(scores, data, predicted_, all_features());
     
@@ -434,7 +415,7 @@ accuracy(const Training_Data & data,
                                      std::ref(worker),
                                      group));
         
-        unsigned job_ex = 2048 / scores.shape()[1];
+        unsigned job_ex = 2048 / scores.dim(1);
         
         for (unsigned x = 0;  x < data.example_count();  x += job_ex) {
             unsigned end = std::min(x + job_ex, nx);
@@ -474,9 +455,9 @@ std::string Boosted_Stumps::print() const
     return result;
 }
 
-std::vector<ML::Feature> Boosted_Stumps::all_features() const
+std::vector<MLDB::Feature> Boosted_Stumps::all_features() const
 {
-    std::vector<ML::Feature> result;
+    std::vector<MLDB::Feature> result;
     for (stumps_type::const_iterator it = stumps.begin();
          it != stumps.end();  ++it)
         result.push_back(it->first.feature());
@@ -753,7 +734,7 @@ merge(const Classifier_Impl & other, float weight) const
 }
 
 struct Results_Explain {
-    Results_Explain(Explanation & result, const ML::Label & label)
+    Results_Explain(Explanation & result, const MLDB::Label & label)
         : result(result), label(label)
     {
     }
@@ -766,14 +747,14 @@ struct Results_Explain {
     }
     
     Explanation & result;
-    ML::Label label;
+    MLDB::Label label;
     
 };
 
 Explanation
 Boosted_Stumps::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -801,13 +782,13 @@ Register_Factory<Classifier_Impl, Boosted_Stumps>
 
 } // file scope
   
-const Enum_Opt<ML::Boosted_Stumps::Output>
-Enum_Info<ML::Boosted_Stumps::Output>::OPT[3] = {
-    { "raw",         ML::Boosted_Stumps::RAW        },
-    { "logit",       ML::Boosted_Stumps::LOGIT      },
-    { "logit_norm",  ML::Boosted_Stumps::LOGIT_NORM } };
+const Enum_Opt<MLDB::Boosted_Stumps::Output>
+Enum_Info<MLDB::Boosted_Stumps::Output>::OPT[3] = {
+    { "raw",         MLDB::Boosted_Stumps::RAW        },
+    { "logit",       MLDB::Boosted_Stumps::LOGIT      },
+    { "logit_norm",  MLDB::Boosted_Stumps::LOGIT_NORM } };
 
-const char * Enum_Info<ML::Boosted_Stumps::Output>::NAME
+const char * Enum_Info<MLDB::Boosted_Stumps::Output>::NAME
     = "Boosted_Stumps::Output";
 
-} // namespace ML
+} // namespace MLDB

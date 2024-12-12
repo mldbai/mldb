@@ -18,9 +18,9 @@ add_subdirectory(embedding)
 #add_subdirectory(html)
 #add_subdirectory(pro)
 
-if(LINUX)
-  add_subdirectory(av)
-endif()
+#if(LINUX)
+#  add_subdirectory(av)
+#endif()
 # add_subdirectory(tensorflow) # TensorFlow plugin not included
 
 # No source code, this is just a library to bring everything together

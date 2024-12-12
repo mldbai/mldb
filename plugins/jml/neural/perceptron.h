@@ -13,10 +13,10 @@
 #include "layer_stack.h"
 #include "output_encoder.h"
 #include "mldb/utils/pair_utils.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -95,7 +95,7 @@ public:
             PredictionContext * context = 0) const;
 
     /** Apply the first layer to a dataset to decorrelate it. */
-    boost::multi_array<float, 2> decorrelate(const Training_Data & data) const;
+    MLDB::MatrixRef<float, 2> decorrelate(const Training_Data & data) const;
         
     virtual std::string print() const;
 
@@ -172,4 +172,4 @@ private:
 
 };
 
-} // namespace ML
+} // namespace MLDB

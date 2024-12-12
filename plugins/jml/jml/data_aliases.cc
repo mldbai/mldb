@@ -20,14 +20,14 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 std::vector<Alias>
-aliases(const ML::Training_Data & dataset, const Feature & predicted)
+aliases(const MLDB::Training_Data & dataset, const Feature & predicted)
 {
     Timer timer;
 
-    auto hashFeatureSet = [&] (const ML::Feature_Set & features) -> uint64_t
+    auto hashFeatureSet = [&] (const MLDB::Feature_Set & features) -> uint64_t
         {
             std::string printed;
             printed.reserve(4096);
@@ -171,7 +171,7 @@ aliases(const ML::Training_Data & dataset, const Feature & predicted)
 }
 
 int
-remove_aliases(ML::Training_Data & dataset,
+remove_aliases(MLDB::Training_Data & dataset,
                const std::vector<Alias> & aliases,
                bool homogenous,
                std::vector<int> * mapping)
@@ -207,7 +207,7 @@ remove_aliases(ML::Training_Data & dataset,
 }
 
 std::vector<Alias>
-remove_aliases(ML::Training_Data & dataset, const Feature & predicted,
+remove_aliases(MLDB::Training_Data & dataset, const Feature & predicted,
                bool homogenous,
                std::vector<int> * mapping)
 {
@@ -216,5 +216,5 @@ remove_aliases(ML::Training_Data & dataset, const Feature & predicted,
     return aliased;
 }
 
-} // namespace ML
+} // namespace MLDB
 

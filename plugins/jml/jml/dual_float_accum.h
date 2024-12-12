@@ -12,7 +12,7 @@
 
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 
 /** In this structure, we store a double as two floats, with one estimating
     the error of the other.  Allows a more accuate way of accumulating lots
@@ -149,6 +149,6 @@ atomic_add_shared(FloatAccum & result, FloatAccum other)
 
 #endif // MLDB_COMPILER_NVCC
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__dual_float_accum_h__ */

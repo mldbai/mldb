@@ -9,7 +9,7 @@
 
 #include "stump_regress.h"
 
-namespace ML {
+namespace MLDB {
 
 #if 0
 const double Z_regress::worst;
@@ -17,5 +17,5 @@ const double Z_regress::none;
 const double Z_regress::perfect;
 #endif
 
-} // namespace ML
+} // namespace MLDB
 

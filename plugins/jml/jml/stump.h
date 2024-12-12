@@ -11,12 +11,12 @@
 
 #include "mldb/plugins/jml/jml/classifier.h"
 #include "feature_set.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "plugins/jml/enum_info.h"
 #include "split.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -221,6 +221,6 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
-DECLARE_ENUM_INFO(ML::Stump::Update, 3);
+DECLARE_ENUM_INFO(MLDB::Stump::Update, 3);

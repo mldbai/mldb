@@ -20,7 +20,8 @@
 #include "mldb/core/mldb_entity.h"
 #include "mldb/engine/static_content_macro.h"
 #include "mldb/base/scope.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
+#include "mldb/utils/replace_all.h"
 #include "mldb/compiler/filesystem.h"
 #include <sys/stat.h>
 
@@ -210,8 +211,7 @@ Utf8String renderHtmlPage(MldbEngine * engine, const Utf8String & htmlBody)
     result += "</html>\n";
 
     std::string raw = result.stealRawString();
-    boost::algorithm::replace_all(raw, "{{HTTP_BASE_URL}}",
-                                  engine->prefixUrl());
+    MLDB::replace_all(raw, "{{HTTP_BASE_URL}}", engine->prefixUrl());
     result = std::move(raw);
     return result;
 }
@@ -260,7 +260,7 @@ getStaticRouteHandler(string dir, MldbEngine * engine, bool hideInternalEntities
                     MLDB::File_Read_Buffer buf(filenameToLoad);
             
                     string result(buf.start(), buf.end());
-                    boost::algorithm::replace_all(result, "{{HTTP_BASE_URL}}", engine->prefixUrl("").rawString());
+                    MLDB::replace_all(result, "{{HTTP_BASE_URL}}", engine->prefixUrl("").rawString());
                     connection.sendResponse(200, result, mimeType);
                     return RestRequestRouter::MR_YES;
                 };

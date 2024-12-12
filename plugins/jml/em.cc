@@ -24,9 +24,9 @@
 using namespace std;
 using namespace MLDB;
 
-typedef boost::multi_array<double, 2> MatrixType;
+typedef MLDB::Matrix<double, 2> MatrixType;
 
-namespace ML {
+namespace MLDB {
 
 double distance(const distribution<double> & x,
                 const distribution<double> & y)
@@ -59,25 +59,25 @@ double gaussianDistance(const distribution<double> & pt,
 }
 
 
-boost::multi_array<double, 2>
+MLDB::Matrix<double, 2>
 EstimateCovariance(int i,
                    const std::vector<distribution<double>> & points, 
                    const  MatrixType& distanceMatrix,
                    double totalWeight,
                    distribution<double> average)
 {
-    boost::multi_array<double, 2> variant;
+    MLDB::Matrix<double, 2> variant;
 
     if (totalWeight < 0.000001f)
       return variant;
 
-    variant.resize(boost::extents[average.size()][average.size()]);
-    for (int n = 0; n < distanceMatrix.shape()[0]; ++n)
+    variant.resize(average.size(), average.size());
+    for (int n = 0; n < distanceMatrix.dim(0); ++n)
     {
         distribution<double> pt = points[n] - average;
         double distance = distanceMatrix[n][i];
         int dim = average.size();
-        MatrixType variantPt(boost::extents[dim][dim]);
+        MatrixType variantPt(dim, dim);
 
 	    for (unsigned i = 0;  i < dim;  ++i)
 	    {
@@ -91,7 +91,7 @@ EstimateCovariance(int i,
             variant = std::move(variantPt);
         }
         else {
-            variant = std::move(variant + variantPt);
+            variant = variant + variantPt;
         }
     }
 
@@ -119,8 +119,8 @@ train(const std::vector<distribution<double>> & points,
     in_cluster.resize(npoints, -1);
     clusters.resize(nbClusters);
 
-    boost::multi_array<double, 2> distanceMatrix
-        (boost::extents[npoints][nbClusters]);
+    MLDB::Matrix<double, 2> distanceMatrix
+        (npoints, nbClusters);
 
     // Smart initialization of the centroids
     // Same as Kmeans at the moment
@@ -163,9 +163,9 @@ train(const std::vector<distribution<double>> & points,
     int numdimensions = points[0].size();
     for (int i=0; i < nbClusters; ++i) {
 
-        ML::setIdentity<double>(numdimensions, clusters[i].covarianceMatrix);
+        MLDB::setIdentity<double>(numdimensions, clusters[i].covarianceMatrix);
         clusters[i].invertCovarianceMatrix
-            .resize(boost::extents[numdimensions][numdimensions]);
+            .resize(numdimensions, numdimensions);
         clusters[i].invertCovarianceMatrix = clusters[i].covarianceMatrix;
         clusters[i].pseudoDeterminant = 1.0f; 
     }
@@ -231,13 +231,11 @@ train(const std::vector<distribution<double>> & points,
                 = EstimateCovariance(i, points, distanceMatrix,
                                      clusters[i].totalWeight,
                                      clusters[i].centroid);
-            ExcAssertEqual(clusters[i].covarianceMatrix.shape()[0],
-                           clusters[i].covarianceMatrix.shape()[1]);
+            ExcAssertEqual(clusters[i].covarianceMatrix.dim(0),
+                           clusters[i].covarianceMatrix.dim(1));
 
             auto svdMatrix = clusters[i].covarianceMatrix;
-            MatrixType VT,U;
-            distribution<double> svalues;
-            ML::svd_square(svdMatrix, VT, U, svalues);
+            auto [svalues, VT, U] = MLDB::svd_square(svdMatrix);
 
             //Remove small values and calculate pseudo determinant
             double pseudoDeterminant = 1.0f;
@@ -271,14 +269,14 @@ int
 EstimationMaximisation::
 assign(const distribution<double> & point) const
 {
-    boost::multi_array<double, 2> dummySoftAssignMatrix;
+    MLDB::MatrixRef<double, 2> dummySoftAssignMatrix;
     return assign(point, dummySoftAssignMatrix, -1);
 }
 
 int
 EstimationMaximisation::
 assign(const distribution<double> & point,
-       boost::multi_array<double, 2>& distanceMatrix,
+       MLDB::MatrixRef<double, 2>& distanceMatrix,
        int pIndex) const
 {
     using namespace std;

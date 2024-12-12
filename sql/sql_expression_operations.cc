@@ -7,7 +7,7 @@
 
 #include "sql_expression_operations.h"
 #include "mldb/types/annotated_exception.h"
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/vector_description.h"
 #include "mldb/types/compact_vector_description.h"
@@ -19,6 +19,7 @@
 #include "mldb/sql/sql_utils.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/base/optimized_path.h"
+#include "mldb/utils/to_lower.h"
 
 using namespace std;
 
@@ -3361,7 +3362,7 @@ CastExpression(std::shared_ptr<SqlExpression> expr,
                std::string type)
     : expr(std::move(expr)), type(std::move(type))
 {
-    boost::algorithm::to_lower(type);
+    MLDB::to_lower(type);
 }
 
 BoundSqlExpression

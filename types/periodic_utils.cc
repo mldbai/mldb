@@ -9,7 +9,7 @@
 #include "periodic_utils.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/base/exc_assert.h"
-#include <boost/lexical_cast.hpp>
+#include "mldb/utils/lexical_cast.h"
 
 
 using namespace std;
@@ -309,7 +309,7 @@ std::string
 TimePeriod::
 toString() const
 {
-    string result = boost::lexical_cast<string>(number);//MLDB::format("%f", number);
+    string result = MLDB::lexical_cast<string>(number);//MLDB::format("%f", number);
     switch (granularity) {
     case MILLISECONDS:  result += "ms";  return result;
     case SECONDS:       result += 's';   return result;

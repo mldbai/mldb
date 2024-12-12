@@ -27,50 +27,50 @@ using namespace std;
 using namespace MLDB;
 
 
-namespace ML {
+namespace MLDB {
 
 using MLDB::getDefaultDescriptionShared;
 
-DEFINE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
-DEFINE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
+DEFINE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, MLDB::Feature_Type);
+DEFINE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, MLDB::Regularization);
 
 struct ClassifierImplDescription
-    : public MLDB::ValueDescriptionT<std::shared_ptr<ML::Classifier_Impl> > {
+    : public MLDB::ValueDescriptionT<std::shared_ptr<MLDB::Classifier_Impl> > {
 
     ClassifierImplDescription();
 
-    virtual void parseJsonTyped(std::shared_ptr<ML::Classifier_Impl>  * val,
+    virtual void parseJsonTyped(std::shared_ptr<MLDB::Classifier_Impl>  * val,
                                 MLDB::JsonParsingContext & context) const;
 
-    virtual void printJsonTyped(const std::shared_ptr<ML::Classifier_Impl>  * val,
+    virtual void printJsonTyped(const std::shared_ptr<MLDB::Classifier_Impl>  * val,
                                 MLDB::JsonPrintingContext & context) const;
 };
 
-DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<ML::Classifier_Impl>,
+DEFINE_VALUE_DESCRIPTION_NS(std::shared_ptr<MLDB::Classifier_Impl>,
                             ClassifierImplDescription);
 
 FeatureTypeDescription::
 FeatureTypeDescription()
 {
-    addValue("UNKNOWN",     ML::UNKNOWN, "We have not yet determined the feature type");
-    addValue("PRESENCE",    ML::PRESENCE, "Feature is present or not present; value unimportant");
-    addValue("BOOLEAN",     ML::BOOLEAN, "feature is true (1.0) or false (0.0)");
-    addValue("CATEGORICAL", ML::CATEGORICAL, "feature is categorical; ordering makes no sense");
-    addValue("REAL",        ML::REAL, "Feature is real valued");
-    addValue("INUTILE",     ML::INUTILE, "Feature is inutile and should be ignored");
-    addValue("STRING",      ML::STRING, "Feature is an open categorical feature");
+    addValue("UNKNOWN",     MLDB::UNKNOWN, "We have not yet determined the feature type");
+    addValue("PRESENCE",    MLDB::PRESENCE, "Feature is present or not present; value unimportant");
+    addValue("BOOLEAN",     MLDB::BOOLEAN, "feature is true (1.0) or false (0.0)");
+    addValue("CATEGORICAL", MLDB::CATEGORICAL, "feature is categorical; ordering makes no sense");
+    addValue("REAL",        MLDB::REAL, "Feature is real valued");
+    addValue("INUTILE",     MLDB::INUTILE, "Feature is inutile and should be ignored");
+    addValue("STRING",      MLDB::STRING, "Feature is an open categorical feature");
 }
 
 RegularizationDescription::
 RegularizationDescription()
 {
-    addValue("NONE", ML::Regularization_none, "No regularization.");
-    addValue("L1", ML::Regularization_l1, "L1 regularization using LASSO.");
-    addValue("L2", ML::Regularization_l2, "L2 regularization using ridge regression.");  
+    addValue("NONE", MLDB::Regularization_none, "No regularization.");
+    addValue("L1", MLDB::Regularization_l1, "L1 regularization using LASSO.");
+    addValue("L2", MLDB::Regularization_l2, "L2 regularization using ridge regression.");  
 }
 
 struct DenseFeatureSpaceDescription
-    : public ValueDescriptionI<ML::Dense_Feature_Space, ValueKind::ATOM,
+    : public ValueDescriptionI<MLDB::Dense_Feature_Space, ValueKind::ATOM,
                                DenseFeatureSpaceDescription > {
 
     DenseFeatureSpaceDescription()
@@ -79,30 +79,30 @@ struct DenseFeatureSpaceDescription
 
     virtual void parseJson(void * val, JsonParsingContext & context) const
     {
-        auto * val2 = reinterpret_cast<ML::Dense_Feature_Space *>(val);
+        auto * val2 = reinterpret_cast<MLDB::Dense_Feature_Space *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(ML::Dense_Feature_Space * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(MLDB::Dense_Feature_Space * val, JsonParsingContext & context) const
     {
         throw MLDB::Exception("Can't round-trip a dense feature space through JSON");
     }
 
     virtual void printJson(const void * val, JsonPrintingContext & context) const
     {
-        auto val2 = reinterpret_cast<ML::Dense_Feature_Space const *>(val);
+        auto val2 = reinterpret_cast<MLDB::Dense_Feature_Space const *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(ML::Dense_Feature_Space const * val,
+    virtual void printJsonTyped(MLDB::Dense_Feature_Space const * val,
                                 JsonPrintingContext & context) const
     {
         std::vector<std::string> featureNames = val->feature_names();
-        std::vector<std::pair<std::string, ML::Feature_Info> > featureInfo(featureNames.size());
+        std::vector<std::pair<std::string, MLDB::Feature_Info> > featureInfo(featureNames.size());
 
         for (unsigned i = 0;  i < featureNames.size();  ++i) {
             featureInfo[i].first = featureNames[i];
-            featureInfo[i].second = val->info(ML::Feature(i));
+            featureInfo[i].second = val->info(MLDB::Feature(i));
         }
 
         static auto desc = getDefaultDescriptionShared(&featureInfo);
@@ -111,7 +111,7 @@ struct DenseFeatureSpaceDescription
     }
 };
 
-DEFINE_VALUE_DESCRIPTION_NS(ML::Dense_Feature_Space,
+DEFINE_VALUE_DESCRIPTION_NS(MLDB::Dense_Feature_Space,
                             DenseFeatureSpaceDescription);
 
 struct FeatureInfoRepr {
@@ -120,13 +120,13 @@ struct FeatureInfoRepr {
     {
     }
 
-    FeatureInfoRepr(const ML::Feature_Info & info)
+    FeatureInfoRepr(const MLDB::Feature_Info & info)
         : type(info.type()), optional(info.optional()), biased(info.biased()),
           grouping(info.grouping())
     {
     }
 
-    ML::Feature_Type type;
+    MLDB::Feature_Type type;
     bool optional;
     bool biased;
     bool grouping;
@@ -147,7 +147,7 @@ FeatureInfoReprDescription()
 
 
 struct FeatureInfoDescription
-    : public ValueDescriptionI<ML::Feature_Info, ValueKind::ATOM,
+    : public ValueDescriptionI<MLDB::Feature_Info, ValueKind::ATOM,
                                FeatureInfoDescription > {
 
     FeatureInfoDescription()
@@ -156,22 +156,22 @@ struct FeatureInfoDescription
 
     virtual void parseJson(void * val, JsonParsingContext & context) const
     {
-        auto * val2 = reinterpret_cast<ML::Feature_Info *>(val);
+        auto * val2 = reinterpret_cast<MLDB::Feature_Info *>(val);
         return parseJsonTyped(val2, context);
     }
 
-    virtual void parseJsonTyped(ML::Feature_Info * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(MLDB::Feature_Info * val, JsonParsingContext & context) const
     {
         throw MLDB::Exception("Can't round-trip a feature info through JSON");
     }
 
     virtual void printJson(const void * val, JsonPrintingContext & context) const
     {
-        auto * val2 = reinterpret_cast<ML::Feature_Info const *>(val);
+        auto * val2 = reinterpret_cast<MLDB::Feature_Info const *>(val);
         return printJsonTyped(val2, context);
     }
 
-    virtual void printJsonTyped(ML::Feature_Info const * val,
+    virtual void printJsonTyped(MLDB::Feature_Info const * val,
                                 JsonPrintingContext & context) const
     {
         FeatureInfoRepr rep(*val);
@@ -182,11 +182,11 @@ struct FeatureInfoDescription
     }
 };
 
-DEFINE_VALUE_DESCRIPTION_NS(ML::Feature_Info,
+DEFINE_VALUE_DESCRIPTION_NS(MLDB::Feature_Info,
                             FeatureInfoDescription);
 
 struct JmlConfigurationDescription
-    : public ValueDescriptionI<ML::Configuration, ValueKind::MAP,
+    : public ValueDescriptionI<MLDB::Configuration, ValueKind::MAP,
                                JmlConfigurationDescription > {
 
     JmlConfigurationDescription()
@@ -202,7 +202,7 @@ struct JmlConfigurationDescription
         else return val.toStringNoNewLine();
     }
 
-    static void insertInto(ML::Configuration & result,
+    static void insertInto(MLDB::Configuration & result,
                            const std::string & prefix,
                            const Json::Value & vals)
     {
@@ -218,9 +218,9 @@ struct JmlConfigurationDescription
         }
     }
 
-    virtual void parseJsonTyped(ML::Configuration * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(MLDB::Configuration * val, JsonParsingContext & context) const
     {
-        ML::Configuration result;
+        MLDB::Configuration result;
 
         Json::Value json = context.expectJson();
 
@@ -247,7 +247,7 @@ struct JmlConfigurationDescription
         return getPath(after, val[before]);
     }
 
-    virtual void printJsonTyped(ML::Configuration const * val,
+    virtual void printJsonTyped(MLDB::Configuration const * val,
                                 JsonPrintingContext & context) const
     {
         Json::Value result;
@@ -261,18 +261,18 @@ struct JmlConfigurationDescription
     }
 };
 
-DEFINE_VALUE_DESCRIPTION_NS(ML::Configuration,
+DEFINE_VALUE_DESCRIPTION_NS(MLDB::Configuration,
                             JmlConfigurationDescription);
 
-static thread_local std::vector<const ML::Feature_Space *> featureSpaceContextStack;
+static thread_local std::vector<const MLDB::Feature_Space *> featureSpaceContextStack;
 
-void FeatureSpaceContext::push(const ML::Feature_Space * fs)
+void FeatureSpaceContext::push(const MLDB::Feature_Space * fs)
 {
     ExcAssert(fs);
     featureSpaceContextStack.push_back(fs);
 }
 
-void FeatureSpaceContext::pop(const ML::Feature_Space * fs)
+void FeatureSpaceContext::pop(const MLDB::Feature_Space * fs)
 {
     ExcAssert(fs);
     ExcAssertGreater(featureSpaceContextStack.size(), 0);
@@ -280,7 +280,7 @@ void FeatureSpaceContext::pop(const ML::Feature_Space * fs)
     featureSpaceContextStack.pop_back();
 }
 
-const ML::Feature_Space * FeatureSpaceContext::current()
+const MLDB::Feature_Space * FeatureSpaceContext::current()
 {
     ExcAssertGreater(featureSpaceContextStack.size(), 0);
     return featureSpaceContextStack.back();
@@ -298,7 +298,7 @@ ClassifierImplDescription()
 
 void
 ClassifierImplDescription::
-parseJsonTyped(std::shared_ptr<ML::Classifier_Impl>  * val,
+parseJsonTyped(std::shared_ptr<MLDB::Classifier_Impl>  * val,
                MLDB::JsonParsingContext & context) const
 {
     throw MLDB::Exception("Can't parse classifiers");
@@ -327,11 +327,11 @@ ClassifierImplDescription::
 printJsonTyped(const std::shared_ptr<Classifier_Impl>  * val,
                MLDB::JsonPrintingContext & context) const
 {
-    if (tryType<ML::Committee>(val, "Committee", context)) return;
-    if (tryType<ML::GLZ_Classifier>(val, "GLZ", context)) return;
-    if (tryType<ML::Decision_Tree>(val, "DecisionTree", context)) return;
-    if (tryType<ML::Stump>(val, "Stump", context)) return;
-    if (tryType<ML::Boosted_Stumps>(val, "BoostedStumps", context)) return;
+    if (tryType<MLDB::Committee>(val, "Committee", context)) return;
+    if (tryType<MLDB::GLZ_Classifier>(val, "GLZ", context)) return;
+    if (tryType<MLDB::Decision_Tree>(val, "DecisionTree", context)) return;
+    if (tryType<MLDB::Stump>(val, "Stump", context)) return;
+    if (tryType<MLDB::Boosted_Stumps>(val, "BoostedStumps", context)) return;
 
     Json::Value result;
     result["type"] = MLDB::type_name(**val);
@@ -358,41 +358,41 @@ DEFINE_ENUM_DESCRIPTION(Output_Encoding);
 DEFINE_ENUM_DESCRIPTION_NAMED(SplitOpDescription, Split::Op);
 
 struct FeatureDescription
-    : public MLDB::ValueDescriptionT<ML::Feature> {
+    : public MLDB::ValueDescriptionT<MLDB::Feature> {
 
-    virtual void parseJsonTyped(ML::Feature * val,
+    virtual void parseJsonTyped(MLDB::Feature * val,
                                 MLDB::JsonParsingContext & context) const
     {
         throw MLDB::Exception("Can't parse classifiers");
     }
 
-    virtual void printJsonTyped(const ML::Feature * val,
+    virtual void printJsonTyped(const MLDB::Feature * val,
                                 MLDB::JsonPrintingContext & context) const
     {
-        const ML::Feature_Space * fs = FeatureSpaceContext::current();
+        const MLDB::Feature_Space * fs = FeatureSpaceContext::current();
         context.writeString(fs->print(*val));
     }
 };
 
 FeatureDescription *
-getDefaultDescription(ML::Feature * = 0)
+getDefaultDescription(MLDB::Feature * = 0)
 {
     return new FeatureDescription();
 }
 
 struct SplitDescription
-    : public MLDB::ValueDescriptionT<ML::Split> {
+    : public MLDB::ValueDescriptionT<MLDB::Split> {
 
-    virtual void parseJsonTyped(ML::Split * val,
+    virtual void parseJsonTyped(MLDB::Split * val,
                                 MLDB::JsonParsingContext & context) const
     {
         throw MLDB::Exception("Can't parse classifiers");
     }
 
-    virtual void printJsonTyped(const ML::Split * val,
+    virtual void printJsonTyped(const MLDB::Split * val,
                                 MLDB::JsonPrintingContext & context) const
     {
-        const ML::Feature_Space * fs = FeatureSpaceContext::current();
+        const MLDB::Feature_Space * fs = FeatureSpaceContext::current();
 
         Json::Value result;
         result["feature"] = MLDB::jsonEncode(val->feature());
@@ -405,21 +405,21 @@ struct SplitDescription
 };
 
 SplitDescription *
-getDefaultDescription(ML::Split * = 0)
+getDefaultDescription(MLDB::Split * = 0)
 {
     return new SplitDescription();
 }
 
 struct TreePtrDescription
-    : public MLDB::ValueDescriptionT<ML::Tree::Ptr> {
+    : public MLDB::ValueDescriptionT<MLDB::Tree::Ptr> {
 
-    virtual void parseJsonTyped(ML::Tree::Ptr * val,
+    virtual void parseJsonTyped(MLDB::Tree::Ptr * val,
                                 MLDB::JsonParsingContext & context) const
     {
         throw MLDB::Exception("Can't parse classifiers");
     }
 
-    virtual void printJsonTyped(const ML::Tree::Ptr * val,
+    virtual void printJsonTyped(const MLDB::Tree::Ptr * val,
                                 MLDB::JsonPrintingContext & context) const
     {
         Json::Value result;
@@ -436,7 +436,7 @@ struct TreePtrDescription
 };
 
 TreePtrDescription *
-getDefaultDescription(ML::Tree::Ptr * = 0)
+getDefaultDescription(MLDB::Tree::Ptr * = 0)
 {
     return new TreePtrDescription();
 }
@@ -572,7 +572,7 @@ StumpDescription()
 
 std::string keyToString(const Split & split)
 {
-    const ML::Feature_Space * fs = FeatureSpaceContext::current();
+    const MLDB::Feature_Space * fs = FeatureSpaceContext::current();
 
     std::string result = MLDB::jsonEncodeStr(split.feature());
     switch (split.op()) {
@@ -604,4 +604,4 @@ BoostedStumpsDescription()
 }
 
 
-} // namespace ML
+} // namespace MLDB

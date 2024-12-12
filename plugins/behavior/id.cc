@@ -5,7 +5,7 @@
 
 */
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "id.h"
 #include "mldb/arch/bit_range_ops.h"
 #include "mldb/arch/format.h"

@@ -38,7 +38,7 @@ using namespace MLDB::DB;
 using std::sqrt;
 
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 EnvOption<bool> debug("DEBUG_PROBABILIZER", false);
@@ -57,7 +57,7 @@ ProbabilizerModelDescription()
              "Style of probabilizer to load");
     addField("link", &ProbabilizerModel::link,
              "Link function for GLZ probabilizer",
-             ML::LOGIT);
+             MLDB::LOGIT);
     addField("params", &ProbabilizerModel::params,
              "Parameterization of probabilizer");
 }
@@ -65,11 +65,11 @@ ProbabilizerModelDescription()
 void
 ProbabilizerModel::
 train(const std::vector<std::tuple<float, float, float> >& fvs,
-      ML::Link_Function link) 
+      MLDB::Link_Function link) 
 {
     auto logger = MLDB::getMldbLog<ProbabilizerModel>();
     size_t nx = fvs.size();
-    boost::multi_array<double, 2> outputs(boost::extents[2][nx]);  // value, bias
+    MLDB::Matrix<double, 2> outputs(2, nx);  // value, bias
     distribution<double> correct(nx, 0.0);
     distribution<double> weights(nx, 1.0);
 
@@ -102,9 +102,9 @@ train(const std::vector<std::tuple<float, float, float> >& fvs,
                      << " sampleOneRate = " << sampleOneRate
                      << " sampleZeroRate = " << sampleZeroRate;
 
-    ML::Ridge_Regressor regressor;
+    MLDB::Ridge_Regressor regressor;
     distribution<double> probParams
-        = ML::run_irls(correct, outputs, weights, link, regressor);
+        = MLDB::run_irls(correct, outputs, weights, link, regressor);
 
     INFO_MSG(logger) << "probParams = " << probParams;
 
@@ -330,7 +330,7 @@ train_sparse(const std::vector<distribution<double> > & data,
     distribution<double> weights = weights_;
     if (weights.empty()) weights.resize(nd, 1.0);
 
-    boost::multi_array<double, 2> outputs(boost::extents[3][nd]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs(3, nd);  // value, max, bias
     distribution<double> correct(nd);
     
     for (unsigned d = 0;  d < nd;  ++d) {
@@ -349,7 +349,7 @@ train_sparse(const std::vector<distribution<double> > & data,
 }
 
 void GLZ_Probabilizer::
-train_glz_regress(const boost::multi_array<double, 2> & outputs,
+train_glz_regress(const MLDB::MatrixRef<double, 2> & outputs,
                   const distribution<double> & correct,
                   const distribution<float> & weights,
                   bool debug)
@@ -364,12 +364,12 @@ train_glz_regress(const boost::multi_array<double, 2> & outputs,
 }
 
 void GLZ_Probabilizer::
-train_identity_regress(const boost::multi_array<double, 2> & outputs,
+train_identity_regress(const MLDB::MatrixRef<double, 2> & outputs,
                        const distribution<double> & correct,
                        const distribution<float> & weights,
                        bool debug)
 {
-    size_t ol = outputs.shape()[0];
+    size_t ol = outputs.dim(0);
 
     /* Make the parameterization be an identity function. */
     params.clear();
@@ -383,7 +383,7 @@ train_identity_regress(const boost::multi_array<double, 2> & outputs,
 
 distribution<float>
 GLZ_Probabilizer::
-train_one_mode0(const boost::multi_array<double, 2> & outputs,
+train_one_mode0(const MLDB::MatrixRef<double, 2> & outputs,
                 const distribution<double> & correct,
                 const distribution<double> & w,
                 const vector<int> & dest) const
@@ -402,14 +402,14 @@ train_one_mode0(const boost::multi_array<double, 2> & outputs,
 }
 
 void GLZ_Probabilizer::
-train_mode0(boost::multi_array<double, 2> & outputs,
+train_mode0(MLDB::Matrix<double, 2> & outputs,
             const std::vector<distribution<double> > & correct,
             const distribution<int> & num_correct,
             const distribution<float> & weights,
             bool debug)
 {
-    size_t nl = outputs.shape()[0] - 2;
-    size_t nx = outputs.shape()[1];
+    size_t nl = outputs.dim(0) - 2;
+    size_t nx = outputs.dim(1);
 
     /* Train the mode2 over all of the data.  We use these ones for where we
        don't have enough data or we get a negative value for our output. */
@@ -435,17 +435,17 @@ train_mode0(boost::multi_array<double, 2> & outputs,
 
 distribution<float>
 GLZ_Probabilizer::
-train_one_mode1(const boost::multi_array<double, 2> & outputs,
+train_one_mode1(const MLDB::MatrixRef<double, 2> & outputs,
                 const distribution<double> & correct,
                 const distribution<double> & w,
                 int l) const
 {
-    size_t ol = outputs.shape()[0];
-    size_t nx = outputs.shape()[1];
+    size_t ol = outputs.dim(0);
+    size_t nx = outputs.dim(1);
 
     //cerr << "ol = " << ol << " nx = " << nx << endl;
 
-    boost::multi_array<double, 2> outputs2(boost::extents[3][nx]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs2(3, nx);  // value, max, bias
     for (unsigned x = 0;  x < nx;  ++x) {
         outputs2[0][x] = outputs[l][x];
         outputs2[1][x] = outputs[ol - 2][x];
@@ -471,13 +471,13 @@ train_one_mode1(const boost::multi_array<double, 2> & outputs,
 
 
 void GLZ_Probabilizer::
-train_mode1(const boost::multi_array<double, 2> & outputs,
+train_mode1(const MLDB::MatrixRef<double, 2> & outputs,
             const std::vector<distribution<double> > & correct,
             const distribution<int> & num_correct,
             const distribution<float> & weights,
             bool debug)
 {
-    size_t nl = outputs.shape()[0] - 2;
+    size_t nl = outputs.dim(0) - 2;
 
     /* Train the mode2 over all of the data.  We use these ones for where we
        don't have enough data or we get a negative value for our output. */
@@ -499,21 +499,21 @@ train_mode1(const boost::multi_array<double, 2> & outputs,
 }
 
 void GLZ_Probabilizer::
-train_mode2(const boost::multi_array<double, 2> & outputs,
+train_mode2(const MLDB::MatrixRef<double, 2> & outputs,
             const std::vector<distribution<double> > & correct,
             const distribution<int> & num_correct,
             const distribution<float> & weights,
             bool debug)
 {
-    size_t nl = outputs.shape()[0] - 2;
-    size_t ol = outputs.shape()[0];
-    size_t nx = outputs.shape()[1];
+    size_t nl = outputs.dim(0) - 2;
+    size_t ol = outputs.dim(0);
+    size_t nx = outputs.dim(1);
 
     //debug = true;
 
     /* Are there any linearly dependent columns in the outputs?  If so, we
        don't try to include them. */
-    boost::multi_array<double, 2> independent = outputs;
+    MLDB::Matrix<double, 2> independent = outputs;
 
     if (debug) {
         for (unsigned l = 0;  l < nl;  ++l)
@@ -545,7 +545,7 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
         for (unsigned i = 0;  i < reconstruct.size();  ++i)
             cerr << "reconstruct[" << i << "] = " << reconstruct[i] << endl;
         
-        cerr << outputs.shape()[0] << "x" << outputs.shape()[1]
+        cerr << outputs.dim(0) << "x" << outputs.dim(1)
              << " matrix" << endl;
     }
     
@@ -592,7 +592,7 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
     distribution<double> w(nx * nlu, 1.0);
         
     /* Get the entire enormous data set. */
-    boost::multi_array<double, 2> outputs2(boost::extents[3][nx * nlu]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs2(3, nx * nlu);  // value, max, bias
     distribution<double> correct2(nx * nlu);
 
     for (unsigned x = 0;  x < nx;  ++x) {
@@ -640,14 +640,14 @@ train_mode2(const boost::multi_array<double, 2> & outputs,
 }
 
 void GLZ_Probabilizer::
-train_mode3(const boost::multi_array<double, 2> & outputs,
+train_mode3(const MLDB::MatrixRef<double, 2> & outputs,
             const std::vector<distribution<double> > & correct,
             const distribution<int> & num_correct,
             const distribution<float> & weights,
             bool debug)
 {
-    size_t nl = outputs.shape()[0] - 2;
-    size_t ol = outputs.shape()[0];
+    size_t nl = outputs.dim(0) - 2;
+    size_t ol = outputs.dim(0);
 
     /* Make the parameterization be an identity function. */
     params.clear();
@@ -663,14 +663,14 @@ train_mode3(const boost::multi_array<double, 2> & outputs,
 }   
 
 void GLZ_Probabilizer::
-train_mode4(const boost::multi_array<double, 2> & outputs,
+train_mode4(const MLDB::MatrixRef<double, 2> & outputs,
             const std::vector<distribution<double> > & correct,
             const distribution<int> & num_correct,
             const distribution<float> & weights,
             bool debug)
 {
-    size_t nl = outputs.shape()[0] - 2;
-    boost::multi_array<double, 2> outputs_nodep = outputs;
+    size_t nl = outputs.dim(0) - 2;
+    MLDB::Matrix<double, 2> outputs_nodep = outputs;
     
     /* Remove any linearly dependent rows. */
     vector<int> dest = remove_dependent(outputs_nodep);
@@ -701,15 +701,15 @@ train_mode4(const boost::multi_array<double, 2> & outputs,
 }
 
 void GLZ_Probabilizer::
-train_mode5(const boost::multi_array<double, 2> & outputs,
+train_mode5(const MLDB::MatrixRef<double, 2> & outputs,
             const std::vector<distribution<double> > & correct,
             const distribution<int> & num_correct,
             const distribution<float> & weights,
             bool debug)
 {
-    size_t nl = outputs.shape()[0] - 2;
-    size_t ol = outputs.shape()[0];
-    size_t nx = outputs.shape()[1];
+    size_t nl = outputs.dim(0) - 2;
+    size_t ol = outputs.dim(0);
+    size_t nx = outputs.dim(1);
 
     //cerr << "nl = " << nl << " nx = " << nx << " ol = " << ol << endl;
 
@@ -721,7 +721,7 @@ train_mode5(const boost::multi_array<double, 2> & outputs,
     distribution<double> w(nx, 1.0);
         
     /* Get the entire enormous data set. */
-    boost::multi_array<double, 2> outputs2(boost::extents[3][nx]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs2(3, nx);  // value, max, bias
     distribution<double> correct2(nx);
     
     for (unsigned x = 0;  x < nx;  ++x) {
@@ -773,25 +773,25 @@ namespace {
 
 /** Small object to record the values of predictions once they're ready */
 struct Write_Output {
-    boost::multi_array<double, 2> & outputs;
+    MLDB::Matrix<double, 2> & outputs;
     int nl;
     bool regression_problem;
 
-    Write_Output(boost::multi_array<double, 2> & outputs, int nl,
+    Write_Output(MLDB::Matrix<double, 2> & outputs, int nl,
                  bool regression_problem)
         : outputs(outputs), nl(nl), regression_problem(regression_problem)
     {
         if (!regression_problem)
-            ExcAssertEqual(nl + 2, outputs.shape()[0]);
+            ExcAssertEqual(nl + 2, outputs.dim(0));
         else ExcAssertEqual(nl, 1);
     }
 
     void operator () (int example, const float * vals)
     {
         //cerr << "writing output: example " << example << " vals[0] "
-        //     << vals[0] << " nl " << nl << " sz " << outputs.shape()[0]
-        //     << "x" << outputs.shape()[1] << endl;
-        ExcAssertLess(example, outputs.shape()[1]);
+        //     << vals[0] << " nl " << nl << " sz " << outputs.dim(0)
+        //     << "x" << outputs.dim(1) << endl;
+        ExcAssertLess(example, outputs.dim(1));
 
         if (!regression_problem) {
             float max_output = *vals;
@@ -851,7 +851,7 @@ train(const Training_Data & training_data,
     
     //bool debug = false;
     
-    boost::multi_array<double, 2> outputs(boost::extents[ol][nx]);
+    MLDB::Matrix<double, 2> outputs(ol, nx);
     distribution<double> model(nx, 0.0);
     vector<distribution<double> > correct(nl, model);
     distribution<int> num_correct(nl);
@@ -1052,7 +1052,7 @@ bool GLZ_Probabilizer::positive() const
 
 std::string GLZ_Probabilizer::print() const
 {
-    string result = "GLZ_Probabilizer { link = " + ML::print(link);
+    string result = "GLZ_Probabilizer { link = " + MLDB::print(link);
     for (unsigned i = 0;  i < params.size();  ++i)
         result += format(" params[%d] = ", i) + ostream_format(params[i]);
     result += " }";
@@ -1134,5 +1134,5 @@ Register_Factory<Decoder_Impl, GLZ_Probabilizer> GLZ_REG2("GLZ_PROBABILIZER");
 } // file scope
 
 
-} // namespace ML
+} // namespace MLDB
 

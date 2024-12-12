@@ -6,17 +6,17 @@
 
    Configuration file parser.
 */
-#include <boost/algorithm/string/join.hpp>
 
 #include "configuration.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/utils/string_functions.h"
+#include "mldb/utils/join.h"
 
 
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CONFIGURATION::DATA                                                       */
@@ -350,8 +350,8 @@ throwOnUnknwonKeys(
 
     if (!keys.empty()) {
         throw MLDB::Exception("Unknown key(s) encountered in config: %s",
-                            boost::algorithm::join(keys, " ").c_str());
+                            MLDB::join(keys, " ").c_str());
     }
 }
 
-} // namespace ML
+} // namespace MLDB

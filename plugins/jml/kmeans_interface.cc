@@ -12,7 +12,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/pair_utils.h"
@@ -99,14 +99,14 @@ KmeansConfigDescription()
 
 namespace {
 
-ML::KMeansMetric * makeMetric(MetricSpace metric)
+MLDB::KMeansMetric * makeMetric(MetricSpace metric)
 {
     switch (metric) {
     case METRIC_EUCLIDEAN:
-        return new ML::KMeansEuclideanMetric();
+        return new MLDB::KMeansEuclideanMetric();
         break;
     case METRIC_COSINE:
-        return new ML::KMeansCosineMetric();
+        return new MLDB::KMeansCosineMetric();
         break;
     default:
         throw MLDB::Exception("Unknown kmeans metric type");
@@ -190,7 +190,7 @@ run(const ProcedureRunConfig & run,
                                   "Make sure your dataset is not empty and that your WHERE expression "
                                   "does not filter all the rows");
 
-    ML::KMeans kmeans;
+    MLDB::KMeans kmeans;
     kmeans.metric.reset(makeMetric(runProcConf.metric));
 
     vector<int> inCluster;
@@ -335,7 +335,7 @@ KmeansExpressionValueDescription::KmeansExpressionValueDescription()
 
 
 struct KmeansFunction::Impl {
-    ML::KMeans kmeans;
+    MLDB::KMeans kmeans;
     std::vector<ColumnPath> columnNames;
 
     Impl(const Url & modelFileUrl)

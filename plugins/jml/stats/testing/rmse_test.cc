@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/stats/rmse.h"
 #include <boost/assign/list_of.hpp>
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;

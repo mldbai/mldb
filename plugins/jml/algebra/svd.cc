@@ -15,18 +15,17 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/arch/exception.h"
-#include <boost/timer.hpp>
 #include <iostream>
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 template<class Float>
-std::tuple<distribution<Float>, boost::multi_array<Float, 2>,
-             boost::multi_array<Float, 2> >
-svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
+std::tuple<distribution<Float>, MLDB::MatrixRef<Float, 2>,
+             MLDB::MatrixRef<Float, 2> >
+svd_impl(const MLDB::MatrixRef<Float, 2> & A, int nsv)
 {
     /* We make the m x n square matrix
        [ 0  A ]
@@ -44,11 +43,11 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
 
     bool profile = false;
 
-    boost::timer::cpu_timert;
+    MLDB::Timer t;
     double t0 = t.elapsed();
 
-    size_t m = A.shape()[0];
-    size_t n = A.shape()[1];
+    size_t m = A.dim(0);
+    size_t n = A.dim(1);
     size_t mnmin = std::min(m, n);
 
     if (nsv < 0 || nsv > mnmin)
@@ -61,7 +60,7 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
 
        to find the eigenvalues with.
     */
-    boost::multi_array<Float, 2> A_(m+n, m+n);
+    MLDB::MatrixRef<Float, 2> A_(m+n, m+n);
     A_.fill(0.0);
     for (unsigned i = 0;  i < m;  ++i) {
         for (unsigned j = 0;  j < n;  ++j) {
@@ -120,8 +119,8 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
        ...
     */
     
-    boost::multi_array<Float, 2> U(boost::extents[nsv][m]);
-    boost::multi_array<Float, 2> V(boost::extents[nsv][n]);
+    MLDB::MatrixRef<Float, 2> U(nsv, m);
+    MLDB::MatrixRef<Float, 2> V(nsv, n);
 
     for (unsigned i = 0;  i < m;  ++i)
         for (unsigned j = 0;  j < nsv;  ++j)
@@ -139,12 +138,12 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
     //cerr << "U = " << endl << U << endl;
     //cerr << "V = " << endl << V << endl;
     
-    //boost::multi_array<Float, 2> D = diag(E);
+    //MLDB::MatrixRef<Float, 2> D = diag(E);
     //D.fill(0.0);
     //for (unsigned i = 0;  i < std::min(m, n);  ++i)
     //    D[i][i] = E[i];
 
-    //boost::multi_array<Float, 2> VT(std::min(m, n), n);
+    //MLDB::MatrixRef<Float, 2> VT(std::min(m, n), n);
     //for (unsigned i = 0;  i < n;  ++i)
     //    for (unsigned j = 0;  j < std::min(m, n);  ++j)
     //        VT[j][i] = V[i][j];
@@ -153,39 +152,39 @@ svd_impl(const boost::multi_array<Float, 2> & A, int nsv)
 
     //cerr << "A = " << endl << A << endl;
 
-    if (profile) cerr << "SVD: total: " << t.elapsed().wall << endl;
+    if (profile) cerr << "SVD: total: " << t.elapsed_wall() << endl;
 
     return std::make_tuple(E, U, V);
 }
 
-std::tuple<distribution<float>, boost::multi_array<float, 2>,
-             boost::multi_array<float, 2> >
-svd(const boost::multi_array<float, 2> & A)
+std::tuple<distribution<float>, MLDB::MatrixRef<float, 2>,
+             MLDB::MatrixRef<float, 2> >
+svd(const MLDB::MatrixRef<float, 2> & A)
 {
-    return svd_impl(A, std::min(A.shape()[0], A.shape()[1]));
+    return svd_impl(A, std::min(A.dim(0), A.dim(1)));
 }
 
-std::tuple<distribution<double>, boost::multi_array<double, 2>,
-             boost::multi_array<double, 2> >
-svd(const boost::multi_array<double, 2> & A)
+std::tuple<distribution<double>, MLDB::MatrixRef<double, 2>,
+             MLDB::MatrixRef<double, 2> >
+svd(const MLDB::MatrixRef<double, 2> & A)
 {
-    return svd_impl(A, (A.shape()[0], A.shape()[1]));
+    return svd_impl(A, (A.dim(0), A.dim(1)));
 }
 
-std::tuple<distribution<float>, boost::multi_array<float, 2>,
-             boost::multi_array<float, 2> >
-svd(const boost::multi_array<float, 2> & A, size_t nsv)
-{
-    return svd_impl(A, nsv);
-}
-
-std::tuple<distribution<double>, boost::multi_array<double, 2>,
-             boost::multi_array<double, 2> >
-svd(const boost::multi_array<double, 2> & A, size_t nsv)
+std::tuple<distribution<float>, MLDB::MatrixRef<float, 2>,
+             MLDB::MatrixRef<float, 2> >
+svd(const MLDB::MatrixRef<float, 2> & A, size_t nsv)
 {
     return svd_impl(A, nsv);
 }
 
-} // namespace ML
+std::tuple<distribution<double>, MLDB::MatrixRef<double, 2>,
+             MLDB::MatrixRef<double, 2> >
+svd(const MLDB::MatrixRef<double, 2> & A, size_t nsv)
+{
+    return svd_impl(A, nsv);
+}
+
+} // namespace MLDB
 
 #endif

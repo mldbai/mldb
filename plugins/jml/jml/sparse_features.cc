@@ -10,17 +10,16 @@
 #include "mldb/plugins/jml/jml/registry.h"
 #include "mldb/base/parse_context.h"
 #include "mldb/types/db/file_read_buffer.h"
-#include <boost/utility.hpp>
 
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -58,7 +57,7 @@ set_info(const Feature & feature, const Feature_Info & info)
     
 Feature_Info
 Sparse_Feature_Space::
-info(const ML::Feature & feature) const
+info(const MLDB::Feature & feature) const
 {
     if (feature == MISSING_FEATURE)
         return MISSING_FEATURE_INFO;
@@ -73,7 +72,7 @@ info(const ML::Feature & feature) const
 }
 
 std::string Sparse_Feature_Space::
-print(const ML::Feature & feature) const
+print(const MLDB::Feature & feature) const
 {
     if (feature == MISSING_FEATURE)
         return "MISSING";
@@ -81,25 +80,25 @@ print(const ML::Feature & feature) const
 }
 
 bool Sparse_Feature_Space::
-parse(ParseContext & context, ML::Feature & feature) const
+parse(ParseContext & context, MLDB::Feature & feature) const
 {
     throw Exception("unimplemented");
 }
 
 void Sparse_Feature_Space::
-expect(ParseContext & context, ML::Feature & feature) const
+expect(ParseContext & context, MLDB::Feature & feature) const
 {
     throw Exception("unimplemented");
 }
 
 void Sparse_Feature_Space::
-serialize(DB::Store_Writer & store, const ML::Feature & feature) const
+serialize(DB::Store_Writer & store, const MLDB::Feature & feature) const
 {
     store << get_name(feature);
 }
 
 void Sparse_Feature_Space::
-reconstitute(DB::Store_Reader & store, ML::Feature & feature) const
+reconstitute(DB::Store_Reader & store, MLDB::Feature & feature) const
 {
     std::string name;
     store >> name;
@@ -436,5 +435,5 @@ Register_Factory<Feature_Space, Sparse_Feature_Space> SFS_REG(ID);
 
 
 
-} // namespace ML
+} // namespace MLDB
 

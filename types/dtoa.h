@@ -12,100 +12,27 @@
 
 #include <string>
 
-extern "C" {
-
-
-    /*  Arguments ndigits, decpt, sign are similar to those
-        of ecvt and fcvt; trailing zeros are suppressed from
-        the returned string.  If not null, *rve is set to point
-        to the end of the return value.  If d is +-Infinity or NaN,
-        then *decpt is set to 9999.
-
-        mode:
-        0 ==> shortest string that yields d when read in
-        and rounded to nearest.
-        1 ==> like 0, but with Steele & White stopping rule;
-        e.g. with IEEE P754 arithmetic , mode 0 gives
-        1e23 whereas mode 1 gives 9.999999999999999e22.
-        2 ==> max(1,ndigits) significant digits.  This gives a
-        return value similar to that of ecvt, except
-        that trailing zeros are suppressed.
-        3 ==> through ndigits past the decimal point.  This
-        gives a return value similar to that from fcvt,
-        except that trailing zeros are suppressed, and
-        ndigits can be negative.
-        4,5 ==> similar to 2 and 3, respectively, but (in
-        round-nearest mode) with the tests of mode 0 to
-        possibly return a shorter string that rounds to d.
-        With IEEE arithmetic and compilation with
-        -DHonor_FLT_ROUNDS, modes 4 and 5 behave the same
-        as modes 2 and 3 when FLT_ROUNDS != 1.
-        6-9 ==> Debugging modes similar to mode - 4:  don't try
-        fast floating-point estimate (if applicable).
-
-        Values of mode other than 0-9 are treated as mode 0.
-
-        Sufficient space is allocated to the return value
-        to hold the suppressed trailing zeros.
-    */
-
-char *
-soa_dtoa(double dd, int mode, int ndigits,
-          int *decpt, int *sign, char **rve);
-
-void
-soa_freedtoa(char *s);
-
-double
-soa_strtod(const char *s00, char **se);
-
-} // extern "C"
-
 namespace MLDB {
 
-inline std::string dtoa(double floatVal)
-{
-    // if exactly 0 then return 0.0
-    if (floatVal == 0.0)
-        return "0.0";
+// Convert a float or double to a string. This uses the smallest number of
+// characters possible that will result in the right number being read back
+// in, EXCEPT for when biasAgainstScientific is non-zero. In that case, it
+// will write out up to biasAgainstScientific zeros at the end of integers
+// to make them more readable.
+//
+// Examples
+//
+// 1e0 -> "1" (always as it's shorter)
+// 1e1 -> "10" (always as it's shorter)
+// 1e2 -> "100" (always as it's just as short and more readable)
+// 1e3 -> "1000" (if biasAgainstScientific >= 1) or "1e3" (if biasAgainstScientific < 1)
+// 1e4 -> "10000" (if biasAgainstScientific >= 2) or "1e4" (if biasAgainstScientific < 2)
+// 1e5 -> "100000" (if biasAgainstScientific >= 3) or "1e5" (if biasAgainstScientific < 3)
+// etc
+// 
+// The default value of 6 allows numbers up to one million to be written out as integers.
 
-    // Use dtoa to make sure we print a value that will be converted
-    // back to the same on input, without printing more digits than
-    // necessary.
-    int decpt;
-    int sign;
-
-    char * result = soa_dtoa(floatVal, 1, -1 /* ndigits */,
-                             &decpt, &sign, nullptr);
-    std::string toReturn(result);
-    soa_freedtoa(result);
-
-    //cerr << "decpt = " << decpt << " sign = " << sign
-    //     << " result = " << toReturn << " val = " << floatVal
-    //     << endl;
-    if (decpt > 0 && decpt <= toReturn.size())
-        toReturn.insert(decpt, ".");
-    else if (decpt == 9999)
-        ;
-    else if (decpt <= 0 && decpt > -6) {
-        toReturn.insert(0, "0.");
-        for (unsigned i = 0;  i < -decpt;  ++i)
-            toReturn.insert(2, "0");
-    }
-    else {
-        if (toReturn.size() > 1)
-            toReturn.insert(1, ".");
-        toReturn += "e" + std::to_string(decpt - 1);
-    }
-        
-    if (sign)
-        toReturn.insert(0, "-");
-
-    if (toReturn[toReturn.length() - 1] == '.')
-        toReturn += '0';
-
-    return toReturn;
-}
-
+std::string dtoa(double floatVal, int biasAgainstScientific = 5);
+std::string ftoa(float floatVal, int biasAgainstScientific = 5);
 
 } // namespace MLDB

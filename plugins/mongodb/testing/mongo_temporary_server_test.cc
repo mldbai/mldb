@@ -17,7 +17,7 @@
 #include "../mongo_temporary_server.h"
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 using namespace Mongo;
 

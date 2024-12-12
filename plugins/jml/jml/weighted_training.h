@@ -13,10 +13,10 @@
 #include <vector>
 #include <string>
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 
 
-namespace ML {
+namespace MLDB {
 
 using MLDB::distribution;
 
@@ -118,7 +118,7 @@ distribution<float>
 apply_weight_spec(const Training_Data & data,
                   const std::vector<Weight_Spec> & specs);
     
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 expand_weights(const Training_Data & data,
                const distribution<float> & weights,
                const Feature & predicted);
@@ -130,4 +130,4 @@ parse_weight_spec(const Feature_Space & fs,
                   std::string equalize_name, float beta,
                   std::string weight_spec, Feature group_feature);
     
-} // namespace ML
+} // namespace MLDB

@@ -12,7 +12,7 @@
 #include "mldb/plugins/jml/jml/registry.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -128,4 +128,4 @@ Register_Factory<Feature_Transformer_Impl, Transform_List>
 } // file scope
 
 
-} // namespace ML
+} // namespace MLDB

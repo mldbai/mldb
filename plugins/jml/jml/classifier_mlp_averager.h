@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/jml/classifier.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -50,11 +50,11 @@ class Classifier_MLP_Averager {
     bool                valid       () const;
     
   private:
-    ML::Classifier classifier;
+    MLDB::Classifier classifier;
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__classifier_mlp_averager_h__ */

@@ -12,7 +12,7 @@
 
 #include <vector>
 
-namespace ML {
+namespace MLDB {
 
 class Feature_Space;
 
@@ -112,7 +112,7 @@ struct Disjunction {
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* jml__boosting__boolean_expression_h__ */

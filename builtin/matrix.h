@@ -17,7 +17,7 @@
 #include "mldb/utils/log_fwd.h"
 #include "mldb/utils/progress.h"
 #include "mldb/builtin/intersection_utils.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 
 
 
@@ -451,12 +451,12 @@ struct ColumnCorrelations {
     template<typename It>
     ColumnCorrelations(It begin, It end)
         : columns(begin, end),
-          correlations(boost::extents[columns.size()][columns.size()])
+          correlations(columns.size(), columns.size())
     {
     }
 
     std::vector<ColumnSpec> columns;
-    boost::multi_array<float, 2> correlations;
+    MLDB::Matrix<float, 2> correlations;
 
     size_t columnCount() const
     {

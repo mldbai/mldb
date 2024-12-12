@@ -20,7 +20,7 @@
 #include "mldb/base/exc_assert.h"
 #include "feature.h"
 
-namespace ML {
+namespace MLDB {
 
 class Training_Data;
 class Feature_Set;
@@ -471,14 +471,14 @@ std::string escape_feature_name(const std::string & feature);
 /** Parse a feature name escaped by the escape_feature_name function. */
 std::string expect_feature_name(MLDB::ParseContext & c);
 
-} // namespace ML
+} // namespace MLDB
 
 
 namespace std {
 
 template<>
-struct hash<ML::Feature> {
-    size_t operator () (const ML::Feature & f) const
+struct hash<MLDB::Feature> {
+    size_t operator () (const MLDB::Feature & f) const
     {
         return f.hash();
     }

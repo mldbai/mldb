@@ -11,7 +11,7 @@
 
 #include "mldb/utils/distribution.h"
 #include "mldb/arch/exception.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <iostream>
 #include "mldb/utils/float_traits.h"
 #include "mldb/compiler/compiler.h"
@@ -20,22 +20,22 @@
 #include "mldb/arch/cache.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
-namespace boost {
+namespace MLDB {
 
+#if 0
 template<class Float>
 std::ostream &
-operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
+operator << (std::ostream & stream, const MLDB::MatrixRef<Float, 2> & m)
 {
-    for (unsigned i = 0;  i < m.shape()[0];  ++i) {
+    for (unsigned i = 0;  i < m.dim(0);  ++i) {
         stream << "    [";
-        for (unsigned j = 0;  j < m.shape()[1];  ++j)
+        for (unsigned j = 0;  j < m.dim(1);  ++j)
             stream << MLDB::format(" %8.3g", m[i][j]);
         stream << " ]" << std::endl;
     }
     return stream;
 }
-
-} // namespace boost
+#endif
 
 inline void warmup_cache_all_levels(const float * mem, size_t n)
 {
@@ -55,11 +55,9 @@ inline void warmup_cache_all_levels(const double * mem, size_t n)
         total += mem[n];
 }
 
-namespace ML {
-using namespace MLDB;
 // Copy a chunk of a matrix transposed to another place
 template<typename Float>
-void copy_transposed(boost::multi_array<Float, 2> & A,
+void copy_transposed(MLDB::MatrixRef<Float, 2> & A,
                      int i0, int i1, int j0, int j1)
 {
     // How much cache will be needed to hold the input data?
@@ -95,7 +93,7 @@ void copy_transposed(boost::multi_array<Float, 2> & A,
 // of the matrix.  We do it by divide-and-conquer, sub-dividing the problem
 // until we get something small enough to fit in the cache.
 template<typename Float>
-void copy_lower_to_upper(boost::multi_array<Float, 2> & A,
+void copy_lower_to_upper(MLDB::MatrixRef<Float, 2> & A,
                          int i0, int i1)
 {
     int j0 = i0;
@@ -142,41 +140,41 @@ void copy_lower_to_upper(boost::multi_array<Float, 2> & A,
 }
 
 template<typename Float>
-void copy_lower_to_upper(boost::multi_array<Float, 2> & A)
+void copy_lower_to_upper(MLDB::MatrixRef<Float, 2> & A)
 {
-    int n = A.shape()[0];
-    if (n != A.shape()[1])
+    int n = A.dim(0);
+    if (n != A.dim(1))
         throw Exception("copy_upper_to_lower: matrix is not square");
 
     copy_lower_to_upper(A, 0, n);
 }
 
 template<typename Float>
-boost::multi_array<Float, 2>
-transpose(const boost::multi_array<Float, 2> & A)
+MLDB::Matrix<Float, 2>
+transpose(const MLDB::MatrixRef<Float, 2> & A)
 {
-    boost::multi_array<Float, 2> X(boost::extents[A.shape()[1]][A.shape()[0]]);
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    MLDB::Matrix<Float, 2> X(A.dim(1), A.dim(0));
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        for (unsigned j = 0;  j < A.dim(1);  ++j)
             X[j][i] = A[i][j];
     return X;
 }
 
 template<typename Float>
-boost::multi_array<Float, 2>
+MLDB::Matrix<Float, 2>
 diag(const distribution<Float> & d)
 {
-    boost::multi_array<Float, 2> D(boost::extents[d.size()][d.size()]);
+    MLDB::Matrix<Float, 2> D(d.size(), d.size());
     for (unsigned i = 0;  i < d.size();  ++i)
         D[i][i] = d[i];
     return D;
 }
 
 template<typename Float>
-boost::multi_array<Float, 2>
-setIdentity(int numDim, boost::multi_array<Float, 2>& D)
+MLDB::Matrix<Float, 2> &
+setIdentity(int numDim, MLDB::Matrix<Float, 2> & D)
 {
-    D.resize(boost::extents[numDim][numDim]);
+    D.resize(numDim, numDim);
     for (unsigned i = 0;  i < numDim;  ++i)
     {
         for (unsigned j = 0;  j < numDim;  ++j)
@@ -191,9 +189,9 @@ setIdentity(int numDim, boost::multi_array<Float, 2>& D)
 }
 
 template<typename Float>
-std::string print_size(const boost::multi_array<Float, 2> & array)
+std::string print_size(const MLDB::MatrixRef<Float, 2> & array)
 {
-    return format("%dx%d", (int)array.shape()[0], (int)array.shape()[1]);
+    return format("%dx%d", (int)array.dim(0), (int)array.dim(1));
 }
 
 
@@ -203,18 +201,18 @@ std::string print_size(const boost::multi_array<Float, 2> & array)
 
 template<typename FloatR, typename Float1, typename Float2>
 distribution<FloatR>
-multiply_r(const boost::multi_array<Float1, 2> & A,
+multiply_r(const MLDB::MatrixRef<Float1, 2> & A,
            const distribution<Float2> & b)
 {
-    if (b.size() != A.shape()[1])
+    if (b.size() != A.dim(1))
         throw Exception(format("multiply(matrix, vector): "
                                "shape (%dx%d) x (%dx1) wrong",
-                               (int)A.shape()[0], (int)A.shape()[1],
+                               (int)A.dim(0), (int)A.dim(1),
                                (int)b.size()));
-    distribution<FloatR> result(A.shape()[0], 0.0);
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        result[i] = SIMD::vec_dotprod_dp(&A[i][0], &b[0], A.shape()[1]);
-    //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    distribution<FloatR> result(A.dim(0), 0.0);
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        result[i] = SIMD::vec_dotprod_dp(&A[i][0], &b[0], A.dim(1));
+    //for (unsigned j = 0;  j < A.dim(1);  ++j)
     //    result[i] += b[j] * A[i][j];
     return result;
 }
@@ -222,7 +220,7 @@ multiply_r(const boost::multi_array<Float1, 2> & A,
 template<typename Float1, typename Float2>
 //MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
-multiply(const boost::multi_array<Float1, 2> & A,
+multiply(const MLDB::MatrixRef<Float1, 2> & A,
          const distribution<Float2> & b)
 {
     return multiply_r<typename float_traits<Float1, Float2>::return_type>(A, b);
@@ -231,7 +229,7 @@ multiply(const boost::multi_array<Float1, 2> & A,
 template<typename Float1, typename Float2>
 //MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
-operator * (const boost::multi_array<Float1, 2> & A,
+operator * (const MLDB::MatrixRef<Float1, 2> & A,
             const distribution<Float2> & b)
 {
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
@@ -246,31 +244,31 @@ operator * (const boost::multi_array<Float1, 2> & A,
 template<typename FloatR, typename Float1, typename Float2>
 distribution<FloatR>
 multiply_r(const distribution<Float2> & b,
-           const boost::multi_array<Float1, 2> & A)
+           const MLDB::MatrixRef<Float1, 2> & A)
 {
-    if (b.size() != A.shape()[0])
+    if (b.size() != A.dim(0))
         throw Exception(format("multiply(vector, matrix): "
                                "shape (1x%d) x (%dx%d) wrong",
                                (int)b.size(),
-                               (int)A.shape()[0], (int)A.shape()[1]));
+                               (int)A.dim(0), (int)A.dim(1)));
 
-    distribution<FloatR> result(A.shape()[1], 0.0);
+    distribution<FloatR> result(A.dim(1), 0.0);
 #if 1 // more accurate
-    std::vector<double> accum(A.shape()[1], 0.0);
+    std::vector<double> accum(A.dim(1), 0.0);
     using namespace std;
-    //cerr << "A.shape()[1] = " << A.shape()[1] << endl;
+    //cerr << "A.dim(1) = " << A.dim(1) << endl;
     //cerr << "accum = " << accum << endl;
-    //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    //for (unsigned j = 0;  j < A.dim(1);  ++j)
     //    accum[j] = 0.0;
-    for (unsigned i = 0;  i < A.shape()[0];  ++i) {
-        //for (unsigned j = 0;  j < A.shape()[1];  ++j)
+    for (unsigned i = 0;  i < A.dim(0);  ++i) {
+        //for (unsigned j = 0;  j < A.dim(1);  ++j)
         //    result[j] += b[i] * A[i][j];
-        SIMD::vec_add(&accum[0], b[i], &A[i][0], &accum[0], A.shape()[1]);
+        SIMD::vec_add(&accum[0], b[i], &A[i][0], &accum[0], A.dim(1));
     }
     std::copy(accum.begin(), accum.end(), result.begin());
 #else
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        SIMD::vec_add(&result[0], b[i], &A[i][0], &result[0], A.shape()[1]);
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        SIMD::vec_add(&result[0], b[i], &A[i][0], &result[0], A.dim(1));
 #endif
     return result;
 }
@@ -279,7 +277,7 @@ template<typename Float1, typename Float2>
 //MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 multiply(const distribution<Float2> & b,
-         const boost::multi_array<Float1, 2> & A)
+         const MLDB::MatrixRef<Float1, 2> & A)
 {
     return multiply_r<typename float_traits<Float1, Float2>::return_type>(b, A);
 }
@@ -288,7 +286,7 @@ template<typename Float1, typename Float2>
 //MLDB_ALWAYS_INLINE
 distribution<typename float_traits<Float1, Float2>::return_type>
 operator * (const distribution<Float2> & b,
-            const boost::multi_array<Float1, 2> & A)
+            const MLDB::MatrixRef<Float1, 2> & A)
 {
     typedef typename float_traits<Float1, Float2>::return_type FloatR;
     return multiply_r<FloatR, Float1, Float2>(b, A);
@@ -300,35 +298,48 @@ operator * (const distribution<Float2> & b,
 /*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
-boost::multi_array<FloatR, 2>
-multiply_r(const boost::multi_array<Float1, 2> & A,
-           const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<FloatR, 2>
+multiply_r(const MLDB::MatrixRef<Float1, 2> & A,
+           const MLDB::MatrixRef<Float2, 2> & B)
 {
-    if (A.shape()[1] != B.shape()[0])
-        throw MLDB::Exception("Incompatible matrix sizes");
+    auto m = A.dim(0);
+    auto x = A.dim(1);
+    auto n = B.dim(1);
 
-    boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][B.shape()[1]]);
-    PossiblyDynamicBuffer<Float2> bentries_storage(A.shape()[1]);
+    if (x != B.dim(0))
+        MLDB_MATRIX_THROW_INCOMPATIBLE_DIMENSIONS(A, B, "multiply");
+
+    MLDB::Matrix<FloatR, 2> X(m, n);
+
+    bool a_contiguous = A.is_contiguous();
+
+    PossiblyDynamicBuffer<Float2> bentries_storage(A.dim(1));
     Float2 * bentries = bentries_storage.data();
-    for (unsigned j = 0;  j < B.shape()[1];  ++j) {
-        for (unsigned k = 0;  k < A.shape()[1];  ++k)
+    for (unsigned j = 0;  j < B.dim(1);  ++j) {
+        for (unsigned k = 0;  k < A.dim(1);  ++k)
             bentries[k] = B[k][j];
 
-        for (unsigned i = 0;  i < A.shape()[0];  ++i)
-            X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], bentries, A.shape()[1]);
-
-        //for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        //    for (unsigned k = 0;  k < A.shape()[1];  ++k)
-        //        X[i][j] += A[i][k] * B[k][j];
-
+        if (a_contiguous) {
+            for (unsigned i = 0;  i < m;  ++i)
+                X[i][j] = SIMD::vec_dotprod_dp(A[i].data(), bentries, x);
+        }
+        else {
+            for (unsigned i = 0;  i < m;  ++i) {
+                FloatR result{};
+                for (unsigned k = 0;  k < x;  ++k)
+                    result += A[i][k] * bentries[k];
+                
+                X[i][j] = result;
+            }
+        }
     }
     return X;
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-multiply(const boost::multi_array<Float1, 2> & A,
-         const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+multiply(const MLDB::MatrixRef<Float1, 2> & A,
+         const MLDB::MatrixRef<Float2, 2> & B)
 {
     return multiply_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
@@ -336,9 +347,9 @@ multiply(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-operator * (const boost::multi_array<Float1, 2> & A,
-            const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+operator * (const MLDB::MatrixRef<Float1, 2> & A,
+            const MLDB::MatrixRef<Float2, 2> & B)
 {
     return multiply_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
@@ -351,13 +362,13 @@ operator * (const boost::multi_array<Float1, 2> & A,
 
 // Multiply A * transpose(A)
 template<typename FloatR, typename Float>
-boost::multi_array<FloatR, 2>
-multiply_transposed(const boost::multi_array<Float, 2> & A)
+MLDB::Matrix<FloatR, 2>
+multiply_transposed(const MLDB::MatrixRef<Float, 2> & A)
 {
-    int As0 = A.shape()[0];
-    int As1 = A.shape()[1];
+    int As0 = A.dim(0);
+    int As1 = A.dim(1);
 
-    boost::multi_array<FloatR, 2> X(boost::extents[As0][As0]);
+    MLDB::Matrix<FloatR, 2> X(As0, As0);
     for (unsigned i = 0;  i < As0;  ++i) 
         for (unsigned j = 0;  j <= i;  ++j)
             X[i][j] = X[j][i] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
@@ -366,18 +377,18 @@ multiply_transposed(const boost::multi_array<Float, 2> & A)
 }
 
 template<typename FloatR, typename Float1, typename Float2>
-boost::multi_array<FloatR, 2>
-multiply_transposed(const boost::multi_array<Float1, 2> & A,
-                    const boost::multi_array<Float2, 2> & BT)
+MLDB::Matrix<FloatR, 2>
+multiply_transposed(const MLDB::MatrixRef<Float1, 2> & A,
+                    const MLDB::MatrixRef<Float2, 2> & BT)
 {
-    int As0 = A.shape()[0];
-    int Bs0 = BT.shape()[0];
-    int As1 = A.shape()[1];
+    int As0 = A.dim(0);
+    int Bs0 = BT.dim(0);
+    int As1 = A.dim(1);
 
-    if (A.shape()[1] != BT.shape()[1])
+    if (A.dim(1) != BT.dim(1))
         throw MLDB::Exception("Incompatible matrix sizes");
 
-    boost::multi_array<FloatR, 2> X(boost::extents[As0][Bs0]);
+    MLDB::Matrix<FloatR, 2> X(As0, Bs0);
     for (unsigned j = 0;  j < Bs0;  ++j) {
         for (unsigned i = 0;  i < As0;  ++i)
             X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &BT[j][0], As1);
@@ -387,9 +398,9 @@ multiply_transposed(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-multiply_transposed(const boost::multi_array<Float1, 2> & A,
-                    const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+multiply_transposed(const MLDB::MatrixRef<Float1, 2> & A,
+                    const MLDB::MatrixRef<Float2, 2> & B)
 {
     // Special case for A * A^T
     if (&A == &B)
@@ -405,26 +416,26 @@ multiply_transposed(const boost::multi_array<Float1, 2> & A,
 /*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
-boost::multi_array<FloatR, 2>
-add_r(const boost::multi_array<Float1, 2> & A,
-           const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<FloatR, 2>
+add_r(const MLDB::MatrixRef<Float1, 2> & A,
+           const MLDB::MatrixRef<Float2, 2> & B)
 {
-    if (A.shape()[0] != B.shape()[0]
-        || A.shape()[1] != B.shape()[1])
+    if (A.dim(0) != B.dim(0)
+        || A.dim(1) != B.dim(1))
         throw MLDB::Exception("Incompatible matrix sizes");
     
-    boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][A.shape()[1]]);
+    MLDB::Matrix<FloatR, 2> X(A.dim(0), A.dim(1));
 
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        SIMD::vec_add(&A[i][0], &B[i][0], &X[i][0], A.shape()[1]);
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        SIMD::vec_add(&A[i][0], &B[i][0], &X[i][0], A.dim(1));
 
     return X;
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-add(const boost::multi_array<Float1, 2> & A,
-    const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+add(const MLDB::MatrixRef<Float1, 2> & A,
+    const MLDB::MatrixRef<Float2, 2> & B)
 {
     return add_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
@@ -432,9 +443,9 @@ add(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-operator + (const boost::multi_array<Float1, 2> & A,
-            const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+operator + (const MLDB::MatrixRef<Float1, 2> & A,
+            const MLDB::MatrixRef<Float2, 2> & B)
 {
     return add_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
@@ -447,26 +458,26 @@ operator + (const boost::multi_array<Float1, 2> & A,
 /*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
-boost::multi_array<FloatR, 2>
-subtract_r(const boost::multi_array<Float1, 2> & A,
-           const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<FloatR, 2>
+subtract_r(const MLDB::MatrixRef<Float1, 2> & A,
+           const MLDB::MatrixRef<Float2, 2> & B)
 {
-    if (A.shape()[0] != B.shape()[0]
-        || A.shape()[1] != B.shape()[1])
+    if (A.dim(0) != B.dim(0)
+        || A.dim(1) != B.dim(1))
         throw MLDB::Exception("Incompatible matrix sizes");
     
-    boost::multi_array<FloatR, 2> X(boost::extents[A.shape()[0]][A.shape()[1]]);
+    MLDB::Matrix<FloatR, 2> X(A.dim(0), A.dim(1));
 
-    for (unsigned i = 0;  i < A.shape()[0];  ++i)
-        SIMD::vec_minus(&A[i][0], &B[i][0], &X[i][0], A.shape()[1]);
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        SIMD::vec_minus(&A[i][0], &B[i][0], &X[i][0], A.dim(1));
     
     return X;
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-subtract(const boost::multi_array<Float1, 2> & A,
-    const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+subtract(const MLDB::MatrixRef<Float1, 2> & A,
+    const MLDB::MatrixRef<Float2, 2> & B)
 {
     return subtract_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
@@ -474,9 +485,9 @@ subtract(const boost::multi_array<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-operator - (const boost::multi_array<Float1, 2> & A,
-            const boost::multi_array<Float2, 2> & B)
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+operator - (const MLDB::MatrixRef<Float1, 2> & A,
+            const MLDB::MatrixRef<Float2, 2> & B)
 {
     return subtract_r
         <typename float_traits<Float1, Float2>::return_type, Float1, Float2>
@@ -488,13 +499,13 @@ operator - (const boost::multi_array<Float1, 2> & A,
 /*****************************************************************************/
 
 inline 
-boost::multi_array<double, 2>
-operator * (const boost::multi_array<double, 2> & A,
+MLDB::Matrix<double, 2>
+operator * (const MLDB::MatrixRef<double, 2> & A,
             double B)
 {
-    int As0 = A.shape()[0];
-    int As1 = A.shape()[1];
-    boost::multi_array<double, 2> X(boost::extents[As0][As1]);
+    int As0 = A.dim(0);
+    int As1 = A.dim(1);
+    MLDB::Matrix<double, 2> X(As0, As1);
     for (unsigned i = 0;  i < As0;  ++i) {
         for (unsigned j = 0;  j < As1;  ++j)
             X[i][j] = A[i][j] * B;
@@ -503,13 +514,13 @@ operator * (const boost::multi_array<double, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-boost::multi_array<typename float_traits<Float1, Float2>::return_type, 2>
-operator / (const boost::multi_array<Float1, 2> & A,
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
+operator / (const MLDB::MatrixRef<Float1, 2> & A,
             Float2 B)
 {
-    int As0 = A.shape()[0];
-    int As1 = A.shape()[1];
-    boost::multi_array<Float1, 2> X(boost::extents[As0][As1]);
+    int As0 = A.dim(0);
+    int As1 = A.dim(1);
+    MLDB::Matrix<Float1, 2> X(As0, As1);
     for (unsigned i = 0;  i < As0;  ++i) {
         for (unsigned j = 0;  j < As1;  ++j)
             X[i][j] = A[i][j] / B;
@@ -517,5 +528,22 @@ operator / (const boost::multi_array<Float1, 2> & A,
     return X;
 }
 
+/*****************************************************************************/
+/* MATRIX COMPARISONS                                                        */
+/*****************************************************************************/
 
-} // namespace ML
+template<typename Float1, typename Float2, size_t Dims>
+bool operator == (const MLDB::MatrixRef<Float1, Dims> & A,
+                  const MLDB::MatrixRef<Float2, Dims> & B)
+{
+    if (A.shape() != B.shape())
+        return false;
+
+    for (unsigned i = 0;  i < A.dim(0);  ++i)
+        if (A[i] != B[i])
+            return false;
+
+    return true;
+}
+
+} // namespace MLDB

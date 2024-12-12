@@ -8,10 +8,6 @@
 #include "compiler/compiler.h"
 #include <cstdio>
 #include <iostream>
-#include <boost/timer.hpp>
-#include <boost/utility.hpp>
-#include <boost/scoped_array.hpp>
-#include <boost/shared_array.hpp>
 #include "stump_training_cuda.h"
 #include "mldb/utils/fixed_point_accum.h"
 #include "arch/cuda/device_data.h"
@@ -22,9 +18,9 @@
 
 using namespace std;
 
-typedef ML::CUDA::Test_Buckets_Binsym::Float Float;
-typedef ML::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
-typedef ML::shift_t shift_t;
+typedef MLDB::CUDA::Test_Buckets_Binsym::Float Float;
+typedef MLDB::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
+typedef MLDB::shift_t shift_t;
 
 /** Execution kernel
 
@@ -328,9 +324,9 @@ stumpBinsymKernelPacked(const uint64_t * index_data,
     // Get our index bit buffer
     int total_bits = bucket_bits + example_bits + label_bits + divisor_bits;
 
-    typedef ML::Buffered_Mem_Buffer<uint64_t> Mem_Buffer;
-    typedef ML::Bit_Buffer<uint64_t, Mem_Buffer> Buffer;
-    ML::Bit_Extractor<uint64_t, Buffer> index(index_data);
+    typedef MLDB::Buffered_Mem_Buffer<uint64_t> Mem_Buffer;
+    typedef MLDB::Bit_Buffer<uint64_t, Mem_Buffer> Buffer;
+    MLDB::Bit_Extractor<uint64_t, Buffer> index(index_data);
 
     unsigned start_at = offset + tid;
     
@@ -548,7 +544,7 @@ stumpBinsymKernelPacked(const uint64_t * index_data,
     }
 }
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 
@@ -872,4 +868,4 @@ synchronize(Context & context) const
 
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB

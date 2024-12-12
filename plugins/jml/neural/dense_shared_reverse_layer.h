@@ -12,7 +12,7 @@
 
 #include "dense_layer.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -191,7 +191,7 @@ MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(typename Float, Dense_Shared_ReverseLa
 extern template class Dense_Shared_Reverse_Layer<float>;
 extern template class Dense_Shared_Reverse_Layer<double>;
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __jml__neural__dense_shared_reverse_layer_h__ */

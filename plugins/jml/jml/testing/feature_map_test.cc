@@ -13,11 +13,10 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#include <boost/timer.hpp>
 #include "mldb/jml/utils/unordered_map.h"
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 
 template<class Array>
@@ -39,7 +38,7 @@ void do_timed_test(Array & array, const vector<Feature> & features_,
     int NUM = features.size();
     double total = 0.0;
 
-    boost::timer::cpu_timert;
+    MLDB::Timert;
     for (unsigned i = 0;  i < NUM;  ++i)
         array[features[i]] = i;
     total += t.elapsed();

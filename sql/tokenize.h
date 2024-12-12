@@ -17,7 +17,7 @@
 #include "mldb/types/value_description_fwd.h"
 #include "cell_value.h"
 
-namespace ML {
+namespace MLDB {
 struct ParseContext;
 }
 

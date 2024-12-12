@@ -10,7 +10,7 @@
 #include "mldb/types/list_description_base.h"
 #include "mldb/utils/distribution.h"
 
-namespace ML {
+namespace MLDB {
 
 struct Classifier_Impl;
 struct Feature_Space;

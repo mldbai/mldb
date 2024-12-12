@@ -14,7 +14,7 @@
 #include "plugins/jml/enum_info.h"
 #include "mldb/types/db/persistent_fwd.h"
 
-namespace ML {
+namespace MLDB {
     
 /** Transfer function for a neural network layer */
 enum Transfer_Function_Type {
@@ -42,7 +42,7 @@ std::ostream & operator << (std::ostream & stream, Sampling smp);
 
 BYTE_PERSISTENT_ENUM_DECL(Sampling);
 
-} // namespace ML
+} // namespace MLDB
 
 DECLARE_ENUM_INFO(MLDB::Transfer_Function_Type, 6);
 DECLARE_ENUM_INFO(MLDB::Sampling, 3);

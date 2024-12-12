@@ -10,38 +10,19 @@
 #include "mldb/arch/exception.h"
 #include <boost/program_options/variables_map.hpp>
 #include <boost/program_options/parsers.hpp>
-#include <boost/lexical_cast.hpp>
 #include <set>
-
-namespace {
-static std::set<std::string> trueValues({"true", "True", "TRUE", "1"});
-}
-
-namespace boost {
-    template<> 
-    bool lexical_cast<bool, std::string>(const std::string& arg) {
-        return trueValues.find(arg) != trueValues.end();
-    }
-}
+#include "mldb/utils/lexical_cast.h"
 
 namespace MLDB {
 
 struct BaseConfig : public Config {
     virtual bool getBool(const std::string & key, bool defaultValue) {
         std::string defaultStrValue = (defaultValue ? "true" : "false");
-        try {
-            return boost::lexical_cast<bool>(getString(key, defaultStrValue));
-        } catch (std::exception &) {
-            return defaultValue;
-        }
+        return MLDB::lexical_cast<bool>(getString(key, defaultStrValue));
     }
     virtual int getInt(const std::string & key, int defaultValue) {
-        try {
-            std::string defaultStrValue = boost::lexical_cast<std::string>(defaultValue);
-            return boost::lexical_cast<int>(getString(key, defaultStrValue));
-        } catch (std::exception &) {
-            return defaultValue;
-        }
+        std::string defaultStrValue = MLDB::lexical_cast<std::string>(defaultValue);
+        return MLDB::lexical_cast<int>(getString(key, defaultStrValue));
     }
 };
 

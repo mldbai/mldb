@@ -14,7 +14,7 @@
 #include "auto_encoder.h"
 #include "layer_stack.h"
 
-namespace ML {
+namespace MLDB {
 
 // This is instantiated in the .cc file to save work for the compiler
 extern template class Layer_Stack<Auto_Encoder>;
@@ -263,6 +263,6 @@ struct Auto_Encoder_Stack : public Auto_Encoder {
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__neural__auto_encoder_stack_h__ */

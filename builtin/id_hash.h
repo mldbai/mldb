@@ -224,7 +224,7 @@ struct IdHashes {
         }
         IdHashBucket operator *() const
         {
-            return bucketIter.dereference();
+            return bucketIter.operator *();
         }
         void operator ++()
         {

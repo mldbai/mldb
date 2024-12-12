@@ -14,7 +14,7 @@
 #include "mldb/utils/distribution.h"
 #include "split.h"
 
-namespace ML {
+namespace MLDB {
 
 class Feature_Space;
 
@@ -158,4 +158,4 @@ private:
 std::string print_outcome(const Tree::Leaf & outcome);
 
 
-} // namespace ML
+} // namespace MLDB

@@ -14,7 +14,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -87,5 +87,5 @@ operator >> (DB::Store_Reader & store, Decoder & decoder)
 }
 
 
-} // namespace ML
+} // namespace MLDB
 

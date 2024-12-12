@@ -24,7 +24,7 @@
 #include "mldb/arch/file_functions.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/parse_context.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/plugins/jml/sgi_numeric.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/distribution.h"
@@ -43,7 +43,7 @@
 
 using namespace std;
 
-using namespace ML;
+using namespace MLDB;
 using namespace Math;
 using namespace Stats;
 using namespace Metrics;

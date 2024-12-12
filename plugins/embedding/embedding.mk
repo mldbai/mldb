@@ -37,6 +37,7 @@ LIBMLDB_EMBEDDING_PLUGIN_LINK:= \
 	db \
 	mldb_feature_gen_plugin \
 	block \
+	algebra \
 
 $(eval $(call library,mldb_embedding_plugin,$(LIBMLDB_EMBEDDING_PLUGIN_SOURCES),$(LIBMLDB_EMBEDDING_PLUGIN_LINK)))
 

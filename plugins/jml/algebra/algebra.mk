@@ -6,7 +6,8 @@ LIBALGEBRA_SOURCES := \
         lapack.cc \
 	ilaenv.c \
         svd.cc \
-        matrix_ops.cc
+        matrix.cc \
+        matrix_ops.cc \
 
 $(eval $(call add_sources,$(LIBALGEBRA_SOURCES)))
 

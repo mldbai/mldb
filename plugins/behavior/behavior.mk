@@ -34,7 +34,7 @@ LIBBEHAVIOR_LINK := \
 	cityhash \
 	vfs
 
-$(eval $(call set_compile_option,$(LIBBEHAVIOR_SOURCES),-Ipro))
+$(eval $(call set_compile_option,$(LIBBEHAVIOR_SOURCES),-Ipro gcc:-Wno-stringop-overflow))
 
 $(eval $(call library,behavior,$(LIBBEHAVIOR_SOURCES),$(LIBBEHAVIOR_LINK)))
 

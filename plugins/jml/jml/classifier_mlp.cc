@@ -19,7 +19,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -128,4 +128,4 @@ compute(const vector<double> & fv) const
     throw Exception("Classifier_MLP::compute(): not implemented");
 }
 
-} // namespace ML
+} // namespace MLDB

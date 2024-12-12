@@ -15,7 +15,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 std::string print(Transfer_Function_Type act)
 {
@@ -74,4 +74,4 @@ Enum_Info<MLDB::Sampling>::OPT[Enum_Info<MLDB::Sampling>::NUM] = {
 
 const char * Enum_Info<MLDB::Sampling>::NAME = "Sampling";
 
-} // namespace ML
+} // namespace MLDB

@@ -26,7 +26,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -67,7 +67,7 @@ predict(const Feature_Set & features,
     for (unsigned i = 0;  i < subClassifiers.size();  ++i) {
 
         Label_Dist sub_result = subClassifiers[i]->predict(features, context);
-        result[i] = probabilizers[i]->glz.apply(ML::Label_Dist(1,sub_result[1]))[0];
+        result[i] = probabilizers[i]->glz.apply(MLDB::Label_Dist(1,sub_result[1]))[0];
     }
 
     return result;
@@ -76,14 +76,14 @@ predict(const Feature_Set & features,
 Explanation 
 OneVsAllClassifier::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
     if (label < 0 || label >= subClassifiers.size())
         throw Exception("OneVsAllClassifier explain : label not in model");
 
-    return subClassifiers[(size_t)label]->explain(feature_set, ML::Label(1), weight, context);    
+    return subClassifiers[(size_t)label]->explain(feature_set, MLDB::Label(1), weight, context);    
 }
 
 std::string OneVsAllClassifier::print() const
@@ -91,9 +91,9 @@ std::string OneVsAllClassifier::print() const
     return "one vs all classifier";
 }
 
-std::vector<ML::Feature> OneVsAllClassifier::all_features() const
+std::vector<MLDB::Feature> OneVsAllClassifier::all_features() const
 {
-    std::vector<ML::Feature> result;
+    std::vector<MLDB::Feature> result;
     return result;
 }
 
@@ -182,4 +182,4 @@ NULL_REGISTER("ONEVSALL_CLASSIFIER");
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

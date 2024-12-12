@@ -15,8 +15,9 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/distribution.h"
-#include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
+#include "mldb/utils/lexical_cast.h"
+#include "mldb/utils/split.h"
+
 
 using namespace std;
 
@@ -100,17 +101,17 @@ struct SentiWordNetImporter: public Procedure {
             if(line.substr(0, 1) == "#") continue;
 
             vector<string> fields;
-            boost::split(fields, line, boost::is_any_of("\t"));
+            MLDB::split(fields, line, '\t');
 
             ExcAssertEqual(fields.size(), 6);
 
             const string & wordType = fields[0];
             SynsetScores scores;
             try {
-                scores[POS] = boost::lexical_cast<float>(fields[2]);
-                scores[NEG] = boost::lexical_cast<float>(fields[3]);
+                scores[POS] = MLDB::lexical_cast<float>(fields[2]);
+                scores[NEG] = MLDB::lexical_cast<float>(fields[3]);
             }
-            catch(boost::bad_lexical_cast & blc) {
+            catch(std::exception & exc) {
                 cout << "skipping: " << line << endl;
                 continue;
             }
@@ -120,12 +121,12 @@ struct SentiWordNetImporter: public Procedure {
 
             // going over all: abducting#1 abducent#1
             vector<string> synsetTerms;
-            boost::split(synsetTerms, fields[4], boost::is_any_of(" "));
+            MLDB::split(synsetTerms, fields[4], ' ');
 
             for(const string & synsetTerm : synsetTerms) {
                 size_t sep_pos = synsetTerm.find('#');
                 string synTerm = synsetTerm.substr(0, sep_pos) + '#' + wordType;
-                int synTermRank = boost::lexical_cast<int>(synsetTerm.substr(sep_pos + 1));
+                int synTermRank = MLDB::lexical_cast<int>(synsetTerm.substr(sep_pos + 1));
 
                 // now add it to our accumulator. we're looking to build the following:
                 // {synTerm: [ (rank, score), (rank, score), ... ] }

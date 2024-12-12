@@ -11,7 +11,7 @@
 #include "mldb/plugins/jml/jml/training_data.h"
 #include "mldb/plugins/jml/jml/sparse_features.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 

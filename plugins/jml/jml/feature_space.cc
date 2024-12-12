@@ -13,12 +13,11 @@
 #include "mldb/types/db/persistent.h"
 #include "mldb/plugins/jml/jml/registry.h"
 #include "training_data.h"
-#include <boost/lexical_cast.hpp>
-
+#include "mldb/utils/lexical_cast.h"
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -137,7 +136,7 @@ reconstitute(DB::Store_Reader & store,
         if (s.size() > 3 && s[0] == '!' && s[1] == '!' && s[2] == '!') {
             /* Handle NaN, inf, -inf, etc. */
             s = string(s, 3);
-            value = boost::lexical_cast<float>(s);
+            value = MLDB::lexical_cast<float>(s);
         }
         else value = finfo.categorical()->lookup(s);
     }
@@ -323,5 +322,5 @@ import(const Feature_Space & from)
 
 
 
-} // namespace ML
+} // namespace MLDB
 

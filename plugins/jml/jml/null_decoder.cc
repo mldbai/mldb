@@ -18,7 +18,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -99,5 +99,5 @@ Register_Factory<Decoder_Impl, Null_Decoder> REGISTER("NULL_DECODER");
 } // file scope
 
 
-} // namespace ML
+} // namespace MLDB
 

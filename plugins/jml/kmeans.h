@@ -16,7 +16,7 @@
 #include <boost/math/special_functions/fpclassify.hpp>
 
 
-namespace ML {
+namespace MLDB {
 
 using MLDB::distribution;
 
@@ -166,4 +166,4 @@ struct KMeans {
     void load(const std::string & filename);
 };
 
-} // namespace ML
+} // namespace MLDB

@@ -24,14 +24,12 @@
 #include <functional>
 
 
-namespace boost {
-
-template <typename T, std::size_t NumDims, typename TPtr>
-class const_multi_array_ref;
-
-} // namespace boost
 
 namespace MLDB {
+
+template<typename T, std::size_t NumDims>
+class MatrixRef;
+
 namespace DB {
 
 
@@ -241,17 +239,19 @@ void save(portable_bin_oarchive & archive, const std::set<V, L, A> & m)
         archive << *it;
 }
 
-template<typename T, std::size_t NumDims, typename TPtr>
+template<typename T, std::size_t NumDims>
 void save(portable_bin_oarchive & archive,
-          const boost::const_multi_array_ref<T, NumDims, TPtr> & arr)
+          const MatrixRef<T, NumDims> & arr)
 {
     char version = 1;
     using MLDB::DB::save;
+    using namespace std;
+    //cerr << "saving matrix with " << NumDims << " dimensions " << arr.shape() << " at offset " << archive.offset() << endl;
     save(archive, version);
     char nd = NumDims;
     save(archive, nd);
     for (unsigned i = 0;  i < NumDims;  ++i) {
-        compact_size_t dim(arr.shape()[i]);
+        compact_size_t dim(arr.dim(i));
         dim.serialize(archive);
     }
 

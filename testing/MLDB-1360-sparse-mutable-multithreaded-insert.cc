@@ -7,7 +7,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include <boost/test/unit_test.hpp>
 #include "mldb/plugins/sparse/sparse_matrix_dataset.h"
 #include "mldb/server/mldb_server.h"

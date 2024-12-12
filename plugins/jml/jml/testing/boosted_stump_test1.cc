@@ -16,7 +16,7 @@
 #include "mldb/plugins/jml/jml/dense_features.h"
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -28,10 +28,10 @@ void run_boosting(const Training_Data & data)
 
     Training_Params params;
 
-    boost::multi_array<float, 2> training_output(data.example_count(), nl);
+    MLDB::MatrixRef<float, 2> training_output(data.example_count(), nl);
     training_output.fill(0.0);
 
-    boost::multi_array<float, 2> weights
+    MLDB::MatrixRef<float, 2> weights
         = Boosted_Stumps::get_weights(data);
     
     std::unique_ptr<boost::progress_display> progress;
@@ -148,7 +148,7 @@ try
     /* Test with one dimensional weights. */
     cerr << "one dimensional..." << endl;
 
-    boost::multi_array<float, 2> weights1(data->example_count(), 1);
+    MLDB::MatrixRef<float, 2> weights1(data->example_count(), 1);
     weights1.fill(1.0 / (float)(data->example_count() * 2));
 
     cerr << "default w... " << endl;
@@ -165,7 +165,7 @@ try
     
     /* Test with 2 dimensional weights. */
     cerr << "two dimensional..." << endl;
-    boost::multi_array<float, 2> weights2(data->example_count(), 2);
+    MLDB::MatrixRef<float, 2> weights2(data->example_count(), 2);
     weights2.fill(1.0 / (float)(data->example_count() * 2));
 
     cerr << "default w... " << endl;

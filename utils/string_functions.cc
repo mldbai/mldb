@@ -17,9 +17,10 @@
 #include "mldb/arch/exception.h"
 #include <sys/errno.h>
 #include <stdlib.h>
-#include <boost/algorithm/string.hpp>
+#include "mldb/utils/split.h"
 #include "mldb/base/exc_assert.h"
 #include <iostream>
+#include <cctype>
 
 
 using namespace std;
@@ -191,10 +192,10 @@ antoi(const char * start, const char * end, int base)
             throw MLDB::Exception("expected digit");
         }
         if (digit > base) {
-            intptr_t offset = ptr - start;
+            auto offset = ptr - start;
             throw MLDB::Exception("digit '%c' (%d) exceeds base '%d'"
-                                " at offset '%d'",
-                                *ptr, digit, base, offset);
+                                " at offset '%zd'",
+                                *ptr, digit, base, (ssize_t)offset);
         }
         result = result * base + digit;
     }

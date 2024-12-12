@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "stump_training.h"
 #include "training_data.h"
 #include "training_index.h"
@@ -21,7 +21,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -311,4 +311,4 @@ struct C_regress {
 };
 
 
-} // namespace ML
+} // namespace MLDB

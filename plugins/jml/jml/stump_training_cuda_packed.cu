@@ -6,17 +6,14 @@
 #include "compiler/compiler.h"
 #include <cstdio>
 #include <iostream>
-#include <boost/timer.hpp>
-#include <boost/utility.hpp>
-#include <boost/scoped_array.hpp>
 #include "stump_training_cuda.h"
 #include "mldb/utils/fixed_point_accum.h"
 #include "arch/cuda/device_data.h"
 
 using namespace std;
 
-typedef ML::CUDA::Test_Buckets_Binsym::Float Float;
-typedef ML::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
+typedef MLDB::CUDA::Test_Buckets_Binsym::Float Float;
+typedef MLDB::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
 
 /** Execution kernel
 
@@ -275,7 +272,7 @@ testKernel(const uint16_t * buckets,
     }
 }
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 
@@ -553,4 +550,4 @@ synchronize(Context & context) const
 
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB

@@ -17,7 +17,7 @@
 #include "mldb/plugins/jml/jml/probabilizer.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -48,7 +48,7 @@ public:
             PredictionContext * context = 0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
@@ -82,5 +82,5 @@ public:
     std::vector<std::shared_ptr<ProbabilizerModel>> probabilizers;
 };
 
-} // namespace ML
+} // namespace MLDB
 

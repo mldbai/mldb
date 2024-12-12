@@ -13,7 +13,7 @@
 using namespace std;
 using namespace MLDB::DB;
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* MISSING_VALUES                                                            */
@@ -41,5 +41,5 @@ template class Dense_Layer<float>;
 template class Dense_Layer<double>;
 
 
-} // namespace ML
+} // namespace MLDB
 

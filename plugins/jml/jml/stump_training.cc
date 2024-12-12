@@ -10,7 +10,7 @@
 #include "stump_training.h"
 #include "stump_training_multi.h"
 
-namespace ML {
+namespace MLDB {
 
 #if 0
 const double Z_normal::worst;
@@ -25,5 +25,5 @@ template<>
 const double Z_multi<double>::perfect;// = 0.0;  // best possible Z value
 #endif
 
-} // namespace ML
+} // namespace MLDB
 

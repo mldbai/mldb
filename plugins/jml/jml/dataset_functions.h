@@ -8,7 +8,7 @@
 */
 
 
-namespace ML {
+namespace MLDB {
 
 struct Dataset_Function {
     virtual size_t input_vars() const = 0;
@@ -35,5 +35,5 @@ struct Avg_Function : public Dataset_Function {
 struct Plus_Function : public Dataset_Function {
 };
 
-} // namespace ML
+} // namespace MLDB
 

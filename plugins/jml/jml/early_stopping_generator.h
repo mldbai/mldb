@@ -13,7 +13,7 @@
 
 #include "classifier_generator.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -57,6 +57,6 @@ public:
     float validate_split;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__early_stopping_generator_h__ */

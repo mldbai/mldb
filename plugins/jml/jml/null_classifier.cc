@@ -18,7 +18,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -62,9 +62,9 @@ std::string Null_Classifier::print() const
     return "";
 }
 
-std::vector<ML::Feature> Null_Classifier::all_features() const
+std::vector<MLDB::Feature> Null_Classifier::all_features() const
 {
-    std::vector<ML::Feature> result;
+    std::vector<MLDB::Feature> result;
     return result;
 }
 
@@ -143,5 +143,5 @@ NULL_REGISTER("NULL_CLASSIFIER");
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 

@@ -12,8 +12,7 @@
 #include <random>
 #include "mldb/utils/smart_ptr_utils.h"
 
-namespace ML {
-namespace DB = MLDB::DB;
+namespace MLDB {
 
 void
 KMeans::
@@ -297,4 +296,4 @@ load(const std::string & filename)
 }
 
 
-} // namespace ML
+} // namespace MLDB

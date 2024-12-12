@@ -18,7 +18,7 @@
 #include <stdint.h>
 #include "mldb/compiler/compiler.h"
 
-namespace ML {
+namespace MLDB {
 namespace DB {
 
 // TODO: on ppc, these need to be byteswapped...

@@ -22,14 +22,14 @@ namespace MLDB {
 
 
 // For internal use
-extern const ML::Feature labelFeature, weightFeature;
+extern const MLDB::Feature labelFeature, weightFeature;
 
 
 /*****************************************************************************/
 /* DATASET FEATURE SPACE                                                     */
 /*****************************************************************************/
 
-/** A ML::Feature_Space which gets its information from a dataset.  In other
+/** A MLDB::Feature_Space which gets its information from a dataset.  In other
     words, the feature space is implicit in the data in the dataset.
 
     There is one feature per column.
@@ -37,17 +37,17 @@ extern const ML::Feature labelFeature, weightFeature;
     Used to hook MLDB in the the JML machine learning system.
 */
 
-struct DatasetFeatureSpace: public ML::Feature_Space {
+struct DatasetFeatureSpace: public MLDB::Feature_Space {
     DatasetFeatureSpace();
 
     DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
-                        ML::Feature_Info labelInfo,
+                        MLDB::Feature_Info labelInfo,
                         const std::set<ColumnPath> & includeColumns,
                         bool bucketize = false);
 
     struct ColumnInfo {
         ColumnPath columnName;
-        ML::Feature_Info info;
+        MLDB::Feature_Info info;
         int index = -1;
         int distinctValues = -1;
 
@@ -74,10 +74,10 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     /// column hashing scheme (version 2).  This allows the old
     /// feature<->columnHash mapping to be maintained.  For new
     /// files (version 3 and above), these two are empty.
-    std::map<ML::Feature, ColumnHash> versionTwoMapping;
-    std::unordered_map<ColumnHash, ML::Feature> versionTwoReverseMapping;
+    std::map<MLDB::Feature, ColumnHash> versionTwoMapping;
+    std::unordered_map<ColumnHash, MLDB::Feature> versionTwoReverseMapping;
 
-    ML::Feature_Info labelInfo;
+    MLDB::Feature_Info labelInfo;
     std::shared_ptr<spdlog::logger> logger;
     
 
@@ -85,7 +85,7 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         feature set.
     */
     void encodeFeature(ColumnHash column, const CellValue & value,
-                       std::vector<std::pair<ML::Feature, float> > & fset) const;
+                       std::vector<std::pair<MLDB::Feature, float> > & fset) const;
 
     /** Bucketize a feature and return its feature number and bucket
         number.  For when bucketizeNumerics is set to true.
@@ -99,13 +99,13 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
     float encodeFeatureValue(ColumnHash column, const CellValue & value) const;
 
     /** Encode the label into a feature, returning it. */
-    ML::Label encodeLabel(const CellValue & value, bool isRegression) const;
+    MLDB::Label encodeLabel(const CellValue & value, bool isRegression) const;
 
     float encodeValue(const CellValue & value,
                       const ColumnPath & columnName,
-                      const ML::Feature_Info & info) const;
+                      const MLDB::Feature_Info & info) const;
 
-    virtual ML::Feature_Info info(const ML::Feature & feature) const override;
+    virtual MLDB::Feature_Info info(const MLDB::Feature & feature) const override;
 
 
     /*************************************************************************/
@@ -129,36 +129,36 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
         - the third 32 bit integer, arg2(), to the low 32 bits of the column.
     */
 
-    static ColumnHash getHashRaw(ML::Feature feature);
+    static ColumnHash getHashRaw(MLDB::Feature feature);
 
-    ColumnHash getHash(ML::Feature feature) const;
+    ColumnHash getHash(MLDB::Feature feature) const;
 
     /** Undo the mapping from getHash.  This is the inverse of the getHash
         function.
     */
-    ML::Feature getFeature(ColumnHash hash) const;
+    MLDB::Feature getFeature(ColumnHash hash) const;
 
-    static ML::Feature getFeatureRaw(ColumnHash hash);
+    static MLDB::Feature getFeatureRaw(ColumnHash hash);
 
-    CellValue getValue(const ML::Feature & feature, float value) const;
+    CellValue getValue(const MLDB::Feature & feature, float value) const;
 
-    using ML::Feature_Space::print;
+    using MLDB::Feature_Space::print;
 
-    virtual std::string print(const ML::Feature_Set & fs) const override;
+    virtual std::string print(const MLDB::Feature_Set & fs) const override;
 
-    virtual std::string print(const ML::Feature & feature) const override;
+    virtual std::string print(const MLDB::Feature & feature) const override;
 
-    virtual std::string print(const ML::Feature & feature, float value) const override;
+    virtual std::string print(const MLDB::Feature & feature, float value) const override;
 
-    virtual void serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature) const override;
+    virtual void serialize(MLDB::DB::Store_Writer & store, const MLDB::Feature & feature) const override;
 
-    virtual void reconstitute(MLDB::DB::Store_Reader & store, ML::Feature & feature) const override;
+    virtual void reconstitute(MLDB::DB::Store_Reader & store, MLDB::Feature & feature) const override;
 
-    virtual void serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature,
+    virtual void serialize(MLDB::DB::Store_Writer & store, const MLDB::Feature & feature,
                            float value) const override;
 
     virtual void reconstitute(MLDB::DB::Store_Reader & store,
-                              const ML::Feature & feature,
+                              const MLDB::Feature & feature,
                               float & value) const override;
 
 
@@ -168,14 +168,14 @@ struct DatasetFeatureSpace: public ML::Feature_Space {
 
     virtual std::string class_id() const override;
 
-    virtual ML::Feature_Space_Type type() const override;
+    virtual MLDB::Feature_Space_Type type() const override;
 
-    using ML::Feature_Space::serialize;
-    using ML::Feature_Space::reconstitute;
+    using MLDB::Feature_Space::serialize;
+    using MLDB::Feature_Space::reconstitute;
 
     void reconstitute(MLDB::DB::Store_Reader & store);
     virtual void serialize(MLDB::DB::Store_Writer & store) const override;
-    virtual ML::Feature_Space * make_copy() const override;
+    virtual MLDB::Feature_Space * make_copy() const override;
 
 };
 

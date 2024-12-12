@@ -13,7 +13,7 @@ namespace fasttext {
     class FastText;
 }
 
-namespace ML {
+namespace MLDB {
 
 
 class Training_Data;
@@ -50,7 +50,7 @@ public:
             PredictionContext * context = 0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
@@ -101,5 +101,5 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 

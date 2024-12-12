@@ -10,7 +10,6 @@
 
 #include "decision_tree.h"
 #include "classifier_persist_impl.h"
-#include <boost/timer/timer.hpp>
 #include <functional>
 #include "mldb/utils/vector_utils.h"
 
@@ -24,7 +23,7 @@ using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -427,7 +426,7 @@ print_recursive(int level, const Tree::Ptr & ptr,
 Explanation
 Decision_Tree::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -459,7 +458,7 @@ void
 Decision_Tree::
 explain_recursive(Explanation & explanation,
                   const Feature_Set & feature_set,
-                  const ML::Label & label,
+                  const MLDB::Label & label,
                   double weight,
                   const Tree::Ptr & ptr,
                   const Tree::Node * parent,
@@ -583,11 +582,11 @@ void all_features_recursive(const Tree::Ptr & ptr,
 
 } // file scope
 
-std::vector<ML::Feature>
+std::vector<MLDB::Feature>
 Decision_Tree::
 all_features() const
 {
-    std::vector<ML::Feature> result;
+    std::vector<MLDB::Feature> result;
     all_features_recursive(tree.root, result);
     make_vector_set(result);
     return result;
@@ -681,5 +680,5 @@ Register_Factory<Classifier_Impl, Decision_Tree> REGISTER("DECISION_TREE");
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 

@@ -49,7 +49,7 @@ extern const uint8_t j__L_LeafWOffset[];
 #undef JLN
 
 
-namespace ML {
+namespace MLDB {
 
 using namespace std;
 
@@ -950,4 +950,4 @@ size_t memusage(const judyl_typed<Data, Contained> & array)
     return array.memusage_();
 }
 
-} // namespace ML
+} // namespace MLDB

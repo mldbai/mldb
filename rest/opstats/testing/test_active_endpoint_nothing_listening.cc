@@ -22,7 +22,7 @@
 #include "test_connection_error.h"
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB;
 
 

@@ -24,17 +24,13 @@
 #include <functional>
 #include <array>
 
-namespace boost {
-
-template<typename T, std::size_t NumDims, class Allocator>
-class multi_array;
-
-} // namespace boost
-
 namespace MLDB {
 
 using namespace MLDB;
 class File_Read_Buffer;
+
+template<typename T, std::size_t NumDims>
+class MatrixBase;
 
 namespace DB {
 
@@ -323,20 +319,22 @@ void load(portable_bin_iarchive & archive, std::pair<T1, T2> & p)
     load(archive, p.second);
 }
 
-template<typename T, std::size_t NumDims, class Allocator>
+template<typename T, std::size_t NumDims>
 void load(portable_bin_iarchive & archive,
-          boost::multi_array<T, NumDims, Allocator> & arr)
+          MLDB::MatrixBase<T, NumDims> & arr)
 {
     using namespace std;
+    //cerr << "loading matrix at offset " << archive.offset() << endl;
+
     char version;
     load(archive, version);
     if (version != 1)
-        throw Exception("unknown multi array version");
+        throw Exception("unknown multi array version %d", (int)version);
 
     char nd;
     load(archive, nd);
     if (nd != NumDims)
-        throw Exception("NumDims wrong");
+        throw Exception("NumDims wrong (%zd != %zd)", (size_t)nd, (size_t)NumDims);
 
     std::array<size_t, NumDims> sizes;
     for (unsigned i = 0;  i < NumDims;  ++i) {
@@ -344,12 +342,16 @@ void load(portable_bin_iarchive & archive,
         sizes[i] = sz;
     }
 
-    arr.resize(sizes);
+    //cerr << "loading matrix with " << NumDims << " dimensions " << sizes << endl;
 
-    size_t ne = arr.num_elements();
-    T * el = arr.data();
+    MLDB::MatrixBase<T, NumDims> new_arr(sizes);
+
+    size_t ne = new_arr.num_elements();
+    T * el = new_arr.data();
     for (unsigned i = 0;  i < ne;  ++i, ++el)
         archive >> *el;
+
+    arr.swap(new_arr);
 }
 
 // Anything with a serialize() method gets to be serialized

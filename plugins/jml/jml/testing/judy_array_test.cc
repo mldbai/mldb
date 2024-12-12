@@ -15,11 +15,10 @@
 #include <map>
 #include <algorithm>
 #include "mldb/jml/utils/unordered_map.h"
-#include <boost/timer.hpp>
 
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -402,7 +401,7 @@ void do_timed_test(Array & array, vector<unsigned long> & indexes)
     int NUM = indexes.size();
     double total = 0.0;
 
-    boost::timer::cpu_timert;
+    MLDB::Timert;
     for (unsigned i = 0;  i < NUM;  ++i)
         array[indexes[i]] = i;
     total += t.elapsed();

@@ -15,7 +15,7 @@
 #include "stump.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -63,7 +63,7 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate(Thread_Context & context,
              const Training_Data & training_data,
-             const boost::multi_array<float, 2> & weights,
+             const MLDB::MatrixRef<float, 2> & weights,
              const std::vector<Feature> & features,
              float & Z,
              int recursion) const override;
@@ -80,7 +80,7 @@ public:
     Decision_Tree
     train_weighted(Thread_Context & context,
                    const Training_Data & data,
-                   const boost::multi_array<float, 2> & weights,
+                   const MLDB::MatrixRef<float, 2> & weights,
                    const std::vector<Feature> & features,
                    int max_depth) const;
     
@@ -117,4 +117,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

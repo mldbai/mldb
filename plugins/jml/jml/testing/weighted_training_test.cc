@@ -12,7 +12,7 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/environment.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -136,10 +136,12 @@ BOOST_AUTO_TEST_CASE( weighted_training_test )
         remove(modelname3.c_str());
     }
 
+#if 0
     cout << "removing " << filename1 << endl;
     remove(filename1.c_str());
     cout << "removing " << filename2 << endl;
     remove(filename2.c_str());
     cout << "removing " << configname << endl;
     remove(configname.c_str());
+#endif
 }

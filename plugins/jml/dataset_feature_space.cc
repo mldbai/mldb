@@ -20,7 +20,7 @@ using namespace std;
 namespace MLDB {
 
 
-const ML::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
+const MLDB::Feature labelFeature(0, 0, 0), weightFeature(0, 1, 0);
 
 
 /*****************************************************************************/
@@ -35,7 +35,7 @@ DatasetFeatureSpace()
 
 DatasetFeatureSpace::
 DatasetFeatureSpace(std::shared_ptr<Dataset> dataset,
-                    ML::Feature_Info labelInfo,
+                    MLDB::Feature_Info labelInfo,
                     const std::set<ColumnPath> & knownInputColumns,
                     bool bucketize)
     : labelInfo(labelInfo),
@@ -88,7 +88,7 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
         result.distinctValues = stats.values.size();
 
         if (stats.isNumeric()) {
-            result.info = ML::REAL;
+            result.info = MLDB::REAL;
         }
         else {
             std::map<CellValue::CellType, std::pair<size_t, size_t> > types;
@@ -113,14 +113,14 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
             if (types.count(CellValue::ASCII_STRING) || 
                 types.count(CellValue::UTF8_STRING)) {
                 // Has string values; make it categorical
-                auto categorical = std::make_shared<ML::Fixed_Categorical_Info>(allValues);
-                result.info = ML::Feature_Info(categorical);
+                auto categorical = std::make_shared<MLDB::Fixed_Categorical_Info>(allValues);
+                result.info = MLDB::Feature_Info(categorical);
             }
             else if (types.size() == 1 && types.begin()->first == CellValue::EMPTY) {
-                result.info = ML::INUTILE;
+                result.info = MLDB::INUTILE;
             }
             else {
-                result.info = ML::REAL;
+                result.info = MLDB::REAL;
             }
         }
     }
@@ -137,7 +137,7 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
         //}
 
         if (descriptions.numeric.active) {
-            result.info = ML::REAL;
+            result.info = MLDB::REAL;
             // TODO: if we have both numbers and strings, we probably do need
             // to support it in the long term.
             if (!descriptions.strings.buckets.empty()) {
@@ -169,8 +169,8 @@ getColumnInfo(std::shared_ptr<Dataset> dataset,
                 categories.emplace_back(s.rawString());
             }
             auto categorical
-                = std::make_shared<ML::Fixed_Categorical_Info>(std::move(categories));
-            result.info = ML::Feature_Info(categorical);
+                = std::make_shared<MLDB::Fixed_Categorical_Info>(std::move(categories));
+            result.info = MLDB::Feature_Info(categorical);
         }
 
         result.distinctValues = descriptions.numBuckets();
@@ -200,7 +200,7 @@ encodeFeatureValue(ColumnHash column, const CellValue & value) const
 void
 DatasetFeatureSpace::
 encodeFeature(ColumnHash column, const CellValue & value,
-              std::vector<std::pair<ML::Feature, float> > & fset) const
+              std::vector<std::pair<MLDB::Feature, float> > & fset) const
 {
     if (value.empty())
         return;
@@ -227,8 +227,8 @@ getFeatureBucket(ColumnHash column, const CellValue & value) const
         throw MLDB::Exception("Encoding unknown column");
     }
 
-    if (it->second.info.type() == ML::CATEGORICAL
-        || it->second.info.type() == ML::STRING) {
+    if (it->second.info.type() == MLDB::CATEGORICAL
+        || it->second.info.type() == MLDB::STRING) {
         std::string key;
         if (value.isUtf8String())
             key = value.toUtf8String().rawString();
@@ -242,7 +242,7 @@ getFeatureBucket(ColumnHash column, const CellValue & value) const
     return { it->second.index, it->second.bucketDescriptions.getBucket(value) };
 }
 
-ML::Label
+MLDB::Label
 DatasetFeatureSpace::
 encodeLabel(const CellValue & value, bool isRegression) const
 {
@@ -251,10 +251,10 @@ encodeLabel(const CellValue & value, bool isRegression) const
                            LABEL, labelInfo);
 
     if (isRegression) {
-        return ML::Label(label);
+        return MLDB::Label(label);
     }
     else {
-        return ML::Label((int)label);
+        return MLDB::Label((int)label);
     }
 }
 
@@ -262,13 +262,13 @@ float
 DatasetFeatureSpace::
 encodeValue(const CellValue & value,
             const ColumnPath & columnName,
-            const ML::Feature_Info & info) const
+            const MLDB::Feature_Info & info) const
 {
-    if (value.empty() || info.type() == ML::INUTILE)
+    if (value.empty() || info.type() == MLDB::INUTILE)
         return std::numeric_limits<float>::quiet_NaN();
 
-    if (info.type() == ML::CATEGORICAL
-        || info.type() == ML::STRING) {
+    if (info.type() == MLDB::CATEGORICAL
+        || info.type() == MLDB::STRING) {
         // Look up the value in the categorical info
 
         std::string key;
@@ -291,16 +291,16 @@ encodeValue(const CellValue & value,
 
 }
 
-ML::Feature_Info
+MLDB::Feature_Info
 DatasetFeatureSpace::
-info(const ML::Feature & feature) const
+info(const MLDB::Feature & feature) const
 {
     if (feature == labelFeature)
         return labelInfo;
     else if (feature == weightFeature)
-        return ML::Feature_Info(ML::REAL, false, true, false);
-    else if (feature == ML::MISSING_FEATURE)
-        return ML::MISSING_FEATURE_INFO;
+        return MLDB::Feature_Info(MLDB::REAL, false, true, false);
+    else if (feature == MLDB::MISSING_FEATURE)
+        return MLDB::MISSING_FEATURE_INFO;
 
     // Look up the feature info we just extracted
     auto it = columnInfo.find(getHash(feature));
@@ -311,9 +311,9 @@ info(const ML::Feature & feature) const
 
 ColumnHash
 DatasetFeatureSpace::
-getHashRaw(ML::Feature feature)
+getHashRaw(MLDB::Feature feature)
 {
-    if (feature == ML::MISSING_FEATURE)
+    if (feature == MLDB::MISSING_FEATURE)
         return ColumnHash();
     ExcAssertEqual(feature.type(), 1);
 
@@ -326,9 +326,9 @@ getHashRaw(ML::Feature feature)
 
 ColumnHash
 DatasetFeatureSpace::
-getHash(ML::Feature feature) const
+getHash(MLDB::Feature feature) const
 {
-    if (feature == ML::MISSING_FEATURE)
+    if (feature == MLDB::MISSING_FEATURE)
         return ColumnHash();
     ExcAssertEqual(feature.type(), 1);
 
@@ -343,20 +343,20 @@ getHash(ML::Feature feature) const
     }
 }
 
-ML::Feature
+MLDB::Feature
 DatasetFeatureSpace::
 getFeatureRaw(ColumnHash hash)
 {
     uint32_t high = hash >> 32;
     uint32_t low  = hash;
 
-    ML::Feature result(1, high, low);
+    MLDB::Feature result(1, high, low);
     ExcAssertEqual(getHashRaw(result), hash);
 
     return result;
 }
 
-ML::Feature
+MLDB::Feature
 DatasetFeatureSpace::
 getFeature(ColumnHash hash) const
 {
@@ -371,13 +371,13 @@ getFeature(ColumnHash hash) const
     return it->second;
 }
 
-static CellValue getValueFromInfo(const ML::Feature_Info & info,
+static CellValue getValueFromInfo(const MLDB::Feature_Info & info,
                                   float value)
 {
     if (std::isnan(value))
         return CellValue();
     
-    if (info.type() == ML::CATEGORICAL) {
+    if (info.type() == MLDB::CATEGORICAL) {
         return Utf8String(info.categorical()->print(value));
     }
     
@@ -387,7 +387,7 @@ static CellValue getValueFromInfo(const ML::Feature_Info & info,
 
 CellValue
 DatasetFeatureSpace::
-getValue(const ML::Feature & feature, float value) const
+getValue(const MLDB::Feature & feature, float value) const
 {
     if (feature == labelFeature) {
         return getValueFromInfo(labelInfo, value);
@@ -406,7 +406,7 @@ getValue(const ML::Feature & feature, float value) const
 
 std::string
 DatasetFeatureSpace::
-print(const ML::Feature_Set & fs) const
+print(const MLDB::Feature_Set & fs) const
 {
     std::string result;
 
@@ -423,13 +423,13 @@ print(const ML::Feature_Set & fs) const
 
 std::string
 DatasetFeatureSpace::
-print(const ML::Feature & feature) const
+print(const MLDB::Feature & feature) const
 {
     if (feature == labelFeature)
         return "LABEL";
     else if (feature == weightFeature)
         return "WEIGHT";
-    else if (feature == ML::MISSING_FEATURE)
+    else if (feature == MLDB::MISSING_FEATURE)
         return "<<<MISSING>>>";
 
         
@@ -442,11 +442,11 @@ print(const ML::Feature & feature) const
 
 std::string
 DatasetFeatureSpace::
-print(const ML::Feature & feature, float value) const
+print(const MLDB::Feature & feature, float value) const
 {
     if (feature == weightFeature)
         return to_string(value);
-    if (feature == ML::MISSING_FEATURE) {
+    if (feature == MLDB::MISSING_FEATURE) {
         return "";
     }
 
@@ -462,21 +462,21 @@ print(const ML::Feature & feature, float value) const
 
 void
 DatasetFeatureSpace::
-serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature) const
+serialize(MLDB::DB::Store_Writer & store, const MLDB::Feature & feature) const
 {
-    return ML::Feature_Space::serialize(store, feature);
+    return MLDB::Feature_Space::serialize(store, feature);
 }
 
 void
 DatasetFeatureSpace::
-reconstitute(MLDB::DB::Store_Reader & store, ML::Feature & feature) const
+reconstitute(MLDB::DB::Store_Reader & store, MLDB::Feature & feature) const
 {
-    return ML::Feature_Space::reconstitute(store, feature);
+    return MLDB::Feature_Space::reconstitute(store, feature);
 }
 
 void
 DatasetFeatureSpace::
-serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature,
+serialize(MLDB::DB::Store_Writer & store, const MLDB::Feature & feature,
           float value) const
 {
     auto it = columnInfo.find(getHash(feature));
@@ -492,7 +492,7 @@ serialize(MLDB::DB::Store_Writer & store, const ML::Feature & feature,
 void
 DatasetFeatureSpace::
 reconstitute(MLDB::DB::Store_Reader & store,
-             const ML::Feature & feature,
+             const MLDB::Feature & feature,
              float & value) const
 {
     auto it = columnInfo.find(getHash(feature));
@@ -514,14 +514,14 @@ class_id() const
     return "MLDB::DatasetFeatureSpace";
 }
 
-ML::Feature_Space_Type
+MLDB::Feature_Space_Type
 DatasetFeatureSpace::
 type() const
 {
-    return ML::SPARSE;
+    return MLDB::SPARSE;
 }
 
-ML::Feature_Space *
+MLDB::Feature_Space *
 DatasetFeatureSpace::
 make_copy() const
 {
@@ -540,7 +540,7 @@ reconstitute(MLDB::DB::Store_Reader & store)
 
     if (version > 1)
         store >> labelInfo;
-    else labelInfo = ML::BOOLEAN;
+    else labelInfo = MLDB::BOOLEAN;
     
     decltype(columnInfo) newColumnInfo;
     decltype(versionTwoMapping) newVersionTwoMapping;
@@ -559,7 +559,7 @@ reconstitute(MLDB::DB::Store_Reader & store)
         if (version < 3) {
             // Version 2 used a different hash, so our feature names
             // operate on that
-            ML::Feature feature = getFeatureRaw(featureHash);
+            MLDB::Feature feature = getFeatureRaw(featureHash);
             newVersionTwoMapping[feature] = hash;
             newVersionTwoReverseMapping[hash] = feature;
 
@@ -609,7 +609,7 @@ std::ostream & operator << (std::ostream & stream,
 }
 
 
-static ML::Register_Factory<ML::Feature_Space, DatasetFeatureSpace>
+static MLDB::Register_Factory<MLDB::Feature_Space, DatasetFeatureSpace>
 DFS_REG("MLDB::DatasetFeatureSpace");
 
 

@@ -15,7 +15,7 @@
 #include "boolean_expression.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 class Training_Data;
@@ -111,13 +111,13 @@ public:
                                 double weight = 1.0) const;
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
     void explain_recursive(Explanation & explanation,
                            const Feature_Set & fset,
-                           const ML::Label & label,
+                           const MLDB::Label & label,
                            double weight,
                            const Tree::Ptr & ptr,
                            const Tree::Node * parent,
@@ -153,5 +153,5 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 

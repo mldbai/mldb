@@ -13,11 +13,11 @@
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "training_data.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <map>
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DENSE_FEATURE_MAPPING                                                     */
@@ -105,7 +105,7 @@ public:
         std::shared_ptr<const Dense_Feature_Space>
             problem_fs = feature_space();
         std::shared_ptr<const Dense_Feature_Space>
-            classifier_fs = classifier.feature_space<ML::Dense_Feature_Space>();
+            classifier_fs = classifier.feature_space<MLDB::Dense_Feature_Space>();
 
         classifier_fs->create_mapping(*problem_fs, mapping);
 
@@ -330,7 +330,7 @@ public:
         doesn't populate it. */
     virtual Dense_Training_Data * make_type() const;
 
-    size_t variable_count() const { return dataset.shape()[1]; }
+    size_t variable_count() const { return dataset.dim(1); }
 
     virtual size_t row_offset(size_t row) const;
 
@@ -344,7 +344,7 @@ public:
 
 protected:
     /** Dense version of the dataset. */
-    boost::multi_array<float, 2> dataset;
+    MLDB::Matrix<float, 2> dataset;
 
     /** The comment attached to each of the examples. */
     std::vector<std::string> row_comments;
@@ -396,4 +396,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

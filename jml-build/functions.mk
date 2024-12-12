@@ -381,7 +381,7 @@ get_compiler_with_version=$(if $(findstring clang,$(toolchain)),clang$(CLANG_VER
 
 # Make sure we have a filter for compiler options for this toolchain
 COMPILER_WITH_VERSION:=$(call get_compiler_with_version)
-$(warning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
+#$(warning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
 $(if $(call filter_compiler_option_$(COMPILER_WITH_VERSION),$(COMPILER_WITH_VERSION),true),,$(error need to add a filter_compiler_option_$(COMPILER_WITH_VERSION) function for $(toolchain)))
 
 
@@ -551,7 +551,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # add a test case
 # $(1) name of the test
 # $(2) libraries to link with
-# $(3) test style.  boost = boost test framework, and options: manual, valgrind, virtualenv
+# $(3) test style.  boost = boost test framework, catch2: catch2 test framework and options: manual, valgrind, virtualenv
 # $(4) testing targets to add it to
 # $(5) source file for test.  Default is $(1).cc
 
@@ -567,7 +567,7 @@ $$(eval $$(call add_sources,$$(_testsrc)))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $(if $(findstring catch2,$(3)), -lCatch2 -lCatch2Main) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")
@@ -576,7 +576,7 @@ $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
 
-TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && $(call write_timing_to,$(TESTS)/$(1).timing) $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
+TEST_$(1)_COMMAND := rm -f $(TESTS)/$(1).{passed,failed} && (($(call TEST_PRE_PRE_OPTIONS,$(3)) set -o pipefail && $(call write_timing_to,$(TESTS)/$(1).timing) $(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) > $(TESTS)/$(1).running 2>&1 && mv $(TESTS)/$(1).running $(TESTS)/$(1).passed) || (mv $(TESTS)/$(1).running $(TESTS)/$(1).failed && echo "                 $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && cat $(TESTS)/$(1).failed && echo "                       $(COLOR_RED)$(1) FAILED$(COLOR_RESET)" && false))
 
 
 $(TESTS)/$(1).passed:	$(TESTS)/$(1)

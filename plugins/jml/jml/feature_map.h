@@ -17,7 +17,7 @@
 #include "mldb/arch/arch.h"
 
 
-namespace ML {
+namespace MLDB {
 
 #if MLDB_INTEL_ISA
 
@@ -241,4 +241,4 @@ public:
 
 #endif
 
-} // namespace ML
+} // namespace MLDB

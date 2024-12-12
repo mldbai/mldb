@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 double do_calc_auc(std::vector<AUC_Entry> & entries)
 {
@@ -82,4 +82,4 @@ double do_calc_auc(std::vector<AUC_Entry> & entries)
     return 1.0 - total_area;
 }
 
-} // namespace ML
+} // namespace MLDB

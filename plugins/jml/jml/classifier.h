@@ -13,12 +13,12 @@
 #include "mldb/arch/demangle.h"
 #include <map>
 #include "mldb/utils/any.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <string>
 #include "mldb/utils/pure_bool.h"
 #include "mldb/plugins/jml/jml/label.h"
 
-namespace ML {
+namespace MLDB {
 
 extern const distribution<float> UNIFORM_WEIGHTS;
 
@@ -421,12 +421,12 @@ public:
         given way.  If not implemented, an exception will be thrown.
     */
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
     virtual Explanation explainContext(const Feature_Set & feature_set,
-                                       const ML::Label & label,
+                                       const MLDB::Label & label,
                                        const PredictionContext & context,
                                        double weight = 1.0) const
     {
@@ -790,4 +790,4 @@ operator << (DB::Store_Writer & store, const Classifier & classifier);
 DB::Store_Reader &
 operator >> (DB::Store_Reader & store, Classifier & classifier);
 
-} // namespace ML
+} // namespace MLDB

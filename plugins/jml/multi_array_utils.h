@@ -9,9 +9,10 @@
 
 #pragma once
 
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <algorithm>
 
+#if 0
 namespace boost {
 
 /* Multi arrays don't have a swap function, so we make one for them.  This
@@ -63,11 +64,11 @@ void swap(const_multi_array_ref<T, NumDims> & a1,
 
 } // namespace boost
 
-namespace ML {
+namespace MLDB {
 
 template<typename Val, std::size_t Dims, class Allocator>
-void swap_multi_arrays(boost::multi_array<Val, Dims, Allocator> & a1,
-                       boost::multi_array<Val, Dims, Allocator> & a2)
+void std::swap(MLDB::MatrixRef<Val, Dims, Allocator> & a1,
+                       MLDB::MatrixRef<Val, Dims, Allocator> & a2)
 {
     /* Since we know there is nothing self-referential, we do a bit by
        bit copy.  Note that this might not work for some allocator
@@ -84,4 +85,6 @@ void swap_multi_arrays(boost::multi_array<Val, Dims, Allocator> & a1,
         std::swap(p1[i], p2[i]);
 }
 
-} // namespace ML
+} // namespace MLDB
+
+#endif

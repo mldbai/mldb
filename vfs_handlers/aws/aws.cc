@@ -14,6 +14,7 @@
 #include <cctype>
 #include <locale>
 #include "xml_helpers.h"
+#include "mldb/utils/trim.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -34,40 +35,6 @@ using std::endl;
 using CryptoPP::byte;
 
 namespace MLDB {
-
-namespace {
-
-// https://stackoverflow.com/questions/216823/how-to-trim-a-stdstring
-// trim from start (in place)
-template<typename String>
-static inline void ltrim(String &s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](auto ch) {
-        return !std::isspace(ch);
-    }));
-}
-
-// trim from end (in place)
-template<typename String>
-static inline void rtrim(String &s) {
-    auto it = s.end();
-    while (it != s.begin()) {
-        --it;
-        if (!std::isspace(*it)) {
-            ++it;
-            s.erase(it, s.end());
-            break;
-        }
-    }
-}
-
-// trim from both ends (in place)
-template<typename String>
-static inline void trim(String &s) {
-    ltrim(s);
-    rtrim(s);
-}
-
-} // file scope
 
 // Fix GCC error message about unused function
 auto __fixGccError = &CryptoPP::StringNarrow;

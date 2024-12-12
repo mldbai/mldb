@@ -13,7 +13,7 @@
 
 #include "perceptron_defs.h"
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 
@@ -62,7 +62,7 @@ struct Backprop {
 };
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __jml__backprop_cuda_h__ */

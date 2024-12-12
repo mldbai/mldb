@@ -13,9 +13,9 @@
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include <map>
 
-namespace ML {
+namespace MLDB {
 
-class Info_Override_Feature_Space : public ML::Feature_Space {
+class Info_Override_Feature_Space : public MLDB::Feature_Space {
 public:
 
     Info_Override_Feature_Space(std::shared_ptr<const Feature_Space> inner) : 
@@ -42,7 +42,7 @@ public:
      */
     virtual Feature_Info info(const Feature & feature) const override;
 
-    void set_info(const ML::Feature & feature, const ML::Feature_Info & info);
+    void set_info(const MLDB::Feature & feature, const MLDB::Feature_Info & info);
     
     virtual void serialize(DB::Store_Writer & store) const override;
     virtual void reconstitute(DB::Store_Reader & store,

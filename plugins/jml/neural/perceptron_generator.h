@@ -16,7 +16,7 @@
 #include "perceptron.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -75,7 +75,7 @@ public:
        one. */
     Perceptron model;
 
-    boost::multi_array<float, 2>
+    MLDB::MatrixRef<float, 2>
     init(const Training_Data & data,
          const std::vector<Feature> & possible_features,
          const std::vector<int> & architecture,
@@ -84,7 +84,7 @@ public:
 
 
     float train_weighted(const Training_Data & data,
-                         const boost::multi_array<float, 2> & weights,
+                         const MLDB::MatrixRef<float, 2> & weights,
                          int parent) const;
     
     /** Decorrelate the training data, returning a matrix of decorrelated
@@ -92,19 +92,19 @@ public:
         Features variable will be set up here and a first layer of the
         network will be added (that simply performs the decorrelation).
     */
-    boost::multi_array<float, 2>
+    MLDB::MatrixRef<float, 2>
     decorrelate(const Training_Data & data,
                 const std::vector<Feature> & possible_features,
                 Perceptron & result) const;
     
     /** Decorrelate another training data object using the decorrelation
         already trained. */
-    boost::multi_array<float, 2>
+    MLDB::MatrixRef<float, 2>
     decorrelate(const Training_Data & data) const;
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__perceptron_generator_h__ */

@@ -13,7 +13,7 @@
 typedef MLDB::CUDA::Test_Buckets_Binsym::Float Float;
 typedef MLDB::CUDA::Test_Buckets_Binsym::TwoBuckets TwoBuckets;
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 void executeHostCompressed(TwoBuckets * accum,
@@ -88,4 +88,4 @@ void executeHost(TwoBuckets * accum,
 }
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB
