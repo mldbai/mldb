@@ -13,10 +13,9 @@
 #include "mldb/utils/smart_ptr_utils.h"
 
 
-namespace ML {
+namespace MLDB {
 
 class Feature_Space;
-namespace DB = MLDB::DB;
 
 /*****************************************************************************/
 /* FEATURE_TRANSFORMER_IMPL                                                  */
@@ -140,4 +139,4 @@ DB::Store_Reader &
 operator >> (DB::Store_Reader & store, Feature_Transformer & tr);
 
 
-} // namespace ML
+} // namespace MLDB

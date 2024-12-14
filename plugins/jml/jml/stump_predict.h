@@ -11,7 +11,7 @@
 #include "stump.h"
 
 
-namespace ML {
+namespace MLDB {
 
 template<class FeatureExPtrIter>
 void Stump::predict(Label_Dist & result,
@@ -31,4 +31,4 @@ predict(int label, FeatureExPtrIter first, FeatureExPtrIter last) const
     return action.apply(label, weights);
 }
 
-} // namespace ML
+} // namespace MLDB

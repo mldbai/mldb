@@ -19,10 +19,10 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 void 
-update_weights(boost::multi_array<float, 2> & weights,
+update_weights(MLDB::MatrixRef<float, 2> & weights,
                const Stump & stump,
                const Optimization_Info & opt_info,
                const Training_Data & data,
@@ -37,7 +37,7 @@ update_weights(boost::multi_array<float, 2> & weights,
 }
 
 void 
-update_weights(boost::multi_array<float, 2> & weights,
+update_weights(MLDB::MatrixRef<float, 2> & weights,
                const std::vector<Stump> & stumps,
                const std::vector<Optimization_Info> & opt_infos,
                const distribution<float> & cl_weights,
@@ -58,7 +58,7 @@ update_weights(boost::multi_array<float, 2> & weights,
     
     /* Update the d distribution. */
     double total = 0.0;
-    size_t nl = weights.shape()[1];
+    size_t nl = weights.dim(1);
 
     if (cost == CF_EXPONENTIAL) {
         typedef Boosting_Loss Loss;
@@ -106,23 +106,23 @@ update_weights(boost::multi_array<float, 2> & weights,
     else throw Exception("update_weights: unknown cost function");
 
     for (unsigned m = 0;  m < data.example_count();  ++m)
-        for (unsigned l = 0;  l < weights.shape()[1];  ++l)
+        for (unsigned l = 0;  l < weights.dim(1);  ++l)
             weights[m][l] /= total;
 }
 
 void 
-update_scores(boost::multi_array<float, 2> & example_scores,
+update_scores(MLDB::MatrixRef<float, 2> & example_scores,
               const Training_Data & data,
               const Stump & stump,
               const Optimization_Info & opt_info)
 {
     //PROFILE_FUNCTION(t_update);
     size_t nl = stump.label_count();
-    if (nl != example_scores.shape()[1])
+    if (nl != example_scores.dim(1))
         throw Exception("update_scores: label counts don't match");
 
     size_t nx = data.example_count();
-    if (nx != example_scores.shape()[0])
+    if (nx != example_scores.dim(0))
         throw Exception("update_scores: example counts don't match");
 
     typedef Normal_Updater<Boosting_Predict> Updater;
@@ -134,18 +134,18 @@ update_scores(boost::multi_array<float, 2> & example_scores,
 }
 
 void 
-update_scores(boost::multi_array<float, 2> & example_scores,
+update_scores(MLDB::MatrixRef<float, 2> & example_scores,
               const Training_Data & data,
               const Classifier_Impl & classifier,
               const Optimization_Info & opt_info)
 {
     //PROFILE_FUNCTION(t_update);
     size_t nl = classifier.label_count();
-    if (nl != example_scores.shape()[1])
+    if (nl != example_scores.dim(1))
         throw Exception("update_scores: label counts don't match");
 
     size_t nx = data.example_count();
-    if (nx != example_scores.shape()[0])
+    if (nx != example_scores.dim(0))
         throw Exception("update_scores: example counts don't match");
 
     typedef Normal_Updater<Boosting_Predict> Updater;
@@ -157,7 +157,7 @@ update_scores(boost::multi_array<float, 2> & example_scores,
 }
 
 void 
-update_scores(boost::multi_array<float, 2> & example_scores,
+update_scores(MLDB::MatrixRef<float, 2> & example_scores,
               const Training_Data & data,
               const std::vector<Stump> & trained_stumps,
               const std::vector<Optimization_Info> & opt_infos)
@@ -166,11 +166,11 @@ update_scores(boost::multi_array<float, 2> & example_scores,
 
     //PROFILE_FUNCTION(t_update);
     size_t nl = trained_stumps[0].label_count();
-    if (nl != example_scores.shape()[1])
+    if (nl != example_scores.dim(1))
         throw Exception("update_scores: label counts don't match");
 
     size_t nx = data.example_count();
-    if (nx != example_scores.shape()[0])
+    if (nx != example_scores.dim(0))
         throw Exception("update_scores: example counts don't match");
 
     if (trained_stumps.empty())
@@ -186,13 +186,13 @@ update_scores(boost::multi_array<float, 2> & example_scores,
     }
 }
 
-const Enum_Opt<ML::Cost_Function>
-Enum_Info<ML::Cost_Function>::OPT[2] = {
-    { "exponential",      ML::CF_EXPONENTIAL   },
-    { "logistic",         ML::CF_LOGISTIC      } };
+const Enum_Opt<MLDB::Cost_Function>
+Enum_Info<MLDB::Cost_Function>::OPT[2] = {
+    { "exponential",      MLDB::CF_EXPONENTIAL   },
+    { "logistic",         MLDB::CF_LOGISTIC      } };
 
-const char * Enum_Info<ML::Cost_Function>::NAME
+const char * Enum_Info<MLDB::Cost_Function>::NAME
    = "Cost_Function";
 
-} // namespace ML
+} // namespace MLDB
 

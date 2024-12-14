@@ -152,7 +152,7 @@ extern "C" {
                  float * tau);
 } // extern "C"
 
-namespace ML {
+namespace MLDB {
 namespace LAPack {
 
 namespace {
@@ -576,5 +576,5 @@ int geqp3(int m, int n, double * A, int lda, int * jpvt, double * tau)
 }
 
 } // namespace LAPack
-} // namespace ML
+} // namespace MLDB
 

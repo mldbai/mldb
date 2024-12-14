@@ -12,7 +12,7 @@
 #include <set>
 #include "training_data.h"
 
-namespace ML {
+namespace MLDB {
 
 /** This structure holds the information about a group of aliased
     examples. */
@@ -22,7 +22,7 @@ struct Alias {
 };
 
 /** Returns a list of examples that are aliased. */
-std::vector<Alias> aliases(const ML::Training_Data & dataset,
+std::vector<Alias> aliases(const MLDB::Training_Data & dataset,
                            const Feature & predicted);
 
 /** Remove the aliased examples.  This will go through and remove
@@ -41,7 +41,7 @@ std::vector<Alias> aliases(const ML::Training_Data & dataset,
     the finish() function is called, as otherwise that work will be
     wasted.
 */
-int remove_aliases(ML::Training_Data & dataset,
+int remove_aliases(MLDB::Training_Data & dataset,
                    const std::vector<Alias> & aliases,
                    bool homogenous = false,
                    std::vector<int> * mapping = 0);
@@ -50,10 +50,10 @@ int remove_aliases(ML::Training_Data & dataset,
     occur twice with different labels and remove them from the
     corpus.  Groups of aliased examples will be returned. */
 std::vector<Alias>
-remove_aliases(ML::Training_Data & dataset,
+remove_aliases(MLDB::Training_Data & dataset,
                const Feature & predicted,
                bool homogenous = false,
                std::vector<int> * mapping = 0);
 
-} // namespace ML
+} // namespace MLDB
 

@@ -12,7 +12,7 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/environment.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 

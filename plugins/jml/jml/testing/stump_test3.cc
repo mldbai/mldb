@@ -18,7 +18,7 @@
 
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -44,9 +44,9 @@ try
         Training_Params params;
         params["features"] = current_feature;
 
-        boost::multi_array<float, 2> weights2(data.example_count(), 2);
+        MLDB::MatrixRef<float, 2> weights2(data.example_count(), 2);
         weights2.fill(1.0 / (float)(data.example_count() * 2));
-        boost::multi_array<float, 2> weights3(data.example_count(), 3);
+        MLDB::MatrixRef<float, 2> weights3(data.example_count(), 3);
         weights3.fill(1.0 / (float)(data.example_count() * 2));
         for (unsigned i = 0;  i < data.example_count();  ++i)
             weights3[i][2] = 0.0;

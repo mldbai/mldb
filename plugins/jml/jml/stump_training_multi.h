@@ -21,7 +21,7 @@
 #undef USE_SIMD_SSE2
 #define USE_SIMD_SSE2 0
 
-namespace ML {
+namespace MLDB {
 
 
 inline void clip_bucket(float * p, int n)
@@ -263,7 +263,7 @@ transfer_core(double * from, double * to, const float * weights, float k,
 template<class Float>
 struct W_multi {
     W_multi(size_t nl)
-        : data(boost::extents[3][2][nl]), nl_(nl)
+        : data(MLDB::extents[3][2][nl]), nl_(nl)
     {
     }
     
@@ -280,7 +280,7 @@ struct W_multi {
 
     void swap(W_multi & other)
     {
-        swap_multi_arrays(data, other.data);
+        std::swap(data, other.data);
         std::swap(nl_, other.nl_);
     }
 
@@ -592,7 +592,7 @@ struct W_multi {
     }
 
 private:
-    boost::multi_array<Float, 3> data;  // alignment on cache boundary
+    MLDB::Matrix<Float, 3> data;  // alignment on cache boundary
     size_t nl_;
 };
 
@@ -819,4 +819,4 @@ struct Z_multi {
     }
 };
 
-} // namespace ML
+} // namespace MLDB

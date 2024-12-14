@@ -15,7 +15,7 @@ using namespace std;
 using namespace MLDB::DB;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -280,4 +280,4 @@ bbprop(const double * inputs,
                  gradient, dgradient, example_weight);
 }
 
-} // namespace ML
+} // namespace MLDB

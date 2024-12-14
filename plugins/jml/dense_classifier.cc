@@ -10,7 +10,7 @@
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -19,8 +19,8 @@ namespace MLDB {
 
 
 Json::Value
-explanationToJson(const ML::Explanation & expl,
-                  const ML::Feature_Set & fset,
+explanationToJson(const MLDB::Explanation & expl,
+                  const MLDB::Feature_Set & fset,
                   int nFeatures)
 {
     Json::Value result;
@@ -33,7 +33,7 @@ explanationToJson(const ML::Explanation & expl,
 
         string featName;
         string featValue;
-        if (feat == ML::MISSING_FEATURE) {
+        if (feat == MLDB::MISSING_FEATURE) {
             featName = "<<BIAS>>";
             featValue = "";
         }
@@ -51,7 +51,7 @@ explanationToJson(const ML::Explanation & expl,
 }
 
 Json::Value
-explanationToJson(const ML::Explanation & expl,
+explanationToJson(const MLDB::Explanation & expl,
                   int nFeatures)
 {
     Json::Value result;
@@ -63,7 +63,7 @@ explanationToJson(const ML::Explanation & expl,
         float score = data[i].second;
 
         string featName;
-        if (feat == ML::MISSING_FEATURE) {
+        if (feat == MLDB::MISSING_FEATURE) {
             featName = "<<BIAS>>";
         }
         else {
@@ -85,9 +85,9 @@ explanationToJson(const ML::Explanation & expl,
 void
 DenseClassifier::
 load(const std::string & filename,
-     std::shared_ptr<ML::Dense_Feature_Space> fs)
+     std::shared_ptr<MLDB::Dense_Feature_Space> fs)
 {
-    ML::Classifier classifier;
+    MLDB::Classifier classifier;
     classifier.load(filename);
     init(classifier.impl, fs);
 }
@@ -95,15 +95,15 @@ load(const std::string & filename,
 void
 DenseClassifier::
 reconstitute(MLDB::DB::Store_Reader & store,
-             std::shared_ptr<ML::Dense_Feature_Space> fs)
+             std::shared_ptr<MLDB::Dense_Feature_Space> fs)
 {
-    ML::Classifier classifier;
+    MLDB::Classifier classifier;
     classifier.reconstitute(store);
     init(classifier.impl, fs);
 }   
 
 void
-dumpFeatureSpace(const ML::Dense_Feature_Space & fs)
+dumpFeatureSpace(const MLDB::Dense_Feature_Space & fs)
 {
     vector<Feature> features = fs.dense_features();
     cerr << "Dense_Feature_Space with " << features.size() << " features" << endl;
@@ -117,12 +117,12 @@ dumpFeatureSpace(const ML::Dense_Feature_Space & fs)
 
 void
 DenseClassifier::
-init(std::shared_ptr<ML::Classifier_Impl> classifier,
-     std::shared_ptr<ML::Dense_Feature_Space> fs)
+init(std::shared_ptr<MLDB::Classifier_Impl> classifier,
+     std::shared_ptr<MLDB::Dense_Feature_Space> fs)
 {
     classifier_ = classifier;
     input_fs_ = fs;
-    classifier_fs_ = std::const_pointer_cast<ML::Dense_Feature_Space>(classifier_->feature_space<ML::Dense_Feature_Space>());
+    classifier_fs_ = std::const_pointer_cast<MLDB::Dense_Feature_Space>(classifier_->feature_space<MLDB::Dense_Feature_Space>());
 
     //cerr << "input features" << endl;
     //dumpFeatureSpace(*input_fs_);
@@ -141,7 +141,7 @@ void
 DenseClassifier::
 save(const std::string & filename) const
 {
-    ML::Classifier classifier(classifier_);
+    MLDB::Classifier classifier(classifier_);
     classifier.save(filename);
 }
 
@@ -149,7 +149,7 @@ void
 DenseClassifier::
 serialize(DB::Store_Writer & store) const
 {
-    ML::Classifier classifier(classifier_);
+    MLDB::Classifier classifier(classifier_);
     classifier.serialize(store);
 }
 
@@ -182,7 +182,7 @@ scoreUnbiased(const distribution<float> & features,
     return classifier_->predict(1, mapper_output.data(), opt_info_, &context);
 }
 
-ML::Label_Dist
+MLDB::Label_Dist
 DenseClassifier::
 labelScores(const distribution<float> & features) const
 {
@@ -196,7 +196,7 @@ labelScores(const distribution<float> & features) const
     return classifier_->predict(mapper_output.data(), opt_info_);
 }
 
-ML::Label_Dist
+MLDB::Label_Dist
 DenseClassifier::
 labelScoresUnbiased(const distribution<float> & features,
                     PipelineExecutionContext & context) const
@@ -211,7 +211,7 @@ labelScoresUnbiased(const distribution<float> & features,
     return classifier_->predict(mapper_output.data(), opt_info_, &context);
 }
 
-std::pair<ML::Explanation, std::shared_ptr<Mutable_Feature_Set> >
+std::pair<MLDB::Explanation, std::shared_ptr<Mutable_Feature_Set> >
 DenseClassifier::
 explain(const distribution<float> & features,
         int label) const
@@ -222,7 +222,7 @@ explain(const distribution<float> & features,
     return make_pair(classifier_->explain(*fset, label), fset);
 }
 
-std::pair<ML::Explanation, std::shared_ptr<Mutable_Feature_Set> >
+std::pair<MLDB::Explanation, std::shared_ptr<Mutable_Feature_Set> >
 DenseClassifier::
 explainUnbiased(const distribution<float> & features,
                 int label,

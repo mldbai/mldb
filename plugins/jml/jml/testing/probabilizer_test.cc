@@ -20,7 +20,7 @@
 #include "mldb/plugins/jml/jml/probabilizer.h"
 #include "mldb/utils/vector_utils.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE( test_probabilizer_single_dof_mode2 )
     // tests sets up that situation and tests that the probabilizer is
     // properly learned.
 
-    boost::multi_array<double, 2> outputs(boost::extents[4][100]);
+    MLDB::Matrix<double, 2> outputs(MLDB::extents[4][100]);
     vector<distribution<double> > correct(2, distribution<double>(100));
     distribution<int> num_correct(2);
     distribution<float> weights(100, 1);

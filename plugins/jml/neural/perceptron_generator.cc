@@ -9,8 +9,6 @@
 
 #include "perceptron_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer.hpp>
-#include <boost/progress.hpp>
 #include "mldb/plugins/jml/jml/training_index.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/arch/simd_vector.h"
@@ -23,7 +21,6 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
 #include "mldb/plugins/jml/jml/evaluation.h"
-#include <boost/scoped_ptr.hpp>
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/pair_utils.h"
@@ -33,7 +30,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 namespace {
@@ -163,7 +160,7 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
@@ -198,22 +195,22 @@ generate(Thread_Context & context,
     
     vector<int> arch = Perceptron::parse_architecture(arch_str);
     
-    boost::multi_array<float, 2> decorrelated
+    MLDB::MatrixRef<float, 2> decorrelated
         = init(training_set, features, arch, current, context);
 
     size_t nx_validate
         = (validate_is_train ? training_set : validation_set)
         .example_count();
 
-    boost::multi_array<float, 2> val_decorrelated
-        (boost::extents[nx_validate][decorrelated.shape()[1]]);
+    MLDB::MatrixRef<float, 2> val_decorrelated
+        (MLDB::extents[nx_validate][decorrelated.dim(1)]);
 
     if (validate_is_train) val_decorrelated = decorrelated;
     else val_decorrelated = current.decorrelate(validation_set);
 
-    size_t nx = decorrelated.shape()[0];
-    size_t nxv = val_decorrelated.shape()[0];
-    size_t nf = decorrelated.shape()[1];
+    size_t nx = decorrelated.dim(0);
+    size_t nxv = val_decorrelated.dim(0);
+    size_t nf = decorrelated.dim(1);
 
     log("perceptron_generator", 1)
         << current.parameters() << " parameters, "
@@ -333,7 +330,7 @@ generate(Thread_Context & context,
     
     if (profile)
         log("perceptron_generator", 1)
-            << "training time: " << timer.elapsed().wall << "s" << endl;
+            << "training time: " << timer.elapsed_wall() << "s" << endl;
     
     log("perceptron_generator", 1)
         << format("best was %6.2f%% on iteration %d", best_acc * 100.0,
@@ -359,17 +356,17 @@ generate(Thread_Context & context,
 
 namespace {
 
-boost::multi_array<double, 2>
-cholesky(const boost::multi_array<double, 2> & A_)
+MLDB::Matrix<double, 2>
+cholesky(const MLDB::MatrixRef<double, 2> & A_)
 {
     PROFILE_FUNCTION(t_cholesky);
 
-    if (A_.shape()[0] != A_.shape()[1])
+    if (A_.dim(0) != A_.dim(1))
         throw Exception("cholesky: matrix isn't square");
     
-    int n = A_.shape()[0];
+    int n = A_.dim(0);
 
-    boost::multi_array<double, 2> A(boost::extents[n][n]);
+    MLDB::MatrixRef<double, 2> A(MLDB::extents[n][n]);
     std::copy(A_.begin(), A_.end(), A.begin());
     
     int res = LAPack::potrf('U', n, A.data(), n);
@@ -388,7 +385,7 @@ cholesky(const boost::multi_array<double, 2> & A_)
 #if 0
     //cerr << "residuals = " << endl << (A * transpose(A)) - A_ << endl;
 
-    boost::multi_array<float, 2> result(boost::extents[n][n]);
+    MLDB::MatrixRef<float, 2> result(MLDB::extents[n][n]);
     std::copy(A.begin(), A.end(), result.begin());
 
     return result;
@@ -396,15 +393,15 @@ cholesky(const boost::multi_array<double, 2> & A_)
 }
 
 template<typename Float>
-boost::multi_array<Float, 2>
-lower_inverse(const boost::multi_array<Float, 2> & A)
+MLDB::Matrix<Float, 2>
+lower_inverse(const MLDB::MatrixRef<Float, 2> & A)
 {
-    if (A.shape()[0] != A.shape()[1])
+    if (A.dim(0) != A.dim(1))
         throw Exception("lower_inverse: matrix isn't square");
     
-    int n = A.shape()[0];
+    int n = A.dim(0);
 
-    boost::multi_array<Float, 2> L = A;
+    MLDB::MatrixRef<Float, 2> L = A;
     
     for (int j = 0;  j < n;  ++j) {
         L[j][j] = 1.0 / L[j][j];
@@ -425,7 +422,7 @@ lower_inverse(const boost::multi_array<Float, 2> & A)
 } // file scope
 
 /** Decorrelates the training data, returning a dense decorrelated dataset. */
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 Perceptron_Generator::
 decorrelate(const Training_Data & data,
             const std::vector<Feature> & possible_features,
@@ -489,24 +486,24 @@ decorrelate(const Training_Data & data,
     size_t nf = features.size();
 
     /* Get a dense matrix of the features. */
-    boost::multi_array<double, 2> input(boost::extents[nx][nf + 1]);
+    MLDB::MatrixRef<double, 2> input(MLDB::extents[nx][nf + 1]);
     
     for (unsigned x = 0;  x < nx;  ++x) {
         result.extract_features(data[x], &input[x][0]);
         input[x][nf] = 1.0;  // bias term
     }
 
-    //cerr << "input.shape()[0] = " << input.shape()[0] << endl;
-    //cerr << "input.shape()[1] = " << input.shape()[1] << endl;
-    boost::multi_array<double, 2> inputt = transpose(input);
+    //cerr << "input.dim(0) = " << input.dim(0) << endl;
+    //cerr << "input.dim(1) = " << input.dim(1) << endl;
+    MLDB::MatrixRef<double, 2> inputt = transpose(input);
 
-    //cerr << "inputt.shape()[0] = " << inputt.shape()[0] << endl;
-    //cerr << "inputt.shape()[1] = " << inputt.shape()[1] << endl;
+    //cerr << "inputt.dim(0) = " << inputt.dim(0) << endl;
+    //cerr << "inputt.dim(1) = " << inputt.dim(1) << endl;
     vector<distribution<double> > dependent;
     vector<int> permutations(nf + 1, 0);
     
 #if 0
-    boost::multi_array<float, 2> input2 = inputt;
+    MLDB::MatrixRef<float, 2> input2 = inputt;
 
     /* Factorize the matrix with partial pivoting.  This allows us to find the
        largest number of linearly independent columns possible. */
@@ -517,7 +514,7 @@ decorrelate(const Training_Data & data,
 
     {
         PROFILE_FUNCTION(t_qr);
-        int res = LAPack::geqp3(nx, nf + 1, inputt.data_begin(), inputt.shape()[1],
+        int res = LAPack::geqp3(nx, nf + 1, inputt.data_begin(), inputt.dim(1),
                                 &permutations[0],
                                 tau);
         
@@ -593,7 +590,7 @@ decorrelate(const Training_Data & data,
 
     distribution<double> mean(nf, 0.0);
     distribution<double> stdev(nf, 0.0);
-    boost::multi_array<double, 2> covar(boost::extents[nf][nf]);
+    MLDB::MatrixRef<double, 2> covar(MLDB::extents[nf][nf]);
 
     if (do_decorrelate && !do_normalize)
         throw Exception("normalization required if decorrelation is done");
@@ -625,7 +622,7 @@ decorrelate(const Training_Data & data,
         }
     }
     
-    boost::multi_array<double, 2> transform(boost::extents[nf][nf]);
+    MLDB::MatrixRef<double, 2> transform(MLDB::extents[nf][nf]);
 
     if (do_decorrelate) {
         /* Do the cholevsky stuff */
@@ -662,13 +659,13 @@ decorrelate(const Training_Data & data,
     std::shared_ptr<Dense_Layer<float> > layer
         (new Dense_Layer<float>("decorrelation", nf, nf, TF_IDENTITY,
                                 MV_NONE));
-    layer->weights.resize(boost::extents[transform.shape()[0]][transform.shape()[1]]);
+    layer->weights.resize(MLDB::extents[transform.dim(0)][transform.dim(1)]);
     layer->weights = transform;
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
     
     //cerr << "transform = " << transform << endl;
 
-    boost::multi_array<float, 2> decorrelated(boost::extents[nx][nf]);
+    MLDB::MatrixRef<float, 2> decorrelated(MLDB::extents[nx][nf]);
     float fv_in[nf];
 
     for (unsigned x = 0;  x < nx;  ++x) {
@@ -695,7 +692,7 @@ decorrelate(const Training_Data & data,
     return decorrelated;
 }
 
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 Perceptron_Generator::
 init(const Training_Data & data,
      const std::vector<Feature> & possible_features,
@@ -707,7 +704,7 @@ init(const Training_Data & data,
 
     /* Find out about the output that we need (in particular, how many
        values it can have). */
-    boost::multi_array<float, 2> decorrelated
+    MLDB::MatrixRef<float, 2> decorrelated
         = decorrelate(data, possible_features, result);
 
     Feature_Info pred_info = model.feature_space()->info(model.predicted());
@@ -761,4 +758,4 @@ Register_Factory<Classifier_Generator, Perceptron_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

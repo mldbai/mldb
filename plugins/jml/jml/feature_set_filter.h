@@ -13,7 +13,7 @@
 #include "feature_set.h"
 #include "mldb/base/parse_context.h"
 
-namespace ML {
+namespace MLDB {
 
 struct Feature_Set_Filter {
 
@@ -97,4 +97,4 @@ struct Feature_Set_Filter {
     float val;
 };
 
-} // namespace ML
+} // namespace MLDB

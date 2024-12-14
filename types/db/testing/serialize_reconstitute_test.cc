@@ -14,10 +14,11 @@
 #include "mldb/base/scope.h"
 #include "mldb/types/db/persistent.h"
 #include "mldb/types/db/compact_size_types.h"
+#include "mldb/plugins/jml/algebra/matrix.h"
+#include "mldb/plugins/jml/algebra/matrix_ops.h"
 #include <boost/test/unit_test.hpp>
 
 #include <sstream>
-#include <boost/multi_array.hpp>
 #include "mldb/utils/distribution.h"
 
 
@@ -50,11 +51,11 @@ namespace boost {
 
 template<class Float>
 std::ostream &
-operator << (std::ostream & stream, const boost::multi_array<Float, 2> & m)
+operator << (std::ostream & stream, const MLDB::MatrixRef<Float, 2> & m)
 {
-    for (unsigned i = 0;  i < m.shape()[0];  ++i) {
+    for (unsigned i = 0;  i < m.dim(0);  ++i) {
         stream << "    [";
-        for (unsigned j = 0;  j < m.shape()[1];  ++j)
+        for (unsigned j = 0;  j < m.dim(1);  ++j)
             stream << MLDB::format(" %8.3g", m[i][j]);
         stream << " ]" << std::endl;
     }
@@ -123,7 +124,7 @@ BOOST_AUTO_TEST_CASE( test_char )
 
 BOOST_AUTO_TEST_CASE( test_multi_array )
 {
-    boost::multi_array<float, 2> A(boost::extents[3][3]);
+    MLDB::Matrix<float, 2> A(MLDB::extents[3][3]);
     for (unsigned i = 0;  i < 3;  ++i)
         for (unsigned j = 0;  j < 3;  ++j)
             A[i][j] = j * j - i;

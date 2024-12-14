@@ -12,14 +12,14 @@
 
 #include <vector>
 #include <unordered_map>
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <boost/ptr_container/ptr_vector.hpp>
 #include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/types/db/persistent_fwd.h"
 #include "mldb/utils/distribution.h"
 #include "mldb/arch/simd_vector.h"
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -218,16 +218,16 @@ struct Parameters : public Parameter_Value {
     Parameters &
     add(int index,
         const std::string & name,
-        boost::multi_array<Float, 2> & values);
+        MLDB::MatrixRef<Float, 2> & values);
 
     Parameters &
     add(int index,
         const std::string & name,
-        boost::multi_array<float, 2> & values);
+        MLDB::MatrixRef<float, 2> & values);
     Parameters &
     add(int index,
         const std::string & name,
-        boost::multi_array<double, 2> & values);
+        MLDB::MatrixRef<double, 2> & values);
 
     size_t parameter_count() const;
 
@@ -399,4 +399,4 @@ extern template class Parameters_Copy<float>;
 extern template class Parameters_Copy<double>;
 
 
-} // namespace ML
+} // namespace MLDB

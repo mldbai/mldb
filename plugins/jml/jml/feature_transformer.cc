@@ -15,10 +15,10 @@
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -120,4 +120,4 @@ operator >> (DB::Store_Reader & store, Feature_Transformer & tr)
     return store;
 }
 
-} // namespace ML
+} // namespace MLDB

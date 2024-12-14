@@ -18,7 +18,7 @@
 #define NO_SMART_PTRS 0
 #undef VERSION
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -238,5 +238,5 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 

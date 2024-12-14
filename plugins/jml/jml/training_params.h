@@ -18,7 +18,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -104,7 +104,7 @@ struct Training_Params : public std::map<std::string, std::any> {
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 

@@ -13,7 +13,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/utils/noncopyable.h"
 
-namespace ML {
+namespace MLDB {
 
 using std::cerr;
 using std::endl;
@@ -155,4 +155,4 @@ struct Stump_Trainer_Parallel
 };
 
 
-} // namespace ML
+} // namespace MLDB

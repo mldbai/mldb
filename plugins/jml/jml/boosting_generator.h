@@ -8,15 +8,14 @@
    Generic boosting training on top of an arbitrary weak learner.
 */
 
-#ifndef __boosting__boosting_generator_h__
-#define __boosting__boosting_generator_h__
+#pragma once
 
 
 #include "weight_updating_generator.h"
 #include "boosting_training.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -64,7 +63,7 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
-                        boost::multi_array<float, 2> & weights,
+                        MLDB::Matrix<float, 2> & weights,
                         const std::vector<Feature> & features) const override;
 
     std::shared_ptr<Classifier_Generator> weak_learner;
@@ -80,7 +79,7 @@ public:
     std::shared_ptr<Classifier_Impl>
     train_iteration(Thread_Context & context,
                     const Training_Data & data,
-                    boost::multi_array<float, 2> & weights,
+                    MLDB::Matrix<float, 2> & weights,
                     std::vector<Feature> & features,
                     float & Z,
                     Optimization_Info & opt_info) const;
@@ -88,9 +87,9 @@ public:
     std::shared_ptr<Classifier_Impl>
     train_iteration(Thread_Context & context,
                     const Training_Data & data,
-                    boost::multi_array<float, 2> & weights,
+                    MLDB::Matrix<float, 2> & weights,
                     std::vector<Feature> & features,
-                    boost::multi_array<float, 2> & output,
+                    MLDB::Matrix<float, 2> & output,
                     const distribution<float> & ex_weights,
                     double & training_accuracy, float & Z,
                     Optimization_Info & opt_info) const;
@@ -101,12 +100,9 @@ public:
                     const Optimization_Info & opt_info,
                     const Training_Data & data,
                     const std::vector<Feature> & features,
-                    boost::multi_array<float, 2> & output,
+                    MLDB::Matrix<float, 2> & output,
                     const distribution<float> & ex_weights) const;
 };
 
 
-} // namespace ML
-
-
-#endif /* __boosting__boosting_generator_h__ */
+} // namespace MLDB

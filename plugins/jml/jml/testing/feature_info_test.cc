@@ -23,7 +23,7 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;

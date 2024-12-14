@@ -12,21 +12,21 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/plugins/jml/algebra/irls.h"
 
-namespace ML {
+namespace MLDB {
 
 struct Classifier_Impl;
 struct Feature_Space;
 
-} // namespace ML
+} // namespace MLDB
 
-namespace ML {
+namespace MLDB {
 
 /** Scope object allowing a feature space to be entered so that functions that
     print or parse features can use the feature space.  This pushes the given
     context onto a thread specific stack.
 */
 struct FeatureSpaceContext {
-    FeatureSpaceContext(const ML::Feature_Space * fs)
+    FeatureSpaceContext(const MLDB::Feature_Space * fs)
         : entered(fs)
     {
         push(fs);
@@ -37,25 +37,25 @@ struct FeatureSpaceContext {
         pop(entered);
     }
     
-    const ML::Feature_Space * entered;
+    const MLDB::Feature_Space * entered;
 
-    static void push(const ML::Feature_Space * fs);
-    static void pop(const ML::Feature_Space * fs);
-    static const ML::Feature_Space * current();
+    static void push(const MLDB::Feature_Space * fs);
+    static void pop(const MLDB::Feature_Space * fs);
+    static const MLDB::Feature_Space * current();
 };
 
 struct Dense_Feature_Space;
 struct Feature_Info;
 struct Configuration;
 
-PREDECLARE_VALUE_DESCRIPTION(ML::Dense_Feature_Space);
+PREDECLARE_VALUE_DESCRIPTION(MLDB::Dense_Feature_Space);
 
-PREDECLARE_VALUE_DESCRIPTION(ML::Feature_Info);
+PREDECLARE_VALUE_DESCRIPTION(MLDB::Feature_Info);
 
-DECLARE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, ML::Feature_Type);
-DECLARE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, ML::Regularization);
+DECLARE_ENUM_DESCRIPTION_NAMED(FeatureTypeDescription, MLDB::Feature_Type);
+DECLARE_ENUM_DESCRIPTION_NAMED(RegularizationDescription, MLDB::Regularization);
 
-PREDECLARE_VALUE_DESCRIPTION(ML::Configuration);
-PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<ML::Classifier_Impl>);
+PREDECLARE_VALUE_DESCRIPTION(MLDB::Configuration);
+PREDECLARE_VALUE_DESCRIPTION(std::shared_ptr<MLDB::Classifier_Impl>);
 
-} // namespace ML
+} // namespace MLDB

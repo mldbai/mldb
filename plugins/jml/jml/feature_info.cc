@@ -19,7 +19,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB::DB;
 
@@ -51,7 +51,7 @@ std::string print(Feature_Type type)
 std::ostream &
 operator << (std::ostream & stream, Feature_Type type)
 {
-    return stream << ML::print(type);
+    return stream << MLDB::print(type);
 }
 
 
@@ -239,7 +239,7 @@ bool Feature_Info::operator != (const Feature_Info & other) const
 
 std::string Feature_Info::print() const
 {
-    string result = "k=" + ML::print(type());
+    string result = "k=" + MLDB::print(type());
     if (type() == CATEGORICAL)
         result += "/c=" + categorical()->print();
     if (optional()) result += "/o=OPTIONAL";
@@ -956,6 +956,6 @@ map(int value,
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB
 
 

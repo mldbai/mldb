@@ -12,12 +12,12 @@
 #include "mldb/utils/string_functions.h"
 #include "mldb/utils/pair_utils.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/base/fast_float_parsing.h"
 #include "mldb/arch/file_functions.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/arch/timers.h"
 
 #include "stdint.h"
 
@@ -26,7 +26,7 @@ using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DENSE_FEATURE_MAPPING                                                     */
@@ -342,7 +342,7 @@ decode(const Feature_Set & feature_set) const
 }
 
 Feature_Info
-Dense_Feature_Space::info(const ML::Feature & feature) const
+Dense_Feature_Space::info(const MLDB::Feature & feature) const
 {
     if (feature == MISSING_FEATURE) return MISSING_FEATURE_INFO;
     
@@ -378,7 +378,7 @@ set_info(const Feature & feature, const Feature_Info & info)
 }
 
 std::string
-Dense_Feature_Space::print(const ML::Feature & feature) const
+Dense_Feature_Space::print(const MLDB::Feature & feature) const
 {
     if (feature == MISSING_FEATURE) return "MISSING";
     if (feature.type() < 0 || feature.type() >= variable_count())
@@ -418,7 +418,7 @@ parse(const std::string & name, Feature & feature) const
 
 bool
 Dense_Feature_Space::
-parse(ParseContext & context, ML::Feature & feature) const
+parse(ParseContext & context, MLDB::Feature & feature) const
 {
     /* Todo: quoting, etc. */
     vector<pair<string, size_t> > names_and_lengths;
@@ -442,7 +442,7 @@ parse(ParseContext & context, ML::Feature & feature) const
 
 void
 Dense_Feature_Space::
-expect(ParseContext & context, ML::Feature & feature) const
+expect(ParseContext & context, MLDB::Feature & feature) const
 {
     if (!parse(context, feature))
         throw Exception("Expected name of feature");
@@ -450,14 +450,14 @@ expect(ParseContext & context, ML::Feature & feature) const
 
 void
 Dense_Feature_Space::
-serialize(DB::Store_Writer & store, const ML::Feature & feature) const
+serialize(DB::Store_Writer & store, const MLDB::Feature & feature) const
 {
     store << compact_size_t(feature.type());
 }
 
 void
 Dense_Feature_Space::
-reconstitute(DB::Store_Reader & store, ML::Feature & feature) const
+reconstitute(DB::Store_Reader & store, MLDB::Feature & feature) const
 {
     compact_size_t new_feature(store);
     feature = Feature(new_feature);
@@ -829,8 +829,8 @@ add_data()
     Training_Data::clear();
     Training_Data::init(feature_space());
     
-    int nv = dataset.shape()[1];
-    int nx = dataset.shape()[0];
+    int nv = dataset.dim(1);
+    int nx = dataset.dim(0);
 
     /* Feature vector */
     std::shared_ptr<vector<Feature> >
@@ -949,7 +949,7 @@ init(const std::vector<Data_Source> & data_sources,
              << " rows: " << my_row_count
              << " vars: " << my_var_count << endl;
 
-        //cerr << "count vars: " << timer.elapsed().wall << "s" << endl;
+        //cerr << "count vars: " << timer.elapsed_wall() << "s" << endl;
 
         if (first_nonempty == -1 && my_row_count != 0)
             first_nonempty = i;
@@ -1032,12 +1032,12 @@ init(const std::vector<Data_Source> & data_sources,
     //cerr << "feature space is " << feature_space->print() << endl;
     
     /* Allocate our array. */
-    dataset.resize(boost::extents[row_count][var_count]);
+    dataset.resize(MLDB::extents[row_count][var_count]);
     row_comments.resize(row_count);
     row_offsets.resize(row_count);
 
-    //cerr << "dataset.shape()[0] = " << dataset.shape()[0] << endl;
-    //cerr << "dataset.shape()[1] = " << dataset.shape()[1] << endl;
+    //cerr << "dataset.dim(0) = " << dataset.dim(0) << endl;
+    //cerr << "dataset.dim(1) = " << dataset.dim(1) << endl;
 
     //cerr << "row_count = " << row_count << " var_count = "
     //     << var_count << endl;
@@ -1059,7 +1059,7 @@ init(const std::vector<Data_Source> & data_sources,
        are categorical. */
     bool guessed_wrong = false;
 
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
     
     /* Keep on going until we get all the categorical values correct. */
     do {
@@ -1167,11 +1167,11 @@ init(const std::vector<Data_Source> & data_sources,
 
     } while (guessed_wrong);
 
-    //cerr << "read files: " << timer.elapsed().wall << "s" << endl;
+    //cerr << "read files: " << timer.elapsed_wall() << "s" << endl;
 
     //timer.restart();
     add_data();
-    //cerr << "add_data: " << timer.elapsed().wall << "s" << endl;
+    //cerr << "add_data: " << timer.elapsed_wall() << "s" << endl;
 
     //if (example_count()) {
     //    cerr << "got dataset" << endl;
@@ -1245,5 +1245,5 @@ Register_Factory<Feature_Space, Dense_Feature_Space>
 DFS_REG("DENSE_FEATURE_SPACE");
 
 
-} // namespace ML
+} // namespace MLDB
 

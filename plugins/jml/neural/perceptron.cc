@@ -29,10 +29,10 @@
 #include "dense_layer.h"
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -147,7 +147,7 @@ print() const
     return result;
 }
 
-std::vector<ML::Feature>
+std::vector<MLDB::Feature>
 Perceptron::
 all_features() const
 {
@@ -274,7 +274,7 @@ Perceptron * Perceptron::make_copy() const
     return new Perceptron(*this);
 }
 
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 Perceptron::
 decorrelate(const Training_Data & data) const
 {
@@ -287,7 +287,7 @@ decorrelate(const Training_Data & data) const
     size_t nx = data.example_count();
     size_t nf = features.size();
 
-    boost::multi_array<float, 2> result(boost::extents[nx][nf]);
+    MLDB::MatrixRef<float, 2> result(MLDB::extents[nx][nf]);
     
     float input[nf];
 
@@ -311,4 +311,4 @@ Register_Factory<Classifier_Impl, Perceptron>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

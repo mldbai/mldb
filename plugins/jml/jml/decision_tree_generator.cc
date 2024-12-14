@@ -19,8 +19,8 @@
 #include "binary_symmetric.h"
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/base/thread_pool.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/arch/timers.h"
 
 
 #include <random>
@@ -30,7 +30,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 // Tuning parameters for the compacting code.  This controls how frequently
 // we compact.  Compacting makes operations faster, but takes time and
@@ -179,11 +179,11 @@ generate(Thread_Context & context,
          const distribution<float> & validate_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
-    boost::multi_array<float, 2> weights
+    MLDB::Matrix<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
 
     Decision_Tree current
@@ -199,12 +199,12 @@ std::shared_ptr<Classifier_Impl>
 Decision_Tree_Generator::
 generate(Thread_Context & context,
          const Training_Data & training_set,
-         const boost::multi_array<float, 2> & weights,
+         const MLDB::MatrixRef<float, 2> & weights,
          const std::vector<Feature> & features,
          float & Z,
          int recursion) const
 {
-    //boost::timer::cpu_timer timer;
+    //MLDB::Timer timer;
 
     //Feature predicted = model.predicted();
 
@@ -220,7 +220,7 @@ Decision_Tree
 Decision_Tree_Generator::
 train_weighted(Thread_Context & context,
                const Training_Data & data,
-               const boost::multi_array<float, 2> & weights,
+               const MLDB::MatrixRef<float, 2> & weights,
                const std::vector<Feature> & features,
                int max_depth) const
 {
@@ -232,7 +232,7 @@ train_weighted(Thread_Context & context,
        are there. */
     distribution<float> in_class(data.example_count(), 1.0);
 
-    int nlw = weights.shape()[1];
+    int nlw = weights.dim(1);
 
     for (unsigned i = 0;  i < data.example_count();  ++i) {
         bool nonZero = false;
@@ -285,14 +285,14 @@ train_weighted(Thread_Context & context,
     }
     else {
 
-        convert_bin_sym(const_cast<boost::multi_array<float, 2> &>(weights),
-                        data, predicted, features);
+        MLDB::Matrix<float, 2> weights_bin_sym = weights;
+        convert_bin_sym(weights_bin_sym, data, predicted, features);
 
-        int advance = get_advance(weights);
+        int advance = get_advance(weights_bin_sym);
         vector<const float *> weights_vec(data.example_count());
 
         for (unsigned x = 0;  x < weights_vec.size();  ++x)
-            weights_vec[x] = &weights[x][0];
+            weights_vec[x] = weights_bin_sym[x].data();
 
         int numNonZero = 0;
 
@@ -1034,7 +1034,7 @@ struct TreeTrainer {
         double total_false;
         double total_missing;
 
-        //boost::timer::cpu_timer timer;
+        //MLDB::Timer timer;
         split_dataset(data, split, in_class,
                       class_true, class_false, class_missing,
                       total_true, total_false, total_missing,
@@ -1051,7 +1051,7 @@ struct TreeTrainer {
         }
 
         if (debug) {
-            //cerr << timer.elapsed().wall << "s split" << endl;
+            //cerr << timer.elapsed_wall() << "s split" << endl;
         
             cerr << " totals: true " << total_true << " false " << total_false
                  << " missing " << total_missing << endl;
@@ -1257,7 +1257,7 @@ train_recursive_regression(Thread_Context & context,
     vector<Feature> features = features_;
     
     /* We need it in a fixed array like this. */
-    boost::multi_array<float, 2> weights2(boost::extents[weights.size()][1]);
+    MLDB::Matrix<float, 2> weights2(MLDB::extents[weights.size()][1]);
     std::copy(weights.begin(), weights.end(), weights2.data());
     trainer.test_all_and_sort(features, data, model.predicted(), weights2,
                               in_class, accum);
@@ -1279,13 +1279,13 @@ train_recursive_regression(Thread_Context & context,
     double total_false;
     double total_missing;
 
-    //boost::timer::cpu_timer timer;
+    //MLDB::Timer timer;
     split_dataset(data, accum.split(), in_class,
                   class_true, class_false, class_missing,
                   total_true, total_false, total_missing,
                   validate);
 
-    //cerr << timer.elapsed().wall << "s split" << endl;
+    //cerr << timer.elapsed_wall() << "s split" << endl;
 
     //cerr << " totals: true " << total_true << " false " << total_false
     //     << " missing " << total_missing << endl;
@@ -1324,4 +1324,4 @@ Register_Factory<Classifier_Generator, Decision_Tree_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

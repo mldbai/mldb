@@ -16,13 +16,13 @@
 #include <utility>
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/distribution_ops.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "irls.h"
 #include "least_squares.h"
 #include "matrix_ops.h"
 #include <iomanip>
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* LINK FUNCTIONS                                                            */
@@ -542,20 +542,20 @@ public:
         responses y.
     */
     void train(const distribution<Float> & y,
-               const boost::multi_array<Float, 2> & x,
+               const MLDB::MatrixRef<Float, 2> & x,
                const distribution<Float> & w)
     {
-        b = ML::irls(y, x, w, link, dist);
+        b = MLDB::irls(y, x, w, link, dist);
     }
 
     /** Train (unweighted) the GLZ from a parameter matrix x and a set of
         responses y.
     */
     void train(const distribution<Float> & y,
-               const boost::multi_array<Float, 2> & x)
+               const MLDB::MatrixRef<Float, 2> & x)
     {
         distribution<Float> w(y.size(), 1.0);
-        b = ML::irls(y, x, w, link, dist);
+        b = MLDB::irls(y, x, w, link, dist);
     }
     
     distribution<Float> b;  ///< fit parameters
@@ -564,5 +564,5 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 

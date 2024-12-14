@@ -16,7 +16,7 @@
 #include "decoder.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -86,7 +86,7 @@ public:
 
 
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
@@ -138,7 +138,7 @@ private:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 

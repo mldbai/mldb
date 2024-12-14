@@ -10,7 +10,6 @@
 
 #include "bagging_generator.h"
 #include "mldb/plugins/jml/jml/registry.h"
-#include <boost/timer/timer.hpp>
 #include "training_index.h"
 #include "weighted_training.h"
 #include "mldb/plugins/jml/jml/committee.h"
@@ -18,12 +17,13 @@
 #include "mldb/base/parallel.h"
 #include "mldb/base/scope.h"
 #include "mldb/utils/smart_ptr_utils.h"
+#include "mldb/arch/timers.h"
 
 
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* BAGGING_GENERATOR                                                         */
@@ -214,7 +214,7 @@ generate(Thread_Context & context,
          const std::vector<Feature> & features,
          int recursion) const
 {
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     cerr << "(ex_weights != 0).count() = "
          << (ex_weights != 0).count()
@@ -252,7 +252,7 @@ generate(Thread_Context & context,
         result.add(results[i], 1.0 / num_bags);
     
     if (profile)
-        cerr << "training time: " << timer.elapsed().wall << "s" << endl;
+        cerr << "training time: " << timer.elapsed_wall() << "s" << endl;
     
     return make_sp(result.make_copy());
 }
@@ -269,4 +269,4 @@ Register_Factory<Classifier_Generator, Bagging_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

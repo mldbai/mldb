@@ -20,7 +20,7 @@ namespace MLDB {
 
 /** Context in which a pipeline executes. */
 
-struct PipelineExecutionContext: public ML::PredictionContext {
+struct PipelineExecutionContext: public MLDB::PredictionContext {
 
     template<typename T>
     void set(const std::string & name, T value)

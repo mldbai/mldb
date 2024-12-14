@@ -19,7 +19,7 @@ namespace MLDB {
 struct ParseContext;
 } // namespace MLDB
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -422,4 +422,4 @@ public:
                     const Categorical_Info & info2) const;
 };
 
-} // namespace ML
+} // namespace MLDB

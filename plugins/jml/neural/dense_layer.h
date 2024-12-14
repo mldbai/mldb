@@ -13,7 +13,7 @@
 #include "layer_stack.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -74,7 +74,7 @@ struct Dense_Layer : public Layer {
     Missing_Values missing_values;
         
     /// Network parameters: activation weights
-    boost::multi_array<Float, 2> weights;
+    MLDB::MatrixRef<Float, 2> weights;
 
     /// Network parameters: bias
     distribution<Float> bias;
@@ -83,7 +83,7 @@ struct Dense_Layer : public Layer {
     distribution<Float> missing_replacements;
 
     /// missing_values == MV_DENSE: Activation matrix to use when missing
-    boost::multi_array<Float, 2> missing_activations;
+    MLDB::MatrixRef<Float, 2> missing_activations;
 
 
     /*************************************************************************/
@@ -258,6 +258,6 @@ extern template class Dense_Layer<double>;
 extern template class Layer_Stack<Dense_Layer<float> >;
 extern template class Layer_Stack<Dense_Layer<double> >;
 
-} // namespace ML
+} // namespace MLDB
 
 DECLARE_ENUM_INFO(MLDB::Missing_Values, 4);

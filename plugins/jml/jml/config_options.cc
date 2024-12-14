@@ -13,7 +13,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 std::string Config_Option::print() const
 {
@@ -45,4 +45,4 @@ dump(std::ostream & stream, int indent, int cols) const
         stream << ind << at(i).print() << endl;
 }
 
-} // namespace ML
+} // namespace MLDB

@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/arch/exception.h"
 #include "mldb/utils/distribution_simd.h"
 #include "mldb/arch/timers.h"
@@ -19,7 +19,7 @@
 #include "plugins/jml/enum_info.h"
 #include "matrix_ops.h"
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* LEAST_SQUARES                                                             */
@@ -38,15 +38,15 @@ namespace ML {
     It uses the LAPACK routine xGGLSE to perform the dirty work.
 */
 distribution<float>
-least_squares(const boost::multi_array<float, 2> & A,
+least_squares(const MLDB::MatrixRef<float, 2> & A,
               const distribution<float> & c,
-              const boost::multi_array<float, 2> & B,
+              const MLDB::MatrixRef<float, 2> & B,
               const distribution<float> & d);
 
 distribution<double>
-least_squares(const boost::multi_array<double, 2> & A,
+least_squares(const MLDB::MatrixRef<double, 2> & A,
               const distribution<double> & c,
-              const boost::multi_array<double, 2> & B,
+              const MLDB::MatrixRef<double, 2> & B,
               const distribution<double> & d);
 
 //extern __thread std::ostream * debug_irls;
@@ -63,7 +63,7 @@ least_squares(const boost::multi_array<double, 2> & A,
     \param    b the required output vector
     \returns  x
 
-    \pre      A.shape()[0] == b.size()
+    \pre      A.dim(0) == b.size()
 
     This <em>should</em> work for any shape of A, but has only been verified
     for A square.  It uses a SVD internally to do its work; this is not the
@@ -71,25 +71,25 @@ least_squares(const boost::multi_array<double, 2> & A,
     cases.
  */
 distribution<float>
-least_squares(const boost::multi_array<float, 2> & A,
+least_squares(const MLDB::MatrixRef<float, 2> & A,
               const distribution<float> & b);
 
 distribution<double>
-least_squares(const boost::multi_array<double, 2> & A,
+least_squares(const MLDB::MatrixRef<double, 2> & A,
               const distribution<double> & b);
 
 
 /* Returns U * diag(d) * V */
-boost::multi_array<float, 2>
-diag_mult(const boost::multi_array<float, 2> & U,
+MLDB::Matrix<float, 2>
+diag_mult(const MLDB::MatrixRef<float, 2> & U,
           const distribution<float> & d,
-          const boost::multi_array<float, 2> & V,
+          const MLDB::MatrixRef<float, 2> & V,
           bool parallel);
 
-boost::multi_array<double, 2>
-diag_mult(const boost::multi_array<double, 2> & U,
+MLDB::Matrix<double, 2>
+diag_mult(const MLDB::MatrixRef<double, 2> & U,
           const distribution<double> & d,
-          const boost::multi_array<double, 2> & V,
+          const MLDB::MatrixRef<double, 2> & V,
           bool parallel);
 
 /** Solve a singular value decomposition problem over a symmetric
@@ -98,14 +98,14 @@ diag_mult(const boost::multi_array<double, 2> & U,
     NOTE: the X array will be *overwritten* by this call.
 */
 
-void svd_square(boost::multi_array<float, 2> & X,
-                boost::multi_array<float, 2> & VT,
-                boost::multi_array<float, 2> & U,
+void svd_square(MLDB::MatrixRef<float, 2> & X,
+                MLDB::MatrixRef<float, 2> & VT,
+                MLDB::MatrixRef<float, 2> & U,
                 distribution<float> & svalues);
 
-void svd_square(boost::multi_array<double, 2> & X,
-                boost::multi_array<double, 2> & VT,
-                boost::multi_array<double, 2> & U,
+void svd_square(MLDB::MatrixRef<double, 2> & X,
+                MLDB::MatrixRef<double, 2> & VT,
+                MLDB::MatrixRef<double, 2> & U,
                 distribution<double> & svalues);
 
 
@@ -124,15 +124,15 @@ void svd_square(boost::multi_array<double, 2> & X,
     \param    lambda regularization parameter
     \returns  x
 
-    \pre      A.shape()[0] == b.size()
+    \pre      A.dim(0) == b.size()
  */
 distribution<float>
-ridge_regression(const boost::multi_array<float, 2> & A,
+ridge_regression(const MLDB::MatrixRef<float, 2> & A,
                  const distribution<float> & b,
                  float lambda);
 
 distribution<double>
-ridge_regression(const boost::multi_array<double, 2> & A,
+ridge_regression(const MLDB::MatrixRef<double, 2> & A,
                  const distribution<double> & b,
                  float lambda);
 
@@ -144,17 +144,17 @@ ridge_regression(const boost::multi_array<double, 2> & A,
     \param    lambda regularization parameter
     \returns  x
 
-    \pre      A.shape()[0] == b.size()
+    \pre      A.dim(0) == b.size()
  */
 distribution<float>
-lasso_regression(const boost::multi_array<float, 2> & A,
+lasso_regression(const MLDB::MatrixRef<float, 2> & A,
                  const distribution<float> & b,
                  float lambda,
                  int maxIter = 1000,
                  float epsilon = 1e-4);
 
 distribution<double>
-lasso_regression(const boost::multi_array<double, 2> & A,
+lasso_regression(const MLDB::MatrixRef<double, 2> & A,
                  const distribution<double> & b,
                  float lambda,
                  int maxIter = 1000,
@@ -182,27 +182,27 @@ lasso_regression(const boost::multi_array<double, 2> & A,
     \f]
  */
 
-boost::multi_array<float, 2>
-weighted_square(const boost::multi_array<float, 2> & XT,
+MLDB::Matrix<float, 2>
+weighted_square(const MLDB::MatrixRef<float, 2> & XT,
                 const distribution<float> & d);
 
-boost::multi_array<double, 2>
-weighted_square(const boost::multi_array<double, 2> & XT,
+MLDB::Matrix<double, 2>
+weighted_square(const MLDB::MatrixRef<double, 2> & XT,
                 const distribution<double> & d);
 
 
 template<class Float>
-boost::multi_array<Float, 2>
-diag_mult2(const boost::multi_array<Float, 2> & X,
+MLDB::Matrix<Float, 2>
+diag_mult2(const MLDB::MatrixRef<Float, 2> & X,
            const distribution<Float> & d)
 {
-    if (X.shape()[1] != d.size())
+    if (X.dim(1) != d.size())
         throw Exception("Incompatible matrix sizes");
 
-    size_t nx = X.shape()[1];
-    size_t nv = X.shape()[0];
+    size_t nx = X.dim(1);
+    size_t nv = X.dim(0);
 
-    boost::multi_array<Float, 2> Y(boost::extents[nv][nx]);
+    MLDB::MatrixRef<Float, 2> Y(MLDB::extents[nv][nx]);
 
     for (unsigned i = 0;  i < nv;  ++i) {
         for (unsigned j = 0;  j < nx;  ++j) {
@@ -233,14 +233,14 @@ diag_mult2(const boost::multi_array<Float, 2> & X,
 */
 template<class Float>
 distribution<Float>
-diag_mult(const boost::multi_array<Float, 2> & X,
+diag_mult(const MLDB::MatrixRef<Float, 2> & X,
           const distribution<Float> & d,
           const distribution<Float> & y)
 {
-    size_t nx = X.shape()[1];
+    size_t nx = X.dim(1);
     if (nx != d.size() || nx != y.size())
         throw Exception("Incompatible matrix sizes");
-    size_t nv = X.shape()[0];
+    size_t nv = X.dim(0);
 
     distribution<Float> result(nv, 0.0);
     for (unsigned v = 0;  v < nv;  ++v)
@@ -271,13 +271,13 @@ diag_mult(const boost::multi_array<Float, 2> & X,
 
     \returns      the fitted parameters \p b, one for each column in x
 
-    \pre          y.size() == w.size() == x.shape()[1]
-    \post         b.size() == x.shape()[0]
+    \pre          y.size() == w.size() == x.dim(1)
+    \post         b.size() == x.dim(0)
 */
 
 template<class Link, class Dist, class Float, class Regressor>
 distribution<Float>
-irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
+irls(const distribution<Float> & y, const MLDB::MatrixRef<Float, 2> & x,
      const distribution<Float> & w, 
      const Link & link, 
      const Dist & dist,
@@ -292,8 +292,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
     static const int max_iter = 20;           // from GLMlab
     static const float tolerence = 5e-5;      // from GLMlab
     
-    size_t nv = x.shape()[0];                     // number of variables
-    size_t nx = x.shape()[1];                     // number of examples
+    size_t nv = x.dim(0);                     // number of variables
+    size_t nx = x.dim(1);                     // number of examples
 
     if (y.size() != nx || w.size() != nx)
         throw Exception("incompatible data sizes");
@@ -392,8 +392,8 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 
         /* Re-estimate eta and mu based on refined estimate. */
         //cerr << "b.size() = " << b.size() << endl;
-        //cerr << "x.shape()[0] = " << x.shape()[0]
-        //     << " x.shape()[1] = " << x.shape()[1]
+        //cerr << "x.dim(0) = " << x.dim(0)
+        //     << " x.dim(1) = " << x.dim(1)
         //     << endl;
 
         eta                = (b * x) + offset;
@@ -439,4 +439,4 @@ irls(const distribution<Float> & y, const boost::multi_array<Float, 2> & x,
 }
 
 
-} // namespace ML
+} // namespace MLDB

@@ -11,7 +11,7 @@
 
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 
 const Feature MISSING_FEATURE (-1, -1, 0);
@@ -26,4 +26,4 @@ std::string Feature::print() const
     return format("(%d %d %d)", type(), arg1(), arg2());
 }
 
-} // namespace ML
+} // namespace MLDB

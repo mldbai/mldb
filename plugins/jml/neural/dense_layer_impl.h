@@ -21,7 +21,7 @@
 #include "mldb/utils/distribution_simd.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -45,7 +45,7 @@ Dense_Layer(const std::string & name,
             Missing_Values missing_values)
     : Layer(name, inputs, units),
       missing_values(missing_values),
-      weights(boost::extents[inputs][units]), bias(units)
+      weights(MLDB::extents[inputs][units]), bias(units)
 {
     switch (missing_values) {
     case MV_NONE:
@@ -55,7 +55,7 @@ Dense_Layer(const std::string & name,
         missing_replacements.resize(inputs);
         break;
     case MV_DENSE:
-        missing_activations.resize(boost::extents[inputs][units]);
+        missing_activations.resize(MLDB::extents[inputs][units]);
         break;
     default:
         throw Exception("Dense_Layer: invalid missing values");
@@ -78,7 +78,7 @@ Dense_Layer(const std::string & name,
             float limit)
     : Layer(name, inputs, units),
       missing_values(missing_values),
-      weights(boost::extents[inputs][units]), bias(units)
+      weights(MLDB::extents[inputs][units]), bias(units)
 {
     switch (missing_values) {
     case MV_NONE:
@@ -88,7 +88,7 @@ Dense_Layer(const std::string & name,
         missing_replacements.resize(inputs);
         break;
     case MV_DENSE:
-        missing_activations.resize(boost::extents[inputs][units]);
+        missing_activations.resize(MLDB::extents[inputs][units]);
         break;
     default:
         throw Exception("Dense_Layer: invalid missing values");
@@ -171,7 +171,7 @@ print() const
     std::string result
         = format("{ layer: %zd inputs, %zd neurons, function %s, missing %s\n",
                  inputs(), outputs(), transfer_function->print().c_str(),
-                 ML::print(missing_values).c_str());
+                 MLDB::print(missing_values).c_str());
 
     result += "  weights: \n";
     for (unsigned i = 0;  i < ni;  ++i) {
@@ -268,9 +268,9 @@ reconstitute(DB::Store_Reader & store)
         if (inputs_read != inputs() || outputs_read != outputs())
             throw Exception("inputs read weren't right");
         
-        if (weights.shape()[0] != inputs_read)
+        if (weights.dim(0) != inputs_read)
             throw Exception("weights has wrong shape");
-        if (weights.shape()[1] != outputs_read)
+        if (weights.dim(1) != outputs_read)
             throw Exception("weights has wrong output shape");
         if (bias.size() != outputs_read) {
             cerr << "bias.size() = " << bias.size() << endl;
@@ -681,7 +681,7 @@ void random_fill_range(std::vector<Float> & vec, float limit,
 }
 
 template<typename Float>
-void random_fill_range(boost::multi_array<Float, 2> & arr, float limit,
+void random_fill_range(MLDB::MatrixRef<Float, 2> & arr, float limit,
                        Thread_Context & context)
 {
     random_fill_range(arr.data(), arr.num_elements(), limit, context);
@@ -755,10 +755,10 @@ validate() const
     if (!transfer_function)
         throw Exception("transfer function not implemented");
     
-    if (weights.shape()[1] != bias.size())
+    if (weights.dim(1) != bias.size())
         throw Exception("perceptron layer has bad shape");
 
-    int ni = weights.shape()[0], no = weights.shape()[1];
+    int ni = weights.dim(0), no = weights.dim(1);
     
     bool has_nonzero = false;
 
@@ -803,12 +803,12 @@ validate() const
     case MV_DENSE:
         if (missing_replacements.size() != 0)
             throw Exception("missing replacements should be empty");
-        if (missing_activations.shape()[0] != ni
-            || missing_activations.shape()[1] != no) {
+        if (missing_activations.dim(0) != ni
+            || missing_activations.dim(1) != no) {
             using namespace std;
-            cerr << "ni = " << ni << " ni2 = " << missing_activations.shape()[0]
+            cerr << "ni = " << ni << " ni2 = " << missing_activations.dim(0)
                  << endl;
-            cerr << "no = " << no << " no2 = " << missing_activations.shape()[1]
+            cerr << "no = " << no << " no2 = " << missing_activations.dim(1)
                  << endl;
             throw Exception("missing activations has wrong size");
         }
@@ -820,7 +820,7 @@ validate() const
                 throw Exception("missing_activations is not finite");
         break;
     default:
-        throw Exception("unknown missing_values " + ML::print(missing_values));
+        throw Exception("unknown missing_values " + MLDB::print(missing_values));
     }
 }
 
@@ -876,9 +876,9 @@ operator == (const Dense_Layer & other) const
         cerr << "inputs" << endl;
     if (outputs() != other.outputs())
         cerr << "outputs" << endl;
-    if (weights.shape()[0] != other.weights.shape()[0])
+    if (weights.dim(0) != other.weights.dim(0))
         cerr << "weights shape 0" << endl;
-    if (weights.shape()[1] != other.weights.shape()[1])
+    if (weights.dim(1) != other.weights.dim(1))
         cerr << "weights shape 1" << endl;
     if (missing_replacements.size() != other.missing_replacements.size())
         cerr << "missing replacements size" << endl;
@@ -901,8 +901,8 @@ operator == (const Dense_Layer & other) const
                  && transfer_function->equal(*other.transfer_function))
                 || (transfer_function == other.transfer_function))
             && missing_values == other.missing_values
-            && weights.shape()[0] == other.weights.shape()[0]
-            && weights.shape()[1] == other.weights.shape()[1]
+            && weights.dim(0) == other.weights.dim(0)
+            && weights.dim(1) == other.weights.dim(1)
             && missing_replacements.size() == other.missing_replacements.size()
             && bias.size() == other.bias.size()
             && weights == other.weights
@@ -924,4 +924,4 @@ template<typename Float>
 typename Dense_Layer<Float>::RegisterMe
 Dense_Layer<Float>::register_me;
 
-} // namespace ML
+} // namespace MLDB

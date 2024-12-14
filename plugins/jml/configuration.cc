@@ -16,7 +16,7 @@
 using namespace std;
 using namespace MLDB;
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* CONFIGURATION::DATA                                                       */
@@ -354,4 +354,4 @@ throwOnUnknwonKeys(
     }
 }
 
-} // namespace ML
+} // namespace MLDB

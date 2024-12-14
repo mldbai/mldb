@@ -12,7 +12,7 @@
 #include "layer_stack_impl.h"
 #include "mldb/plugins/jml/jml/registry.h"
 
-namespace ML {
+namespace MLDB {
 
 template class Layer_Stack<Layer>;
 template class Layer_Stack<Dense_Layer<float> >;
@@ -57,5 +57,5 @@ reconstitute(MLDB::DB::Store_Reader & store)
 
 #endif
 
-} // namespace ML
+} // namespace MLDB
 

@@ -14,11 +14,10 @@
 #include <iostream>
 #include <vector>
 #include <map>
-#include <boost/timer.hpp>
 
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 
@@ -89,7 +88,7 @@ void do_timed_test(Array & array, vector<minivec<long, 3> > & indexes)
 
     double total = 0.0;
 
-    boost::timer::cpu_timert;
+    MLDB::Timert;
     for (unsigned i = 0;  i < NUM;  ++i)
         array[indexes[i]] = i;
     total += t.elapsed();

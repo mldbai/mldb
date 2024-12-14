@@ -11,7 +11,7 @@
 #include "mldb/utils/distribution.h"
 #include "mldb/utils/distribution_ops.h"
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -35,4 +35,4 @@ calc_rmse(const distribution<Float1> & outputs,
 }
 
 
-} // namespace ML
+} // namespace MLDB

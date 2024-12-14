@@ -30,6 +30,7 @@
 #include "mldb/rest/rest_request_router.h"
 #include "mldb/types/hash_wrapper_description.h"
 #include "mldb/rest/cancellation_exception.h"
+#include "mldb/arch/timers.h"
 #include <mutex>
 
 

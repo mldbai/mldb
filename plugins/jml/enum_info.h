@@ -13,7 +13,7 @@
 #include <atomic>
 #include "mldb/arch/exception.h"
 
-namespace ML {
+namespace MLDB {
 
 struct Enum_Tag {};
 struct Not_Enum_Tag {};
@@ -87,13 +87,13 @@ enum_value(const std::string & name)
     typename values_type::const_iterator found = values.load()->find(name);
     if (found == values.load()->end())
         throw MLDB::Exception("couldn't parse '" + name + "' as "
-                        + ML::Enum_Info<Enum>::NAME + " (possibilities are "
-                        + ::ML::enum_values<Enum>());
+                        + MLDB::Enum_Info<Enum>::NAME + " (possibilities are "
+                        + ::MLDB::enum_values<Enum>());
     return found->second;
 }
 
 #define DECLARE_ENUM_INFO(type, num_values) \
-namespace ML { \
+namespace MLDB { \
 template<> \
 struct Enum_Info<type> { \
     enum { NUM = num_values, IS_SPECIALIZED = true }; \
@@ -102,6 +102,6 @@ struct Enum_Info<type> { \
     static const char * NAME; \
 }; \
 \
-} // namespace ML
+} // namespace MLDB
 
-} // namespace ML
+} // namespace MLDB

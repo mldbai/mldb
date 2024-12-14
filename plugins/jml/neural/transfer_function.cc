@@ -19,7 +19,7 @@
 using namespace MLDB::DB;
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* RANGE_TYPE                                                                */
@@ -124,7 +124,7 @@ std::string
 Standard_Transfer_Function::
 print() const
 {
-    return ML::print(transfer_function);
+    return MLDB::print(transfer_function);
 }
 
 Range
@@ -359,7 +359,7 @@ second_derivative(const FloatIn * outputs, FloatIn * deriv, int nvals,
     default:
         throw Exception("Standard_Transfer_Function::transfer(): second derivative not implemented "
                         "for this transfer_function "
-                        + ML::print(transfer_function));
+                        + MLDB::print(transfer_function));
     }
 }
 
@@ -405,4 +405,4 @@ create_transfer_function(const std::string & name)
 }
 
 
-} // namespace ML
+} // namespace MLDB

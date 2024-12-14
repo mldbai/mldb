@@ -12,7 +12,7 @@
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -221,5 +221,5 @@ struct Z_testing {
     Z2 z2;
 };
 
-} // namespace ML
+} // namespace MLDB
 

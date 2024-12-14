@@ -17,7 +17,7 @@
 #include "mldb/plugins/jml/jml/registry.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 class Config_Options;
@@ -145,4 +145,4 @@ public:
     void dump(std::ostream & stream, int indent = 0, int cols = -1) const;
 };
 
-} // namespace ML
+} // namespace MLDB

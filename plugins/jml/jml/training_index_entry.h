@@ -15,7 +15,7 @@
 #include "mldb/utils/xdiv.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -266,4 +266,4 @@ struct Dataset_Index::Index_Entry {
     const Bucket_Info & buckets(size_t num_buckets) const;
 };
 
-} // namespace ML
+} // namespace MLDB

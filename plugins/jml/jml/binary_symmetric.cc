@@ -17,10 +17,10 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 bool
-convert_bin_sym(boost::multi_array<float, 2> & weights, const Training_Data & data,
+convert_bin_sym(MLDB::Matrix<float, 2> & weights, const Training_Data & data,
                 const Feature & predicted, const vector<Feature> & features)
 {
     /* If we have a binary symmetric problem, then we reduce the weights down
@@ -38,12 +38,12 @@ convert_bin_sym(boost::multi_array<float, 2> & weights, const Training_Data & da
 
     bool bin_sym = false;
 
-    int nx = weights.shape()[0];
+    int nx = weights.dim(0);
 
     //cerr << "convert_bin_sym" << endl;
     //cerr << "nl = " << nl << " nx = " << nx << endl;
-    //cerr << "bin_sym: input: weights.shape()[1] = "
-    //     << weights.shape()[1] << endl;
+    //cerr << "bin_sym: input: weights.dim(1) = "
+    //     << weights.dim(1) << endl;
 
     if (nl == 2) {
 
@@ -61,16 +61,16 @@ convert_bin_sym(boost::multi_array<float, 2> & weights, const Training_Data & da
             }
         }
         
-        if (!bin_sym && weights.shape()[1] == 1) {
+        if (!bin_sym && weights.dim(1) == 1) {
             /* Not bin sym for these features... expand them. */
             //cerr << "expanding" << endl;
-            boost::multi_array<float, 2> new_weights(boost::extents[nx][2]);
+            MLDB::Matrix<float, 2> new_weights(MLDB::extents[nx][2]);
             for (unsigned x = 0;  x < nx;  ++x)
                 new_weights[x][0] = new_weights[x][1] = weights[x][0];
-            swap_multi_arrays(weights, new_weights);
+            std::swap(weights, new_weights);
         }
 
-        else if (bin_sym && weights.shape()[1] == 2) {
+        else if (bin_sym && weights.dim(1) == 2) {
             for (unsigned x = 0;  x < nx;  ++x) {
                 bin_sym = true;
                 if (weights[x][0] != weights[x][1]) {
@@ -83,22 +83,22 @@ convert_bin_sym(boost::multi_array<float, 2> & weights, const Training_Data & da
             /* If we are binary symmetric, then we can reduce our weights
                array. */
             if (bin_sym) {
-                boost::multi_array<float, 2> new_weights(boost::extents[nx][1]);
+                MLDB::Matrix<float, 2> new_weights(MLDB::extents[nx][1]);
                 for (unsigned x = 0;  x < nx;  ++x)
                     new_weights[x][0] = weights[x][0];
-                swap_multi_arrays(weights, new_weights);
+                std::swap(weights, new_weights);
             }
         }
     }
     
-    //cerr << "bin_sym: returned " << bin_sym << " weights.shape()[1] = "
-    //     << weights.shape()[1] << endl;
+    //cerr << "bin_sym: returned " << bin_sym << " weights.dim(1) = "
+    //     << weights.dim(1) << endl;
 
     return bin_sym;
 }
 
 bool
-is_bin_sym(const boost::multi_array<float, 2> & weights, const Training_Data & data,
+is_bin_sym(const MLDB::Matrix<float, 2> & weights, const Training_Data & data,
            const Feature & predicted,
            const vector<Feature> & features)
 {
@@ -109,14 +109,14 @@ is_bin_sym(const boost::multi_array<float, 2> & weights, const Training_Data & d
 
     bool bin_sym = false;
     
-    int nx = weights.shape()[0];
+    int nx = weights.dim(0);
 
     //cerr << "is_bin_sym" << endl;
     //cerr << "nl = " << nl << " nx = " << nx << endl;
     
     if (nl == 2) {
         
-        if (weights.shape()[1] == 1) bin_sym = true;
+        if (weights.dim(1) == 1) bin_sym = true;
         
         /* Look at all of these features.  If any don't have exactly_one true,
            then we are not binary symmetric. */
@@ -127,7 +127,7 @@ is_bin_sym(const boost::multi_array<float, 2> & weights, const Training_Data & d
             }
         }
 
-        if (bin_sym && weights.shape()[1] == 2) {
+        if (bin_sym && weights.dim(1) == 2) {
             for (unsigned x = 0;  x < nx;  ++x) {
                 bin_sym = true;
                 if (weights[x][0] != weights[x][1]) {
@@ -143,4 +143,4 @@ is_bin_sym(const boost::multi_array<float, 2> & weights, const Training_Data & d
     return bin_sym;
 }
 
-} // namespace ML
+} // namespace MLDB

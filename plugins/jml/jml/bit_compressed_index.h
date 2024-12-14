@@ -14,7 +14,7 @@
 #include <memory>
 #include <stdint.h>
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* BIT_COMPRESSED_INDEX                                                      */
@@ -45,6 +45,6 @@ struct Bit_Compressed_Index {
     size_t num_words;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__bit_compressed_index_h__ */

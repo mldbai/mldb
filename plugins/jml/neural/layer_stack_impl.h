@@ -15,7 +15,7 @@
 #include "mldb/types/db/persistent.h"
 #include "auto_encoder_stack.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -698,7 +698,7 @@ operator == (const Layer_Stack & other) const
     return true;
 }
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __jml__neural__layer_stack_impl_h__ */

@@ -10,13 +10,13 @@
 #ifndef __boosting__split_fwd_h__
 #define __boosting__split_fwd_h__
 
-namespace ML {
+namespace MLDB {
 
 enum {
     MISSING = 2
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__split_fwd_h__ */
 

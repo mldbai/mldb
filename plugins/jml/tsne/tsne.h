@@ -16,11 +16,11 @@
 #pragma once
 
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/utils/vantage_point_tree.h"
 #include "mldb/utils/quadtree.h"
 
-namespace ML {
+namespace MLDB {
 
 using MLDB::distribution;
 using MLDB::Quadtree;
@@ -58,31 +58,31 @@ perplexity_and_prob(const distribution<double> & D, double beta = 1.0,
                diagonal so that the entire matrix is filled in.
 */
 void
-vectors_to_distances(const boost::multi_array<float, 2> & X,
-                     boost::multi_array<float, 2> & D,
+vectors_to_distances(const MLDB::MatrixRef<float, 2> & X,
+                     MLDB::Matrix<float, 2> & D,
                      bool fill_upper = true);
 
 void
-vectors_to_distances(const boost::multi_array<double, 2> & X,
-                     boost::multi_array<double, 2> & D,
+vectors_to_distances(const MLDB::MatrixRef<double, 2> & X,
+                     MLDB::Matrix<double, 2> & D,
                      bool fill_upper = true);
 
-inline boost::multi_array<float, 2>
-vectors_to_distances(boost::multi_array<float, 2> & X,
+inline MLDB::Matrix<float, 2>
+vectors_to_distances(const MLDB::MatrixRef<float, 2> & X,
                      bool fill_upper = true)
 {
-    int n = X.shape()[0];
-    boost::multi_array<float, 2> result(boost::extents[n][n]);
+    int n = X.dim(0);
+    MLDB::Matrix<float, 2> result(MLDB::extents[n][n]);
     vectors_to_distances(X, result, fill_upper);
     return result;
 }
 
-inline boost::multi_array<double, 2>
-vectors_to_distances(boost::multi_array<double, 2> & X,
+inline MLDB::Matrix<double, 2>
+vectors_to_distances(MLDB::MatrixRef<double, 2> X,
                      bool fill_upper = true)
 {
-    int n = X.shape()[0];
-    boost::multi_array<double, 2> result(boost::extents[n][n]);
+    int n = X.dim(0);
+    MLDB::Matrix<double, 2> result(MLDB::extents[n][n]);
     vectors_to_distances(X, result, fill_upper);
     return result;
 }
@@ -103,8 +103,8 @@ binary_search_perplexity(const distribution<float> & Di,
                          int i = -1,
                          double tolerance = 1e-5);
 
-boost::multi_array<float, 2>
-distances_to_probabilities(boost::multi_array<float, 2> & D,
+MLDB::Matrix<float, 2>
+distances_to_probabilities(MLDB::MatrixRef<float, 2> & D,
                            double tolerance = 1e-5,
                            double perplexity = 30.0);
 
@@ -114,8 +114,8 @@ distances_to_probabilities(boost::multi_array<float, 2> & D,
     the routine will return a smaller value of e than this (where the rank of
     X is lower than the requested e value).
 */
-boost::multi_array<float, 2>
-pca(boost::multi_array<float, 2> & coords, int num_dims = 50);
+MLDB::Matrix<float, 2>
+pca(MLDB::MatrixRef<float, 2> & coords, int num_dims = 50);
 
 struct TSNE_Params {
     
@@ -165,8 +165,8 @@ struct TSNE_Params {
 typedef std::function<bool (int, float, const char *)>
 TSNE_Callback;
 
-boost::multi_array<float, 2>
-tsne(const boost::multi_array<float, 2> & probs,
+MLDB::Matrix<float, 2>
+tsne(const MLDB::MatrixRef<float, 2> & probs,
      int num_dims = 2,
      const TSNE_Params & params = TSNE_Params(),
      const TSNE_Callback & callback = TSNE_Callback());
@@ -180,21 +180,21 @@ struct TsneSparseProbs {
 /** Sparse and approximate Barnes-Hut-SNE version of tSNE.
     Input is a sparse distribution of probabilities per example.
  */
-boost::multi_array<float, 2>
+MLDB::Matrix<float, 2>
 tsneApproxFromSparse(const std::vector<TsneSparseProbs> & neighbours,
                      int num_dims,
                      const TSNE_Params & params = TSNE_Params(),
                      const TSNE_Callback & callback = TSNE_Callback(),
                      std::unique_ptr<Quadtree> * qtreeOut = nullptr);
 
-boost::multi_array<float, 2>
-tsneApproxFromDense(const boost::multi_array<float, 2> & probs,
+MLDB::Matrix<float, 2>
+tsneApproxFromDense(const MLDB::MatrixRef<float, 2> & probs,
                     int num_dims,
                     const TSNE_Params & params = TSNE_Params(),
                     const TSNE_Callback & callback = TSNE_Callback());
 
-boost::multi_array<float, 2>
-tsneApproxFromCoords(const boost::multi_array<float, 2> & coords,
+MLDB::Matrix<float, 2>
+tsneApproxFromCoords(const MLDB::MatrixRef<float, 2> & coords,
                      int num_dims,
                      const TSNE_Params & params = TSNE_Params(),
                      const TSNE_Callback & callback = TSNE_Callback(),
@@ -212,9 +212,9 @@ struct PythagDistFromCoords {
         for each x, calculates the square of the two-norm of the
         vector itself.
     */
-    PythagDistFromCoords(const boost::multi_array<float, 2> & coords);
+    PythagDistFromCoords(const MLDB::MatrixRef<float, 2> & coords);
 
-    const boost::multi_array<float, 2> & coords;
+    const MLDB::MatrixRef<float, 2> & coords;
     distribution<float> sum_dist;
     int nx;
     int nd;
@@ -323,24 +323,24 @@ sparseProbsFromCoords(const std::function<float (int)> & dist,
 */
 distribution<float>
 retsne(const distribution<float> & probs,
-       const boost::multi_array<float, 2> & prevOutput,
+       const MLDB::MatrixRef<float, 2> & prevOutput,
        const TSNE_Params & params = TSNE_Params());
 
 
 distribution<float>
 retsneApproxFromSparse(const TsneSparseProbs & neighbours,
-                       const boost::multi_array<float, 2> & prevOutput,
+                       const MLDB::MatrixRef<float, 2> & prevOutput,
                        const Quadtree & qtree,
                        const TSNE_Params & params);
 
 
 distribution<float>
 retsneApproxFromCoords(const distribution<float> & coords,
-                       const boost::multi_array<float, 2> & coreCoords,
-                       const boost::multi_array<float, 2> & prevOutput,
+                       const MLDB::MatrixRef<float, 2> & coreCoords,
+                       const MLDB::MatrixRef<float, 2> & prevOutput,
                        const Quadtree & qtree,
                        const VantagePointTreeT<int> & vpTree,
                        const TSNE_Params & params);
 
 
-} // namespace ML
+} // namespace MLDB

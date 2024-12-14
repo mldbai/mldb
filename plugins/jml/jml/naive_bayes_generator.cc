@@ -16,13 +16,13 @@
 #include "stump_training_core.h"
 #include "mldb/utils/distribution_ops.h"
 #include "mldb/utils/smart_ptr_utils.h"
-#include <boost/timer/timer.hpp>
+#include "mldb/arch/timers.h"
 
 
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -86,11 +86,11 @@ generate(Thread_Context & context,
          const distribution<float> & training_ex_weights,
          const std::vector<Feature> & features, int) const
 {
-    boost::timer::cpu_timer timer;
+    MLDB::Timer timer;
 
     Feature predicted = model.predicted();
 
-    boost::multi_array<float, 2> weights
+    MLDB::Matrix<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
 
     Naive_Bayes current
@@ -283,7 +283,7 @@ struct Naive_Bayes_Accum {
             sorted.push_back(make_pair(features[i], i));
         sort_on_first_ascending(sorted);
         
-        boost::multi_array<float, 3> probs(boost::extents[features.size()][3][nl]);
+        MLDB::Matrix<float, 3> probs(MLDB::extents[features.size()][3][nl]);
         distribution<double> missing(nl);
         std::vector<Naive_Bayes::Bayes_Feature> newFeatures;
         newFeatures.reserve(sorted.size());
@@ -303,7 +303,7 @@ struct Naive_Bayes_Accum {
             }
         }
 
-        swap_multi_arrays(output.probs, probs);
+        std::swap(output.probs, probs);
         output.missing_total
             = distribution<float>(missing.begin(), missing.end());
     }
@@ -315,7 +315,7 @@ Naive_Bayes
 Naive_Bayes_Generator::
 train_weighted(Thread_Context & context,
                const Training_Data & data,
-               const boost::multi_array<float, 2> & weights,
+               const MLDB::MatrixRef<float, 2> & weights,
                const std::vector<Feature> & features_) const
 {
     Naive_Bayes result = model;
@@ -350,7 +350,7 @@ train_weighted(Thread_Context & context,
     distribution<double> class_weights(nl);
     for (unsigned x = 0;  x < nx;  ++x) {
         float total_weight = 0.0;
-        if (weights.shape()[1] == 1)
+        if (weights.dim(1) == 1)
             total_weight = nl * weights[x][0];
         else
             for (unsigned l = 0;  l < nl;  ++l)
@@ -401,4 +401,4 @@ Register_Factory<Classifier_Generator, Naive_Bayes_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

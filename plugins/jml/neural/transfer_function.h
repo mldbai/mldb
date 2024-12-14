@@ -14,7 +14,7 @@
 #include <memory>
 
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -281,4 +281,4 @@ create_transfer_function(const Transfer_Function_Type & function);
 std::shared_ptr<Transfer_Function>
 create_transfer_function(const std::string & name);
 
-} // namespace ML
+} // namespace MLDB

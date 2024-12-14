@@ -30,7 +30,7 @@
 #include <random>
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 
 namespace MLDB {
@@ -146,7 +146,7 @@ run(const ProcedureRunConfig & run,
     ConvertProgressToJson convertProgressToJson(onProgress);
     auto boundDataset = runProcConf.trainingData.stm->from->bind(context, convertProgressToJson);
 
-    ML::Mutable_Feature_Info labelInfo = ML::Mutable_Feature_Info(ML::BOOLEAN);
+    MLDB::Mutable_Feature_Info labelInfo = MLDB::Mutable_Feature_Info(MLDB::BOOLEAN);
     labelInfo.set_biased(true);
 
     auto extractWithinExpression = [](std::shared_ptr<SqlExpression> expr)
@@ -352,7 +352,7 @@ run(const ProcedureRunConfig & run,
                 }
 
                 Timer timer;
-                ML::Tree tree;
+                MLDB::Tree tree;
                 tree.root = mydata.train(0 /* depth */, runProcConf.maxDepth, tree, serializer);
                 INFO_MSG(logger) << "bag " << bag << " partition " << partitionNum << " took "
                      << timer.elapsed();
@@ -380,7 +380,7 @@ run(const ProcedureRunConfig & run,
     for (unsigned i = 0;  i < totalResultCount;  ++i)
         result->add(results[i], 1.0 / totalResultCount);
 
-    ML::Classifier classifier(result);
+    MLDB::Classifier classifier(result);
 
     //Save the model, create the function
 

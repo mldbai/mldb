@@ -8,14 +8,12 @@
    Code to deal with binary symmetric classifiers.
 */
 
-#ifndef __boosting__binary_symmetric_h__
-#define __boosting__binary_symmetric_h__
+#pragma once
 
-
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include <vector>
 
-namespace ML {
+namespace MLDB {
 
 
 class Training_Data;
@@ -28,19 +26,16 @@ class Feature;
     upon the response.
 */
 bool
-convert_bin_sym(boost::multi_array<float, 2> & weights,
+convert_bin_sym(MLDB::Matrix<float, 2> & weights,
                 const Training_Data & data,
                 const Feature & predicted,
                 const std::vector<Feature> & features);
 
 /** Same as above, but doesn't convert it. */
 bool
-is_bin_sym(const boost::multi_array<float, 2> & weights,
+is_bin_sym(const MLDB::Matrix<float, 2> & weights,
            const Training_Data & data,
            const Feature & predicted,
            const std::vector<Feature> & features);
 
-} // namespace ML
-
-
-#endif /* __boosting__binary_symmetric_h__ */
+} // namespace MLDB

@@ -15,7 +15,7 @@
 #include "mldb/plugins/jml/jml/feature_info.h"
 #include "mldb/types/db/persistent_fwd.h"
 
-namespace ML {
+namespace MLDB {
 
 
 class Configuration;
@@ -69,6 +69,6 @@ struct Output_Encoder {
     int num_inputs, num_outputs;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__neural__output_encoder_h__ */

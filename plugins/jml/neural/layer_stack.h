@@ -14,7 +14,7 @@
 #include "mldb/arch/demangle.h"
 
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -308,4 +308,4 @@ extern template class Layer_Stack<Layer>;
 MLDB_IMPL_SERIALIZE_RECONSTITUTE_TEMPLATE(class LayerT, Layer_Stack<LayerT>);
 
 
-} // namespace ML
+} // namespace MLDB

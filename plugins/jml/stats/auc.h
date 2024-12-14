@@ -12,7 +12,7 @@
 #include "mldb/arch/exception.h"
 #include <iostream>
 
-namespace ML {
+namespace MLDB {
 
 using namespace MLDB;
 
@@ -96,4 +96,4 @@ calc_auc(const std::vector<Float1> & outputs,
     return do_calc_auc(entries);
 }
 
-} // namespace ML
+} // namespace MLDB

@@ -549,7 +549,7 @@ BUILD_TEST_COMMAND = rm -f $(TESTS)/$(1).{passed,failed} && ((set -o pipefail &&
 # add a test case
 # $(1) name of the test
 # $(2) libraries to link with
-# $(3) test style.  boost = boost test framework, and options: manual, valgrind, virtualenv
+# $(3) test style.  boost = boost test framework, catch2: catch2 test framework and options: manual, valgrind, virtualenv
 # $(4) testing targets to add it to
 # $(5) source file for test.  Default is $(1).cc
 
@@ -565,7 +565,7 @@ $$(eval $$(call add_sources,$$(_testsrc)))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $(if $(findstring catch2,$(3)), -lCatch2 -lCatch2Main) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")

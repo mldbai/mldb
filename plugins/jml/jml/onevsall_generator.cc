@@ -19,7 +19,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* ONEVSALL_GENERATOR                                                        */
@@ -93,7 +93,7 @@ generate(Thread_Context & context,
 
     std::shared_ptr<OneVsAllClassifier> current = make_shared<OneVsAllClassifier>(model);
 
-    ML::Mutable_Feature_Info labelInfo(ML::BOOLEAN);
+    MLDB::Mutable_Feature_Info labelInfo(MLDB::BOOLEAN);
 
     int labelValue = 0; 
 
@@ -162,4 +162,4 @@ Register_Factory<Classifier_Generator, OneVsAll_Classifier_Generator>
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB

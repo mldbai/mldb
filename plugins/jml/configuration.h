@@ -24,7 +24,7 @@ namespace MLDB {
 struct ParseContext;
 } // namespace MLDB
 
-namespace ML {
+namespace MLDB {
 using namespace MLDB;
 
 /*****************************************************************************/
@@ -234,4 +234,4 @@ private:
 std::ostream & operator << (std::ostream & stream,
                             const Configuration::Accessor & acc);
 
-} // namespace ML
+} // namespace MLDB

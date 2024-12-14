@@ -20,7 +20,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 /*****************************************************************************/
 /* DISCRIMINATIVE_TRAINER                                                    */
@@ -394,7 +394,7 @@ train(const std::vector<distribution<float> > & training_data,
         if (verbosity >= 3) {
             cerr << "error of iteration: rmse " << train_error_rmse
                  << " noisy " << train_error_auc << endl;
-            if (verbosity >= 3) cerr << timer.elapsed().wall << endl;
+            if (verbosity >= 3) cerr << timer.elapsed_wall() << endl;
         }
         else if (verbosity == 2)
             cerr << format("  %7.5f %7.5f",
@@ -418,7 +418,7 @@ train(const std::vector<distribution<float> > & training_data,
                 cerr << "testing error of iteration: rmse "
                      << test_error_rmse << " auc " << test_error_auc
                      << endl;
-                cerr << timer.elapsed().wall << endl;
+                cerr << timer.elapsed_wall() << endl;
             }
             else if (verbosity == 2)
                 cerr << format("  %7.5f %7.5f",
@@ -550,4 +550,4 @@ test(const std::vector<const float *> & data,
                      output_encoder.calc_auc(outputs, labels));
 }
 
-} // namespace ML
+} // namespace MLDB

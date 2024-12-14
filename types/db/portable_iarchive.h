@@ -24,17 +24,13 @@
 #include <functional>
 #include <array>
 
-namespace boost {
-
-template<typename T, std::size_t NumDims, class Allocator>
-class multi_array;
-
-} // namespace boost
-
 namespace MLDB {
 
 using namespace MLDB;
 class File_Read_Buffer;
+
+template<typename T, std::size_t NumDims>
+class MatrixBase;
 
 namespace DB {
 
@@ -323,9 +319,9 @@ void load(portable_bin_iarchive & archive, std::pair<T1, T2> & p)
     load(archive, p.second);
 }
 
-template<typename T, std::size_t NumDims, class Allocator>
+template<typename T, std::size_t NumDims>
 void load(portable_bin_iarchive & archive,
-          boost::multi_array<T, NumDims, Allocator> & arr)
+          MLDB::MatrixBase<T, NumDims> & arr)
 {
     using namespace std;
     char version;
@@ -344,12 +340,14 @@ void load(portable_bin_iarchive & archive,
         sizes[i] = sz;
     }
 
-    arr.resize(sizes);
+    MLDB::MatrixBase<T, NumDims> new_arr(sizes);
 
     size_t ne = arr.num_elements();
     T * el = arr.data();
     for (unsigned i = 0;  i < ne;  ++i, ++el)
         archive >> *el;
+
+    arr.swap(new_arr);
 }
 
 // Anything with a serialize() method gets to be serialized

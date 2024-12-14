@@ -10,8 +10,6 @@
 #include "compiler/compiler.h"
 #include <cstdio>
 #include <iostream>
-#include <boost/timer.hpp>
-#include <boost/utility.hpp>
 #include "arch/cuda/device_data.h"
 #include "arch/cuda/atomic.h"
 #include "math/xdiv.h"
@@ -36,7 +34,7 @@ using namespace std;
 */
 
 
-typedef ML::FixedPointAccum32 UpdateFloat;
+typedef MLDB::FixedPointAccum32 UpdateFloat;
 //typedef float UpdateFloat;
 
 /** Given an activation function and an input, apply that activation
@@ -44,12 +42,12 @@ typedef ML::FixedPointAccum32 UpdateFloat;
 __device__ float transform(float input, int activation)
 {
     switch (activation) {
-    case ML::ACT_TANH: {
+    case MLDB::ACT_TANH: {
         return tanh(input);
         //float exp2i = __expf(input + input);
         //return __fdividef(exp2i - 1.0f, exp2i + 1.0f);
     }
-    case ML::ACT_IDENTITY: return input;
+    case MLDB::ACT_IDENTITY: return input;
     default:
         return 0.0;
     }
@@ -59,9 +57,9 @@ __device__ float transform(float input, int activation)
 __device__ float delta(float output, float error, int activation)
 {
     switch (activation) {
-    case ML::ACT_TANH:
+    case MLDB::ACT_TANH:
         return (1.0f - output * output) * error;
-    case ML::ACT_IDENTITY: return output * error; 
+    case MLDB::ACT_IDENTITY: return output * error; 
     default:
         return 0.0;
     }
@@ -284,7 +282,7 @@ train_examples_kernel(const float * feature_vectors,  // feature vector [ni]
 }
 
 
-namespace ML {
+namespace MLDB {
 namespace CUDA {
 
 struct Backprop::Plan {
@@ -723,4 +721,4 @@ synchronize(Context & context) const
 
 
 } // namespace CUDA
-} // namespace ML
+} // namespace MLDB

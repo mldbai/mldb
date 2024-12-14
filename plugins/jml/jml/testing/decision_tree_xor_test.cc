@@ -23,7 +23,7 @@
 #include "mldb/utils/smart_ptr_utils.h"
 #include "mldb/utils/vector_utils.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE( test_xor_function )
     generator.init(data.feature_space(),
                    fs.features()[0]);
 
-    boost::multi_array<float, 2> weights(boost::extents[data.example_count()][1]);
+    MLDB::Matrix<float, 2> weights(MLDB::extents[data.example_count()][1]);
     std::fill(weights.data(), weights.data() + data.example_count(), 1.0 / data.example_count() / 2.0);
     
     Thread_Context context;

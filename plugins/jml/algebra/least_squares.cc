@@ -25,28 +25,28 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 #if 0
 template<class Float>
 distribution<Float>
-least_squares_impl(const boost::multi_array<Float, 2> & A,
+least_squares_impl(const MLDB::MatrixRef<Float, 2> & A,
                    const distribution<Float> & c,
-                   const boost::multi_array<Float, 2> & B,
+                   const MLDB::MatrixRef<Float, 2> & B,
                    const distribution<Float> & d)
 {
     using namespace LAPack;
 
-    size_t m = A.shape()[0];
-    size_t n = A.shape()[1];
-    size_t p = B.shape()[0];
+    size_t m = A.dim(0);
+    size_t n = A.dim(1);
+    size_t p = B.dim(0);
 
-    //cerr << "A: (mxn) " << A.shape()[0] << " x " << A.shape()[1] << endl;
-    //cerr << "B: (pxn) " << B.shape()[0] << " x " << B.shape()[1] << endl;
+    //cerr << "A: (mxn) " << A.dim(0) << " x " << A.dim(1) << endl;
+    //cerr << "B: (pxn) " << B.dim(0) << " x " << B.dim(1) << endl;
     //cerr << "c: m     " << c.size() << endl;
     //cerr << "d: p     " << d.size() << endl;
 
-    if (c.size() != m || B.shape()[1] != n || d.size() != p)
+    if (c.size() != m || B.dim(1) != n || d.size() != p)
         throw Exception("least_squares: sizes didn't match");
 
     if (p > n || n > (m + p))
@@ -59,14 +59,14 @@ least_squares_impl(const boost::multi_array<Float, 2> & A,
 
     /* We need to transpose them for Fortran, but since they are destroyed
        anyway it's no big deal since they would have been copied. */
-    boost::multi_array<Float, 2> AF = fortran(A);
-    boost::multi_array<Float, 2> BF = fortran(B);
+    MLDB::Matrix<Float, 2> AF = fortran(A);
+    MLDB::Matrix<Float, 2> BF = fortran(B);
     distribution<Float> c2 = c;
     distribution<Float> d2 = d;
 
     int res = gglse(m, n, p,
-                    AF.data_begin(), AF.shape()[0],
-                    BF.data_begin(), BF.shape()[1],
+                    AF.data_begin(), AF.dim(0),
+                    BF.data_begin(), BF.dim(1),
                     &c2[0], &d2[0], &result[0]);
 
     if (res != 0)
@@ -77,18 +77,18 @@ least_squares_impl(const boost::multi_array<Float, 2> & A,
 }
 
 distribution<float>
-least_squares(const boost::multi_array<float, 2> & A,
+least_squares(const MLDB::MatrixRef<float, 2> & A,
               const distribution<float> & c,
-              const boost::multi_array<float, 2> & B,
+              const MLDB::MatrixRef<float, 2> & B,
               const distribution<float> & d)
 {
     return least_squares_impl(A, c, B, d);
 }
 
 distribution<double>
-least_squares(const boost::multi_array<double, 2> & A,
+least_squares(const MLDB::MatrixRef<double, 2> & A,
               const distribution<double> & c,
-              const boost::multi_array<double, 2> & B,
+              const MLDB::MatrixRef<double, 2> & B,
               const distribution<double> & d)
 {
     return least_squares_impl(A, c, B, d);
@@ -97,34 +97,37 @@ least_squares(const boost::multi_array<double, 2> & A,
 
 template<class Float>
 distribution<Float>
-least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Float> & b)
+least_squares_impl(const MLDB::MatrixRef<Float, 2> & A, const distribution<Float> & b)
 {
     using namespace std;
 
-    //boost::timer::cpu_timert;
+    //MLDB::Timer t;
 
-    if (A.shape()[0] != b.size()) {
-        cerr << "A.shape()[0] = " << A.shape()[0] << endl;
-        cerr << "A.shape()[1] = " << A.shape()[1] << endl;
+    if (A.dim(0) != b.size()) {
+        cerr << "A.dim(0) = " << A.dim(0) << endl;
+        cerr << "A.dim(1) = " << A.dim(1) << endl;
         cerr << "b.size() = " << b.size() << endl;
         throw Exception("incompatible dimensions for least_squares");
     }
 
     using namespace LAPack;
     
-    int m = A.shape()[0];
-    int n = A.shape()[1];
+    int m = A.dim(0);
+    int n = A.dim(1);
 
     distribution<Float> x = b;
     x.resize(std::max<size_t>(m, n));
 
-    boost::multi_array<Float, 2> A2 = A;
+    MLDB::Matrix<Float, 2> A2 = A;
 
-#if 0
+#if 1
     using namespace std;
-    cerr << "m = " << m << " n = " << n << " A2.shape()[0] = " << A2.shape()[0]
-         << " A2.shape()[1] = " << A2.shape()[1] << endl;
+    cerr << "m = " << m << " n = " << n << " A2.dim(0) = " << A2.dim(0)
+         << " A2.dim(1) = " << A2.dim(1) << endl;
     cerr << "A2 = " << endl << A2 << endl;
+    cerr << "A = " << endl << A << endl;
+    cerr << "A2.data() = " << A2.data() << endl;
+    cerr << "A.data() = " << A.data() << endl;
     cerr << "b = " << b << endl;
 #endif
     int res = gels('T', n, m, 1, A2.data(), n, &x[0],
@@ -143,6 +146,8 @@ least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Fl
         //if (debug_irls)
         //      (*debug_irls) << "retrying; " << res << " are too small" << endl;
     
+        cerr << "retrying least squares with res " << res << endl;
+
         /* Rank-deficient matrix.  Use the more efficient routine. */
         int rank;
         Float rcond = -1.0;
@@ -152,7 +157,9 @@ least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Fl
         std::fill(sv, sv + std::min(m, n), 0.0);
 
         // Rebuild A2, transposed this time
-        A2.resize(boost::extents[n][m]);
+        //cerr << "A2 = " << A2 << endl;
+        //A2.resize(MLDB::extents[n][m]);
+        //cerr << "A2 RESIZED = " << A2 << endl;
         A2 = transpose(A);
 
         // Rebuild x as it was previously overwritten
@@ -174,42 +181,42 @@ least_squares_impl(const boost::multi_array<Float, 2> & A, const distribution<Fl
     x.resize(n);
  
     //using namespace std;
-    //cerr << "least_squares: took " << t.elapsed().wall << "s" << endl;
+    //cerr << "least_squares: took " << t.elapsed_wall() << "s" << endl;
     
     return x;
     //cerr << "least squares: gels returned " << x2 << endl;
     //cerr << "least squares: A2 = " << endl << A2 << endl;
 
-    //cerr << "least_squares: " << t.elapsed().wall << "s" << endl;
+    //cerr << "least_squares: " << t.elapsed_wall() << "s" << endl;
     //distribution<Float> x3
-    //    = least_squares(A, b, boost::multi_array<Float, 2>(0, n), distribution<Float>());
+    //    = least_squares(A, b, MLDB::MatrixRef<Float, 2>(0, n), distribution<Float>());
     
     //cerr << "least squares: gglse returned " << x3 << endl;
 
 }
 
 distribution<float>
-least_squares(const boost::multi_array<float, 2> & A,
+least_squares(const MLDB::MatrixRef<float, 2> & A,
               const distribution<float> & b)
 {
     return least_squares_impl(A, b);
 }
 
 distribution<double>
-least_squares(const boost::multi_array<double, 2> & A,
+least_squares(const MLDB::MatrixRef<double, 2> & A,
               const distribution<double> & b)
 {
     return least_squares_impl(A, b);
 }
 
 template<typename Float>
-void doDiagMultColumn(const boost::multi_array<Float, 2> & U,
+void doDiagMultColumn(const MLDB::MatrixRef<Float, 2> & U,
                       const distribution<Float> & d,
-                      const boost::multi_array<Float, 2> & V,
-                      boost::multi_array<Float, 2> & result,
+                      const MLDB::MatrixRef<Float, 2> & V,
+                      MLDB::MatrixRef<Float, 2> & result,
                       int j)
 {
-    size_t m = U.shape()[0], x = d.size();
+    size_t m = U.dim(0), x = d.size();
 
     PossiblyDynamicBuffer<Float> Vj_values_storage(x);
     Float * Vj_values = Vj_values_storage.data();
@@ -222,17 +229,17 @@ void doDiagMultColumn(const boost::multi_array<Float, 2> & U,
 }
 
 template<class Float>
-boost::multi_array<Float, 2>
-diag_mult_impl(const boost::multi_array<Float, 2> & U,
+MLDB::Matrix<Float, 2>
+diag_mult_impl(const MLDB::MatrixRef<Float, 2> & U,
                const distribution<Float> & d,
-               const boost::multi_array<Float, 2> & V,
+               const MLDB::MatrixRef<Float, 2> & V,
                bool parallel)
 {
-    size_t m = U.shape()[0], n = V.shape()[1], x = d.size();
+    size_t m = U.dim(0), n = V.dim(1), x = d.size();
 
-    boost::multi_array<Float, 2> result(boost::extents[m][n]);
+    MLDB::Matrix<Float, 2> result(MLDB::extents[m][n]);
     
-    if (U.shape()[1] != x || V.shape()[0] != x)
+    if (U.dim(1) != x || V.dim(0) != x)
         throw Exception("diag_mult(): wrong shape");
 
     auto doColumn = std::bind(&doDiagMultColumn<Float>, 
@@ -252,19 +259,19 @@ diag_mult_impl(const boost::multi_array<Float, 2> & U,
     return result;
 }
 
-boost::multi_array<float, 2>
-diag_mult(const boost::multi_array<float, 2> & U,
+MLDB::Matrix<float, 2>
+diag_mult(const MLDB::MatrixRef<float, 2> & U,
           const distribution<float> & d,
-          const boost::multi_array<float, 2> & V,
+          const MLDB::MatrixRef<float, 2> & V,
           bool parallel)
 {
     return diag_mult_impl<float>(U, d, V, parallel);
 }
 
-boost::multi_array<double, 2>
-diag_mult(const boost::multi_array<double, 2> & U,
+MLDB::Matrix<double, 2>
+diag_mult(const MLDB::MatrixRef<double, 2> & U,
           const distribution<double> & d,
-          const boost::multi_array<double, 2> & V,
+          const MLDB::MatrixRef<double, 2> & V,
           bool parallel)
 {
     return diag_mult_impl<double>(U, d, V, parallel);
@@ -279,15 +286,15 @@ struct RidgeRegressionIteration {
     distribution<Float> x;
 
     void run(const distribution<Float> & singular_values,
-             const boost::multi_array<Float, 2> & A,
+             const MLDB::MatrixRef<Float, 2> & A,
              const distribution<Float> & b,
-             const boost::multi_array<Float, 2> & VT,
-             const boost::multi_array<Float, 2> & U,
-             const boost::multi_array<Float, 2> & GK,
+             const MLDB::MatrixRef<Float, 2> & VT,
+             const MLDB::MatrixRef<Float, 2> & U,
+             const MLDB::MatrixRef<Float, 2> & GK,
              bool debug)
     {
-        int m = A.shape()[0];
-        int n = A.shape()[1];
+        int m = A.dim(0);
+        int n = A.dim(1);
 
         Timer t(debug);
 
@@ -305,10 +312,10 @@ struct RidgeRegressionIteration {
         if (current_lambda != lambda)
             my_singular += (current_lambda - lambda);
 
-        //boost::multi_array<Float, 2> GK_pinv
+        //MLDB::Matrix<Float, 2> GK_pinv
         //    = U * diag((Float)1.0 / my_singular) * VT;
 
-        boost::multi_array<Float, 2> GK_pinv
+        MLDB::Matrix<Float, 2> GK_pinv
             = diag_mult(U, (Float)1.0 / my_singular, VT, true /* parallel */);
 
         doneStep("diag_mult");
@@ -323,7 +330,7 @@ struct RidgeRegressionIteration {
             cerr << "prod2 = " << endl << (GK_pinv * GK * GK) << endl;
         }
 
-        boost::multi_array<Float, 2> A_pinv
+        MLDB::Matrix<Float, 2> A_pinv
             = (m < n ? GK_pinv * A : A * GK_pinv);
 
         doneStep("A_pinv");
@@ -338,21 +345,21 @@ struct RidgeRegressionIteration {
 
         distribution<Float> predictions = A * x;
 
-        //cerr << "A: " << A.shape()[0] << "x" << A.shape()[1] << endl;
-        //cerr << "A_pinv: " << A_pinv.shape()[0] << "x" << A_pinv.shape()[1]
+        //cerr << "A: " << A.dim(0) << "x" << A.dim(1) << endl;
+        //cerr << "A_pinv: " << A_pinv.dim(0) << "x" << A_pinv.dim(1)
         //     << endl;
 
-        //boost::multi_array<Float, 2> A_A_pinv
+        //MLDB::Matrix<Float, 2> A_A_pinv
         //    = A * transpose(A_pinv);
 
         doneStep("predictions");
 
 #if 0
-        boost::multi_array<Float, 2> A_A_pinv
+        MLDB::Matrix<Float, 2> A_A_pinv
         = multiply_transposed(A, A_pinv);
 
-        cerr << "A_A_pinv: " << A_A_pinv.shape()[0] << "x"
-        << A_A_pinv.shape()[1] << " m = " << m << endl;
+        cerr << "A_A_pinv: " << A_A_pinv.dim(0) << "x"
+        << A_A_pinv.dim(1) << " m = " << m << endl;
 
         if (debug && false)
             cerr << "A_A_pinv = " << endl << A_A_pinv << endl;
@@ -414,11 +421,11 @@ struct RidgeRegressionIteration {
 template<typename Float>
 struct RidgeRegressionIterations: public std::vector<RidgeRegressionIteration<Float> > {
     void run(const distribution<Float> & singular_values,
-             const boost::multi_array<Float, 2> & A,
+             const MLDB::MatrixRef<Float, 2> & A,
              const distribution<Float> & b,
-             const boost::multi_array<Float, 2> & VT,
-             const boost::multi_array<Float, 2> & U,
-             const boost::multi_array<Float, 2> & GK,
+             const MLDB::MatrixRef<Float, 2> & VT,
+             const MLDB::MatrixRef<Float, 2> & U,
+             const MLDB::MatrixRef<Float, 2> & GK,
              bool debug,
              int n)
     {
@@ -428,20 +435,20 @@ struct RidgeRegressionIterations: public std::vector<RidgeRegressionIteration<Fl
 
 template<class Float>
 distribution<Float>
-ridge_regression_impl(const boost::multi_array<Float, 2> & A,
+ridge_regression_impl(const MLDB::MatrixRef<Float, 2> & A,
                       const distribution<Float> & b,
                       float& lambda)
 {
     using namespace std;
     float initialLambda = lambda < 0 ? 1e-5 : lambda;
-    //cerr << "ridge_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+    //cerr << "ridge_regression: A = " << A.dim(0) << "x" << A.dim(1)
     //     << " b = " << b.size() << endl;
 
     //cerr << "b = " << b << endl;
     //cerr << "A = " << A << endl;
 
     bool debug = false;
-    //debug = true;
+    debug = true;
 
     Timer t(debug);
 
@@ -455,20 +462,20 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     // Step 1: SVD
 
-    if (A.shape()[0] != b.size())
+    if (A.dim(0) != b.size())
         throw Exception("incompatible dimensions for least_squares");
 
     using namespace LAPack;
     
-    int m = A.shape()[0];
-    int n = A.shape()[1];
+    int m = A.dim(0);
+    int n = A.dim(1);
 
     int minmn = std::min(m, n);
 
     // See http://www.clopinet.com/isabelle/Projects/ETH/KernelRidge.pdf
 
     // The matrix to decompose is square
-    boost::multi_array<Float, 2> GK(boost::extents[minmn][minmn]);
+    MLDB::Matrix<Float, 2> GK(MLDB::extents[minmn][minmn]);
 
     
     //cerr << "m = " << m << " n = " << n << endl;
@@ -497,8 +504,8 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
     if (debug)
         cerr << "GK = " << endl << GK << endl;
 
-    //cerr << "GK.shape()[0] = " << GK.shape()[0] << endl;
-    //cerr << "GK.shape()[1] = " << GK.shape()[1] << endl;
+    //cerr << "GK.dim(0) = " << GK.dim(0) << endl;
+    //cerr << "GK.dim(1) = " << GK.dim(1) << endl;
 
     // Add in the ridge
     for (unsigned i = 0;  i < minmn;  ++i)
@@ -509,8 +516,8 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     // Decompose to get the pseudoinverse
     distribution<Float> svalues(minmn);
-    boost::multi_array<Float, 2> VT(boost::extents[minmn][minmn]);
-    boost::multi_array<Float, 2> U(boost::extents[minmn][minmn]);
+    MLDB::Matrix<Float, 2> VT(MLDB::extents[minmn][minmn]);
+    MLDB::Matrix<Float, 2> U(MLDB::extents[minmn][minmn]);
     
     svd_square(GK, VT, U, svalues);
 
@@ -523,10 +530,9 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
     if (debug) {
         // Multiply decomposition back to make sure that we get the original
         // matrix
-        boost::multi_array<Float, 2> D = diag(singular_values);
+        MLDB::Matrix<Float, 2> D = diag(singular_values);
 
-        boost::multi_array<Float, 2> GK_test
-            = U * D * VT;
+        MLDB::Matrix<Float, 2> GK_test = U * D * VT;
 
         cerr << "GK_test = " << endl << GK_test << endl;
         //cerr << "errors = " << endl << (GK_test - GK) << endl;
@@ -588,14 +594,14 @@ ridge_regression_impl(const boost::multi_array<Float, 2> & A,
 
     doneStep("    lambda");
 
-    //cerr << "total: " << t.elapsed().wall << endl;
+    //cerr << "total: " << t.elapsed_wall() << endl;
 
     lambda = best_lambda; //return the lambda we ended up using
     return x_best;
 }
 
 distribution<float>
-ridge_regression(const boost::multi_array<float, 2> & A,
+ridge_regression(const MLDB::MatrixRef<float, 2> & A,
                  const distribution<float> & b,
                  float lambda)
 {
@@ -603,7 +609,7 @@ ridge_regression(const boost::multi_array<float, 2> & A,
 }
 
 distribution<double>
-ridge_regression(const boost::multi_array<double, 2> & A,
+ridge_regression(const MLDB::MatrixRef<double, 2> & A,
                  const distribution<double> & b,
                  float lambda)
 {
@@ -612,13 +618,13 @@ ridge_regression(const boost::multi_array<double, 2> & A,
 
 template<class Float>
 distribution<Float>
-lasso_regression_impl(const boost::multi_array<Float, 2> & A,
+lasso_regression_impl(const MLDB::MatrixRef<Float, 2> & A,
                       const distribution<Float> & b,
                       float lambda,
                       int maxIter,
                       float epsilon)
 { 
-    // cerr << "lasso_regression: A = " << A.shape()[0] << "x" << A.shape()[1]
+    // cerr << "lasso_regression: A = " << A.dim(0) << "x" << A.dim(1)
     //     << " b = " << b.size() << " lambda = " << lambda <<" maxIter = "
     //     << maxIter << " epsilon = " << epsilon << endl;
 
@@ -627,8 +633,8 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
     //  on why standardisation might be required before using LASSO:
     //  http://stats.stackexchange.com/q/86434/22296
 
-    int n = A.shape()[0];   //Number of samples
-    int p = A.shape()[1];   //Number of variables
+    int n = A.dim(0);   //Number of samples
+    int p = A.dim(1);   //Number of variables
 
      distribution<Float> x(p, 0.); //our solution vector
 
@@ -638,7 +644,7 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
 
     Float halflambda = lambda / 2.0f;
     distribution<Float> Atb(p, 0.);                        //Correlation of each variable with the target vector
-    boost::multi_array<Float, 2> AtA(boost::extents[p][p]); //Correlation betwen each variables
+    MLDB::Matrix<Float, 2> AtA(MLDB::extents[p][p]); //Correlation betwen each variables
 
     //Precompute Atb and AtA
     for (int j = 0; j < p; ++j) {
@@ -710,7 +716,7 @@ lasso_regression_impl(const boost::multi_array<Float, 2> & A,
 }
 
 distribution<float>
-lasso_regression(const boost::multi_array<float, 2> & A,
+lasso_regression(const MLDB::MatrixRef<float, 2> & A,
                  const distribution<float> & b,
                  float lambda,
                  int maxIter,
@@ -720,7 +726,7 @@ lasso_regression(const boost::multi_array<float, 2> & A,
 }
 
 distribution<double>
-lasso_regression(const boost::multi_array<double, 2> & A,
+lasso_regression(const MLDB::MatrixRef<double, 2> & A,
                  const distribution<double> & b,
                  float lambda,
                  int maxIter,
@@ -732,15 +738,15 @@ lasso_regression(const boost::multi_array<double, 2> & A,
 //***********************************************
 
 template<class Float>
-void doWeightedSquareRow(const boost::multi_array<Float, 2> & XT,
+void doWeightedSquareRow(const MLDB::MatrixRef<Float, 2> & XT,
                          const distribution<Float> & d,
-                         boost::multi_array<Float, 2> & result,
+                         MLDB::MatrixRef<Float, 2> & result,
                          int i)
 {
     int chunk_size = 2048;  // ensure we fit in the cache
 
-    size_t nx = XT.shape()[1];
-    size_t nv = XT.shape()[0];
+    size_t nx = XT.dim(1);
+    size_t nv = XT.dim(0);
 
     int x = 0;
     while (x < nx) {
@@ -758,19 +764,19 @@ void doWeightedSquareRow(const boost::multi_array<Float, 2> & XT,
 }
 
 template<class Float>
-boost::multi_array<Float, 2>
-weighted_square_impl(const boost::multi_array<Float, 2> & XT,
+MLDB::Matrix<Float, 2>
+weighted_square_impl(const MLDB::MatrixRef<Float, 2> & XT,
                      const distribution<Float> & d)
 {
-    if (XT.shape()[1] != d.size())
+    if (XT.dim(1) != d.size())
         throw Exception("Incompatible matrix sizes for weighted_square");
 
-    size_t nx = XT.shape()[1];
-    size_t nv = XT.shape()[0];
+    size_t nx = XT.dim(1);
+    size_t nv = XT.dim(0);
 
     //cerr << "nx = " << nx << " nv = " << nv << endl;
 
-    boost::multi_array<Float, 2> result(boost::extents[nv][nv]);
+    MLDB::Matrix<Float, 2> result(MLDB::extents[nv][nv]);
 
     if (false) {
         int chunk_size = 2048;  // ensure we fit in the cache
@@ -801,35 +807,38 @@ weighted_square_impl(const boost::multi_array<Float, 2> & XT,
     return result;
 }
 
-boost::multi_array<float, 2>
-weighted_square(const boost::multi_array<float, 2> & XT,
+MLDB::Matrix<float, 2>
+weighted_square(const MLDB::MatrixRef<float, 2> & XT,
                 const distribution<float> & d)
 {
     return weighted_square_impl(XT, d);
 }
 
-boost::multi_array<double, 2>
-weighted_square(const boost::multi_array<double, 2> & XT,
+MLDB::Matrix<double, 2>
+weighted_square(const MLDB::MatrixRef<double, 2> & XT,
                 const distribution<double> & d)
 {
     return weighted_square_impl(XT, d);
 }
 
 template<typename Float>
-void svd_square_impl(boost::multi_array<Float, 2> & X,
-                     boost::multi_array<Float, 2> & VT,
-                     boost::multi_array<Float, 2> & U,
+void svd_square_impl(MLDB::MatrixRef<Float, 2> & X,
+                     MLDB::MatrixRef<Float, 2> VT_,
+                     MLDB::MatrixRef<Float, 2> U_,
                      distribution<Float> & svalues)
 {
-    size_t minmn = X.shape()[0];
-    ExcAssertEqual(minmn, X.shape()[1]);
+    size_t minmn = X.dim(0);
+    ExcAssertEqual(minmn, X.dim(1));
 
     // Decompose to get the pseudoinverse
     svalues.clear();
     svalues.resize(minmn);
 
-    VT.resize(boost::extents[minmn][minmn]);
-    U.resize(boost::extents[minmn][minmn]);
+    MLDB::Matrix<Float, 2> VT = VT_;
+    MLDB::Matrix<Float, 2> U = U_;
+
+    VT.resize(MLDB::extents[minmn][minmn]);
+    U.resize(MLDB::extents[minmn][minmn]);
 
     // SVD
     int result = LAPack::gesdd("S", minmn, minmn,
@@ -842,20 +851,20 @@ void svd_square_impl(boost::multi_array<Float, 2> & X,
         throw Exception("gesdd returned non-zero");
 }
 
-void svd_square(boost::multi_array<float, 2> & X,
-                boost::multi_array<float, 2> & VT,
-                boost::multi_array<float, 2> & U,
+void svd_square(MLDB::MatrixRef<float, 2> & X,
+                MLDB::MatrixRef<float, 2> & VT,
+                MLDB::MatrixRef<float, 2> & U,
                 distribution<float> & svalues)
 {
     return svd_square_impl(X, VT, U, svalues);
 }
 
-void svd_square(boost::multi_array<double, 2> & X,
-                boost::multi_array<double, 2> & VT,
-                boost::multi_array<double, 2> & U,
+void svd_square(MLDB::MatrixRef<double, 2> & X,
+                MLDB::MatrixRef<double, 2> & VT,
+                MLDB::MatrixRef<double, 2> & U,
                 distribution<double> & svalues)
 {
     return svd_square_impl(X, VT, U, svalues);
 }
 
-} // namespace ML
+} // namespace MLDB

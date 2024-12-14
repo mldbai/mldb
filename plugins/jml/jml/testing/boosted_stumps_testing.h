@@ -13,7 +13,7 @@
 #define __boosting__boosted_stumps_testing_h__
 
 
-namespace ML {
+namespace MLDB {
 
 
 template<class Loss>
@@ -22,7 +22,7 @@ struct Update_Weights_Basic {
     /** The loss function we are using. */
     Loss loss;
 
-    float operator () (const Stump & stump, boost::multi_array<float, 2> & weights,
+    float operator () (const Stump & stump, MLDB::MatrixRef<float, 2> & weights,
                        const Training_Data & data) const
     {
         for (unsigned m = 0;  m < data.example_count();  ++m) {
@@ -31,7 +31,7 @@ struct Update_Weights_Basic {
                 = stump.predict(data.data[m]->features);
             int corr = data.data[m]->label;
             
-            for (unsigned l = 0;  l < weights.shape()[1];  ++l) {
+            for (unsigned l = 0;  l < weights.dim(1);  ++l) {
                 float prediction = predictions[l];
                 weights[m][l] = loss(l, corr, prediction, weights[m][l]);
                 total += weights[m][l];
@@ -39,7 +39,7 @@ struct Update_Weights_Basic {
         }
 
         /* If we had a 1d weights vector, we need to double the total. */
-        if (nl == 2 && weights.shape()[1] == 1) total *= 2.0;
+        if (nl == 2 && weights.dim(1) == 1) total *= 2.0;
         
         return total;
     }
@@ -100,7 +100,7 @@ struct Boosting_Loss_Test {
 
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting__boosted_stumps_testing_h__ */

@@ -18,7 +18,7 @@
 using namespace std;
 using namespace MLDB::DB;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -400,4 +400,4 @@ validate() const
     // Default does none
 }
 
-} // namespace ML
+} // namespace MLDB

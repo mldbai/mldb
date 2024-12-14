@@ -19,13 +19,13 @@
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 using namespace MLDB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -278,7 +278,7 @@ std::string expect_feature_name(ParseContext & c)
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB
 
 
 

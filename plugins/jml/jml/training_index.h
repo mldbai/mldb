@@ -15,7 +15,7 @@
 #include "training_index_iterators.h"
 #include "mldb/utils/buckets.h"
 
-namespace ML {
+namespace MLDB {
 
 /** This is the default number of buckets to use.  This tells us how many
     distinct buckets to turn a continuous variable into when doing the
@@ -191,4 +191,4 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB

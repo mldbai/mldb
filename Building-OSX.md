@@ -33,7 +33,7 @@ automatically available from the system, or installed here.  (We aim to make the
 in particular remove the dependency on `boost` eventually).
 
 ```
-brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.12 snappy v8 xz yaml-cpp libb2 sccache libgit2
+brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.12 snappy v8 xz yaml-cpp libb2 sccache libgit2 catch2
 ```
 
 Some of the Python dependencies also require a Rust compiler to build:

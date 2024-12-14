@@ -17,7 +17,7 @@
 
 using namespace std;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -322,5 +322,5 @@ import(const Feature_Space & from)
 
 
 
-} // namespace ML
+} // namespace MLDB
 

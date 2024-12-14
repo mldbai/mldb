@@ -16,7 +16,7 @@
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "feature_transform.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -74,6 +74,6 @@ private:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __boosting__transform_list_h__ */

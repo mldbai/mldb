@@ -30,7 +30,7 @@
 #include <iomanip>
 #include <set>
 
-using namespace ML;
+using namespace MLDB;
 using namespace std;
 using namespace MLDB;
 
@@ -106,13 +106,13 @@ BOOST_AUTO_TEST_CASE( test_vectors_to_distances )
         boost::assign::list_of<float>(-1.0)(2.0)(-2.0)(0.0),
         boost::assign::list_of<float>(1.0)(0.0)(-1.0)(4.0) };
 
-    boost::multi_array<float, 2> vectors(boost::extents[4][4]);
+    MLDB::MatrixRef<float, 2> vectors(MLDB::extents[4][4]);
 
     for (unsigned i = 0;  i < 4;  ++i)
         for (unsigned j = 0;  j < 4;  ++j) 
             vectors[i][j] = vecs[i].at(j);
 
-    boost::multi_array<float, 2> distances
+    MLDB::MatrixRef<float, 2> distances
         = vectors_to_distances(vectors);
 
     double tolerance = 0.00001;
@@ -237,7 +237,7 @@ BOOST_AUTO_TEST_CASE( test_small )
     int nd = 784;
     int nx = 100;
 
-    boost::multi_array<float, 2> data(boost::extents[nx][nd]);
+    MLDB::MatrixRef<float, 2> data(MLDB::extents[nx][nd]);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -252,12 +252,12 @@ BOOST_AUTO_TEST_CASE( test_small )
     cerr << "done." << endl;
 
     cerr << "converting to distances...";
-    boost::multi_array<float, 2> distances
+    MLDB::MatrixRef<float, 2> distances
         = vectors_to_distances(data);
     cerr << "done." << endl;
 
     cerr << "converting to probabilities...";
-    boost::multi_array<float, 2> probabilities
+    MLDB::MatrixRef<float, 2> probabilities
         = distances_to_probabilities(distances,
                                      1e-5 /* tolerance */,
                                      20.0 /* perplexity */);
@@ -296,10 +296,10 @@ BOOST_AUTO_TEST_CASE( test_small )
     for (unsigned i = 0;  i < 100;  ++i)
         BOOST_CHECK_CLOSE(probabilities[0][i], expected[i], tolerance);
 
-    boost::multi_array<float, 2> reduction MLDB_UNUSED
+    MLDB::MatrixRef<float, 2> reduction MLDB_UNUSED
         = tsne(probabilities, 2);
 
-    boost::multi_array<float, 2> reductionAppox MLDB_UNUSED
+    MLDB::MatrixRef<float, 2> reductionAppox MLDB_UNUSED
         = tsne(probabilities, 2);
 
     // Now try to rerun t-SNE on a point that is identical to one of the others
@@ -307,7 +307,7 @@ BOOST_AUTO_TEST_CASE( test_small )
     for (unsigned i = 1;  i < nx;  ++i)
         probs[i - 1] = probabilities[0][i];
 
-    boost::multi_array<float, 2> reduction2(boost::extents[nx - 1][2]);
+    MLDB::MatrixRef<float, 2> reduction2(MLDB::extents[nx - 1][2]);
 
     for (unsigned i = 1;  i < nx;  ++i) {
         for (unsigned j = 0;  j < 2;  ++j) {
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE( test_vantage_point_tree )
     int nd = 784;
     int nx = 2500;
 
-    boost::multi_array<float, 2> data(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> data(MLDB::extents[nx][nd]);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -432,7 +432,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     int nd = 784;
     int nx = 100;
 
-    boost::multi_array<float, 2> data(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> data(MLDB::extents[nx][nd]);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -448,12 +448,12 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
 
 #if 0
     cerr << "converting to distances...";
-    boost::multi_array<float, 2> distances
+    MLDB::Matrix<float, 2> distances
         = vectors_to_distances(data);
     cerr << "done." << endl;
 
     cerr << "converting to probabilities...";
-    boost::multi_array<float, 2> probabilities
+    MLDB::Matrix<float, 2> probabilities
         = distances_to_probabilities(distances,
                                      1e-5 /* tolerance */,
                                      20.0 /* perplexity */);
@@ -463,7 +463,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     std::unique_ptr<VantagePointTree> vpTree;
     std::unique_ptr<Quadtree> qtree;
 
-    boost::multi_array<float, 2> reduction
+    MLDB::Matrix<float, 2> reduction
         = tsneApproxFromCoords(data, 2, TSNE_Params(),
                                TSNE_Callback(), &vpTree, &qtree);
     
@@ -478,7 +478,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     for (unsigned i = 1;  i < nx;  ++i)
         probs[i - 1] = probabilities[0][i];
 
-    boost::multi_array<float, 2> reduction2(boost::extents[nx - 1][2]);
+    MLDB::Matrix<float, 2> reduction2(MLDB::extents[nx - 1][2]);
 
     for (unsigned i = 1;  i < nx;  ++i) {
         for (unsigned j = 0;  j < 2;  ++j) {
@@ -517,7 +517,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     int nd = 784;
     int nx = 2500;
 
-    boost::multi_array<float, 2> data(boost::extents[nx][nd]);
+    MLDB::Matrix<float, 2> data(MLDB::extents[nx][nd]);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -533,22 +533,22 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
 
     // Step 1: perform a dimensionality reduction via a SVD on the data
     //cerr << "performing SVD...";
-    //boost::multi_array<float, 2> data_reduced
+    //MLDB::Matrix<float, 2> data_reduced
     //    = pca(data, 50);
     //cerr << "done." << endl;
 
     cerr << "converting to distances...";
-    boost::multi_array<float, 2> distances
+    MLDB::Matrix<float, 2> distances
         = vectors_to_distances(data);
     cerr << "done." << endl;
 
     cerr << "converting to probabilities...";
-    boost::multi_array<float, 2> probabilities MLDB_UNUSED
+    MLDB::Matrix<float, 2> probabilities MLDB_UNUSED
         = distances_to_probabilities(distances);
     cerr << "done." << endl;
 
 #if 0
-    boost::multi_array<float, 2> probabilities2
+    MLDB::Matrix<float, 2> probabilities2
         = probabilities + transpose(probabilities);
 
     
@@ -564,7 +564,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
         }
     }
 
-    boost::multi_array<float, 2> reduction MLDB_UNUSED
+    MLDB::Matrix<float, 2> reduction MLDB_UNUSED
         = tsneApproxFromSparse(sparseProbs, 2);
 #endif
 
@@ -574,14 +574,14 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     params.numNeighbours = 60;//2499;
 
     cerr << "doing sparse t-SNE" << endl;
-    boost::multi_array<float, 2> reduction MLDB_UNUSED
+    MLDB::Matrix<float, 2> reduction MLDB_UNUSED
         = tsneApproxFromCoords(data, 2, params);
 
     cerr << t.elapsed() << endl;
 
     t.restart();
 
-    boost::multi_array<float, 2> reduction2 MLDB_UNUSED
+    MLDB::Matrix<float, 2> reduction2 MLDB_UNUSED
         = tsne(probabilities, 2);
 
     cerr << t.elapsed() << endl;

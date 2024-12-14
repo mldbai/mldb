@@ -10,7 +10,7 @@
 #pragma once
 
 #include <vector>
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "training_data.h"
 #include "feature_set.h"
 #include "mldb/arch/exception.h"
@@ -23,7 +23,7 @@
 #include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/base/parallel.h"
 
-namespace ML {
+namespace MLDB {
 
 extern size_t num_real, num_boolean, num_presence, num_categorical;
 extern size_t num_bucketed, num_non_bucketed;
@@ -45,8 +45,8 @@ inline bool z_equal(double z1, double z2, double tolerance = 1e-3)
 template<typename T>
 struct LW_Array {
     template<typename T2>
-    LW_Array(const boost::multi_array<T2, 2> & array)
-        : base(array.data()), stride(array.shape()[1]) {}
+    LW_Array(const MLDB::MatrixRef<T2, 2> & array)
+        : base(array.data()), stride(array.dim(1)) {}
                                      
     T * base;
     size_t stride;
@@ -138,9 +138,9 @@ struct LW_Array;
     value.  In this case, we use an advance of 0 which keeps us pointing
     to the same value.
 */
-MLDB_ALWAYS_INLINE int get_advance(const boost::multi_array<float, 2> & weights)
+MLDB_ALWAYS_INLINE int get_advance(const MLDB::MatrixRef<float, 2> & weights)
 {
-    return (weights.shape()[1] == 1 ? 0 : 1);
+    return (weights.dim(1) == 1 ? 0 : 1);
 }
 
 template<class T>
@@ -528,7 +528,7 @@ struct Stump_Trainer {
                             For a regression problem, there is one weight
                             per sample.  Must be accessible via the syntax
                             weights[ex][label].  Normally this will be a
-                            boost::multi_array<float, 2>.
+                            MLDB::MatrixRef<float, 2>.
 
         \returns            The W object with all weight in the MISSING
                             buckets, distributed according to weights and
@@ -589,7 +589,7 @@ struct Stump_Trainer {
                             For a regression problem, there is one weight
                             per sample.  Must be accessible via the syntax
                             weights[ex][label].  Normally this will be a
-                            boost::multi_array<float, 2>.
+                            MLDB::MatrixRef<float, 2>.
         \param ex_weights   Array of weights for each sample.  The weights
                             must be accessible via the syntax ex_weights[ex].
                             Normally, this will be either a
@@ -1243,4 +1243,4 @@ struct Stump_Trainer {
 };
 
 
-} // namespace ML
+} // namespace MLDB

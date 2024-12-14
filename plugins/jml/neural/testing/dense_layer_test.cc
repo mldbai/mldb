@@ -23,7 +23,7 @@
 #include "bprop_test.h"
 #include "mldb/arch/exception_handler.h"
 
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 using namespace std;
 
@@ -44,8 +44,8 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0a )
     layer2.weights[0][0] -= 1.0;
     BOOST_CHECK(layer != layer2);
 
-    BOOST_CHECK_EQUAL(layer.weights.shape()[0], ni);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[1], no);
+    BOOST_CHECK_EQUAL(layer.weights.dim(0), ni);
+    BOOST_CHECK_EQUAL(layer.weights.dim(1), no);
     BOOST_CHECK_EQUAL(layer.bias.size(), no);
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
@@ -58,8 +58,8 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0b )
 {
     Thread_Context context;
     Dense_Layer<float> layer("test", 20, 40, TF_TANH, MV_INPUT, context);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[0], 20);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[1], 40);
+    BOOST_CHECK_EQUAL(layer.weights.dim(0), 20);
+    BOOST_CHECK_EQUAL(layer.weights.dim(1), 40);
     BOOST_CHECK_EQUAL(layer.bias.size(), 40);
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 20);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);
@@ -71,8 +71,8 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0c )
 {
     Thread_Context context;
     Dense_Layer<float> layer("test", 20, 40, TF_IDENTITY, MV_DENSE, context);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[0], 20);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[1], 40);
+    BOOST_CHECK_EQUAL(layer.weights.dim(0), 20);
+    BOOST_CHECK_EQUAL(layer.weights.dim(1), 40);
     BOOST_CHECK_EQUAL(layer.bias.size(), 40);
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 800);
@@ -84,8 +84,8 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_dense_layer0d )
 {
     Thread_Context context;
     Dense_Layer<float> layer("test", 20, 40, TF_LOGSIG, MV_NONE, context);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[0], 20);
-    BOOST_CHECK_EQUAL(layer.weights.shape()[1], 40);
+    BOOST_CHECK_EQUAL(layer.weights.dim(0), 20);
+    BOOST_CHECK_EQUAL(layer.weights.dim(1), 40);
     BOOST_CHECK_EQUAL(layer.bias.size(), 40);
     BOOST_CHECK_EQUAL(layer.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.missing_activations.num_elements(), 0);

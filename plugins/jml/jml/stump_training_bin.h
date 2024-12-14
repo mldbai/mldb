@@ -27,7 +27,7 @@
 #include "split_fwd.h"
 #include "mldb/utils/fixed_point_accum.h"
 
-namespace ML {
+namespace MLDB {
 
 extern double non_missing_ticks;
 extern size_t non_missing_calls;
@@ -258,4 +258,4 @@ struct Z_binsym {
 };
 
 
-} // namespace ML
+} // namespace MLDB

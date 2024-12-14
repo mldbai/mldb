@@ -11,11 +11,11 @@
 #include "perceptron_defs.h"
 #include "mldb/plugins/jml/jml/thread_context.h"
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "parameters.h"
 #include "transfer_function.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -614,4 +614,4 @@ inline std::ostream & operator << (std::ostream & stream, const Layer & layer)
     return stream << layer.print();
 }
 
-} // namespace ML
+} // namespace MLDB

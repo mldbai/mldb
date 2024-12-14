@@ -19,7 +19,7 @@ using namespace MLDB::DB;
 
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -59,7 +59,7 @@ std::string Transformed_Classifier::print() const
     return "Transformed_Classifier";
 }
 
-std::vector<ML::Feature> Transformed_Classifier::all_features() const
+std::vector<MLDB::Feature> Transformed_Classifier::all_features() const
 {
     return transformer_.features_for(classifier_.all_features());
 }
@@ -147,5 +147,5 @@ Register_Factory<Classifier_Impl, Transformed_Classifier>
 } // file scope
 
 
-} // namespace ML
+} // namespace MLDB
 

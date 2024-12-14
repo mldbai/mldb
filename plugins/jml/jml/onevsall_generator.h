@@ -12,7 +12,7 @@
 #include "classifier_generator.h"
 #include "onevsall.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -68,6 +68,6 @@ public:
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 

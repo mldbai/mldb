@@ -16,7 +16,7 @@
 #include "mldb/base/exc_assert.h"
 
 
-namespace ML {
+namespace MLDB {
 
 /** This is the core of the predict algorithm.  It is parameterised by how
     it updates its results, which allows us to reuse the same code for both
@@ -158,5 +158,5 @@ predict_core(const Feature_Set & features, const Results & results) const
 #endif
 }
 
-} // namespace ML
+} // namespace MLDB
 

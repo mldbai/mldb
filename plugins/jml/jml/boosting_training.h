@@ -9,11 +9,11 @@
 
 #pragma once
 
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "training_data.h"
 #include "stump.h"
 
-namespace ML {
+namespace MLDB {
 
 /** This enum is used to control the cost function that is used.  It is
     passed under the key "cost_function" in the training params. */
@@ -25,12 +25,12 @@ enum Cost_Function {
 /** Update the weights which we have been maintaining for a set of data,
     using the last decision stump learned.  This can remove an O(n) from
     the iterative training complexity. */
-void update_scores(boost::multi_array<float, 2> & example_scores,
+void update_scores(MLDB::MatrixRef<float, 2> & example_scores,
                    const Training_Data & data,
                    const Stump & stump,
                    const Optimization_Info & opt_info);
 
-void update_scores(boost::multi_array<float, 2> & example_scores,
+void update_scores(MLDB::MatrixRef<float, 2> & example_scores,
                    const Training_Data & data,
                    const Classifier_Impl & classifier,
                    const Optimization_Info & opt_info);
@@ -38,18 +38,18 @@ void update_scores(boost::multi_array<float, 2> & example_scores,
 /** Update the weights which we have been maintaining for a set of data,
     using the set of last decision stumps learned.  This can remove an
     O(n) from the iterative training complexity. */
-void update_scores(boost::multi_array<float, 2> & example_scores,
+void update_scores(MLDB::MatrixRef<float, 2> & example_scores,
                    const Training_Data & data,
                    const std::vector<Stump> & stumps,
                    const std::vector<Optimization_Info> & opt_info);
 
-void update_weights(boost::multi_array<float, 2> & weights,
+void update_weights(MLDB::MatrixRef<float, 2> & weights,
                     const Stump & stump,
                     const Training_Data & data,
                     Cost_Function cost,
                     bool bin_sym);
 
-void update_weights(boost::multi_array<float, 2> & weights,
+void update_weights(MLDB::MatrixRef<float, 2> & weights,
                     const std::vector<Stump> & stumps,
                     const std::vector<Optimization_Info> & opt_info,
                     const distribution<float> & cl_weights,
@@ -57,6 +57,6 @@ void update_weights(boost::multi_array<float, 2> & weights,
                     Cost_Function cost,
                     bool bin_sym);
 
-} // namespace ML
+} // namespace MLDB
 
-DECLARE_ENUM_INFO(ML::Cost_Function, 2);
+DECLARE_ENUM_INFO(MLDB::Cost_Function, 2);

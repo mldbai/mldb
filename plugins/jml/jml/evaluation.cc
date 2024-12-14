@@ -15,7 +15,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 std::string Correctness::print() const
 {
@@ -108,16 +108,16 @@ accuracy(const std::vector<distribution<float> > & output,
 }
 
 float 
-accuracy(const boost::multi_array<float, 2> & output,
+accuracy(const MLDB::MatrixRef<float, 2> & output,
          const Training_Data & data,
          const Feature & label,
          const distribution<float> & example_weights)
 {
-    unsigned nx = output.shape()[0];
+    unsigned nx = output.dim(0);
     if (nx != data.example_count())
         throw Exception("accuracy: data set and output size don't match");
 
-    unsigned nl = output.shape()[1];
+    unsigned nl = output.dim(1);
     /* TODO: put this check back in */
     //if (nl != label_count_)
     //    throw Exception("accuracy: data set and output labels differ");
@@ -159,5 +159,5 @@ accuracy(const boost::multi_array<float, 2> & output,
     return result;
 }
 
-} // namespace ML
+} // namespace MLDB
 

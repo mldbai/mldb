@@ -19,7 +19,7 @@
 #include <boost/assign/list_of.hpp>
 #include <limits>
 
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 using namespace std;
 

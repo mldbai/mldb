@@ -19,14 +19,13 @@
 #include "mldb/plugins/jml/algebra/lapack.h"
 #include <cmath>
 #include "mldb/types/enum_description.h"
-#include <boost/timer/timer.hpp>
+#include "mldb/arch/timers.h"
 
 using namespace std;
-using namespace ML;
 
 __thread std::ostream * debug_irls = 0;
 
-namespace ML {
+namespace MLDB {
 
 double erf(double x)
 {
@@ -40,20 +39,20 @@ double erfinv(double y)
     //return std::erfinv(y);
 }
 
-} // namespace ML
+} // namespace MLDB
 
-namespace ML {
+namespace MLDB {
 
-DEFINE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, ML::Link_Function);
+DEFINE_ENUM_DESCRIPTION_NAMED(LinkFunctionDescription, MLDB::Link_Function);
 
 LinkFunctionDescription::
 LinkFunctionDescription()
 {
-    addValue("LOGIT", ML::LOGIT, "Logit, good generic link for probabilistic");
-    addValue("PROBIT", ML::PROBIT, "Probit, advanced usage");
-    addValue("COMP_LOG_LOG", ML::COMP_LOG_LOG, "Also good for probabilistic");
-    addValue("LINEAR", ML::LINEAR, "Linear; makes it solve linear least squares (identity)");
-    addValue("LOG", ML::LOG, "Logarithm; good for transforming the output of boosting");
+    addValue("LOGIT", MLDB::LOGIT, "Logit, good generic link for probabilistic");
+    addValue("PROBIT", MLDB::PROBIT, "Probit, advanced usage");
+    addValue("COMP_LOG_LOG", MLDB::COMP_LOG_LOG, "Also good for probabilistic");
+    addValue("LINEAR", MLDB::LINEAR, "Linear; makes it solve linear least squares (identity)");
+    addValue("LOG", MLDB::LOG, "Logarithm; good for transforming the output of boosting");
 }
 
 std::string print(Regularization regularization)
@@ -91,12 +90,12 @@ __thread std::ostream * debug_remove_dependent = 0;
 __thread bool check_remove_dependent = 0;
 
 template<class FloatIn, class FloatCalc>
-vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
+vector<int> remove_dependent_impl(MLDB::Matrix<FloatIn, 2> & x,
                                   std::vector<distribution<FloatCalc> > & y,
                                   double tolerance)
 {
-    boost::timer::cpu_timer t;
-    size_t nrows = x.shape()[0], ncols = x.shape()[1];
+    //Timer t;
+    size_t nrows = x.dim(0), ncols = x.dim(1);
     /* Perform an orthogonalization to determine which variables are
        linearly dependent.  This procedure uses the Modified Gram-Schmidt
        process.
@@ -238,12 +237,11 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
     if (nrows2 < nrows) {
         /* We have removed some columns, so we need to rearrange our
            matrix. */
-        boost::multi_array<FloatIn, 2> x2(boost::extents[nrows2][ncols]);
+        MLDB::Matrix<FloatIn, 2> x2(MLDB::extents[nrows2][ncols]);
         for (unsigned i = 0;  i < nrows2;  ++i)
-            for (unsigned j = 0;  j < ncols;  ++j)
-                x2[i][j] = x[source[i]][j];
+            x2[i].assign(x[source[i]]);
         
-        swap_multi_arrays(x, x2);
+        x.swap(x2);
 
         /* Same for the y matrix.  We remove columns which are dependent. */
         vector<distribution<FloatCalc> > y2(nrows, distribution<FloatCalc>(nrows2, 0.0));
@@ -254,7 +252,7 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
     }
 
     //cerr << "remove_dependent: " << nrows << "x" << ncols << ": " 
-    //     << t.elapsed().wall << "s" << endl;
+    //     << t.elapsed_wall() << "s" << endl;
     //cerr << "dest = " << dest << endl;
 
     //for (unsigned i = 0;  i < nrows;  ++i) {
@@ -265,25 +263,25 @@ vector<int> remove_dependent_impl(boost::multi_array<FloatIn, 2> & x,
 }
 
 template vector<int>
-remove_dependent_impl(boost::multi_array<float, 2> & x,
+remove_dependent_impl(MLDB::Matrix<float, 2> & x,
                       std::vector<distribution<float> > & y,
                       double tolerance);
 template vector<int>
-remove_dependent_impl(boost::multi_array<float, 2> & x,
+remove_dependent_impl(MLDB::Matrix<float, 2> & x,
                       std::vector<distribution<double> > & y,
                       double tolerance);
 template vector<int>
-remove_dependent_impl(boost::multi_array<double, 2> & x,
+remove_dependent_impl(MLDB::Matrix<double, 2> & x,
                       std::vector<distribution<double> > & y,
                       double tolerance);
 
-vector<int> remove_dependent(boost::multi_array<double, 2> & x)
+vector<int> remove_dependent(MLDB::Matrix<double, 2> & x)
 {
     vector<distribution<double> > y;
     return remove_dependent_impl(x, y);
 }
 
-vector<int> remove_dependent(boost::multi_array<float, 2> & x)
+vector<int> remove_dependent(MLDB::Matrix<float, 2> & x)
 {
     vector<distribution<float> > y;
     return remove_dependent_impl(x, y);
@@ -301,7 +299,7 @@ Regressor::
 
 distribution<double>
 Regressor::
-calc_scaled(const boost::multi_array<double, 2> & A,
+calc_scaled(const MLDB::MatrixRef<double, 2> & A,
             const distribution<double> & aScale,
             const distribution<double> & b) const
 {
@@ -310,7 +308,7 @@ calc_scaled(const boost::multi_array<double, 2> & A,
 
 distribution<float>
 Regressor::
-calc_scaled(const boost::multi_array<float, 2> & A,
+calc_scaled(const MLDB::MatrixRef<float, 2> & A,
             const distribution<float> & aScale,
             const distribution<float> & b) const
 {
@@ -324,7 +322,7 @@ Least_Squares_Regressor::
 
 distribution<float>
 Least_Squares_Regressor::
-calc(const boost::multi_array<float, 2> & A,
+calc(const MLDB::MatrixRef<float, 2> & A,
      const distribution<float> & b) const
 {
     return least_squares(A, b);
@@ -332,7 +330,7 @@ calc(const boost::multi_array<float, 2> & A,
 
 distribution<double>
 Least_Squares_Regressor::
-calc(const boost::multi_array<double, 2> & A,
+calc(const MLDB::MatrixRef<double, 2> & A,
      const distribution<double> & b) const
 {
     return least_squares(A, b);
@@ -355,7 +353,7 @@ Ridge_Regressor::
 
 distribution<float>
 Ridge_Regressor::
-calc(const boost::multi_array<float, 2> & A,
+calc(const MLDB::MatrixRef<float, 2> & A,
      const distribution<float> & b) const
 {
     return ridge_regression(A, b, lambda);
@@ -363,7 +361,7 @@ calc(const boost::multi_array<float, 2> & A,
 
 distribution<double>
 Ridge_Regressor::
-calc(const boost::multi_array<double, 2> & A,
+calc(const MLDB::MatrixRef<double, 2> & A,
      const distribution<double> & b) const
 {
     return ridge_regression(A, b, lambda);
@@ -371,7 +369,7 @@ calc(const boost::multi_array<double, 2> & A,
 
 distribution<double>
 Ridge_Regressor::
-calc_scaled(const boost::multi_array<double, 2> & A,
+calc_scaled(const MLDB::MatrixRef<double, 2> & A,
             const distribution<double> & aScale,
             const distribution<double> & b) const
 {
@@ -380,7 +378,7 @@ calc_scaled(const boost::multi_array<double, 2> & A,
 
 distribution<float>
 Ridge_Regressor::
-calc_scaled(const boost::multi_array<float, 2> & A,
+calc_scaled(const MLDB::MatrixRef<float, 2> & A,
             const distribution<float> & aScale,
             const distribution<float> & b) const
 {
@@ -410,7 +408,7 @@ Lasso_Regressor::
 
 distribution<float>
 Lasso_Regressor::
-calc(const boost::multi_array<float, 2> & A,
+calc(const MLDB::MatrixRef<float, 2> & A,
      const distribution<float> & b) const
 {
     return lasso_regression(A, b, lambda, maxIter, epsilon);
@@ -418,7 +416,7 @@ calc(const boost::multi_array<float, 2> & A,
 
 distribution<double>
 Lasso_Regressor::
-calc(const boost::multi_array<double, 2> & A,
+calc(const MLDB::MatrixRef<double, 2> & A,
      const distribution<double> & b) const
 {
     return lasso_regression(A, b, lambda, maxIter, epsilon);
@@ -431,7 +429,7 @@ calc(const boost::multi_array<double, 2> & A,
 template<class Float>
 distribution<Float>
 perform_irls_unconditioned(const distribution<Float> & correct,
-                           const boost::multi_array<Float, 2> & outputs,
+                           const MLDB::MatrixRef<Float, 2> & outputs,
                            const distribution<Float> & w,
                            Link_Function link_function,
                            Regularization regularization,
@@ -441,7 +439,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
 {
     int nx = correct.size();
 
-    if (outputs.shape()[1] != nx)
+    if (outputs.dim(1) != nx)
         throw Exception("wrong shape for outputs");
 
     distribution<Float> trained;
@@ -493,7 +491,7 @@ perform_irls_unconditioned(const distribution<Float> & correct,
 template<class Float>
 distribution<Float>
 perform_irls_conditioned(const distribution<Float> & correct,
-                              const boost::multi_array<Float, 2> & outputs,
+                              const MLDB::MatrixRef<Float, 2> & outputs,
                               const distribution<Float> & w,
                               Link_Function link_function,
                               Regularization regularization, 
@@ -502,9 +500,9 @@ perform_irls_conditioned(const distribution<Float> & correct,
                               Float epsilon)
 {
     int nx = correct.size();
-    int nv = outputs.shape()[0];
+    int nv = outputs.dim(0);
 
-    if (outputs.shape()[1] != nx)
+    if (outputs.dim(1) != nx)
         throw Exception("wrong shape for outputs");
 
     bool verify = false;
@@ -519,17 +517,17 @@ perform_irls_conditioned(const distribution<Float> & correct,
         };
 
     distribution<Float> svalues1
-        (std::min(outputs.shape()[0], outputs.shape()[1]) + 1);
+        (std::min(outputs.dim(0), outputs.dim(1)) + 1);
 
     if (verify) {
-        boost::multi_array<Float, 2> outputs2 = outputs;
+        MLDB::MatrixRef<Float, 2> outputs2 = outputs;
 
         svalues1.push_back(0.0);
 
         int result = LAPack::gesdd("N",
-                                   outputs2.shape()[1],
-                                   outputs2.shape()[0],
-                                   outputs2.data(), outputs2.shape()[1], 
+                                   outputs2.dim(1),
+                                   outputs2.dim(0),
+                                   outputs2.data(), outputs2.dim(1), 
                                    &svalues1[0], 0, 1, 0, 1);
     
         if (result != 0)
@@ -539,7 +537,7 @@ perform_irls_conditioned(const distribution<Float> & correct,
         doneTimer("verify");
     }
     
-    boost::multi_array<Float, 2> outputs3 = outputs;
+    MLDB::MatrixRef<Float, 2> outputs3 = outputs;
 
     /* Factorize the matrix with partial pivoting.  This allows us to find the
        largest number of linearly independent columns possible. */
@@ -547,9 +545,9 @@ perform_irls_conditioned(const distribution<Float> & correct,
     distribution<Float> tau(nv, 0.0);
     distribution<int> permutations(nv, 0);
     
-    int res = LAPack::geqp3(outputs3.shape()[1],
-                            outputs3.shape()[0],
-                            outputs3.data(), outputs3.shape()[1],
+    int res = LAPack::geqp3(outputs3.dim(1),
+                            outputs3.dim(0),
+                            outputs3.data(), outputs3.dim(1),
                             &permutations[0],
                             &tau[0]);
     
@@ -579,7 +577,7 @@ perform_irls_conditioned(const distribution<Float> & correct,
     for (unsigned i = 0;  i < nkeep;  ++i)
         new_loc[permutations[i]] = i;
 
-    boost::multi_array<Float, 2> outputs_reduced(boost::extents[nkeep][nx]);
+    MLDB::Matrix<Float, 2> outputs_reduced(MLDB::extents[nkeep][nx]);
     for (unsigned i = 0;  i < nx;  ++i)
         for (unsigned j = 0;  j < nv;  ++j)
             if (new_loc[j] != -1)
@@ -599,8 +597,8 @@ perform_irls_conditioned(const distribution<Float> & correct,
     cerr << "correct.size() = " << correct.size() << endl;
     cerr << "w.total() = " << w.total() << endl;
 
-    cerr << "outputs_reduced: " << outputs_reduced.shape()[0] << "x"
-         << outputs_reduced.shape()[1] << endl;
+    cerr << "outputs_reduced: " << outputs_reduced.dim(0) << "x"
+         << outputs_reduced.dim(1) << endl;
 #endif
 
     distribution<Float> trained = perform_irls_unconditioned(correct, outputs_reduced,
@@ -621,8 +619,8 @@ perform_irls_conditioned(const distribution<Float> & correct,
     if (abs(parameters).max() > 1000.0) {
 
         distribution<Float> svalues_reduced
-            (std::min(outputs_reduced.shape()[0],
-                      outputs_reduced.shape()[1]));
+            (std::min(outputs_reduced.dim(0),
+                      outputs_reduced.dim(1)));
         
 #if 0
         filter_ostream out(format("good.model.%d.txt.gz", model));
@@ -634,8 +632,8 @@ perform_irls_conditioned(const distribution<Float> & correct,
         out << "permuations " << permutations << endl;
         out << "svalues1 " << svalues1 << endl;
         out << "correct " << correct << endl;
-        out << "outputs_reduced: " << outputs_reduced.shape()[0] << "x"
-            << outputs_reduced.shape()[1] << endl;
+        out << "outputs_reduced: " << outputs_reduced.dim(0) << "x"
+            << outputs_reduced.dim(1) << endl;
         
         for (unsigned i = 0;  i < nx;  ++i) {
             out << "example " << i << ": ";
@@ -645,10 +643,10 @@ perform_irls_conditioned(const distribution<Float> & correct,
         }
 #endif
 
-        int result = LAPack::gesdd("N", outputs_reduced.shape()[1],
-                                   outputs_reduced.shape()[0],
+        int result = LAPack::gesdd("N", outputs_reduced.dim(1),
+                                   outputs_reduced.dim(0),
                                    outputs_reduced.data(),
-                                   outputs_reduced.shape()[1], 
+                                   outputs_reduced.dim(1), 
                                    &svalues_reduced[0], 0, 1, 0, 1);
 
         doneTimer("gesdd");
@@ -681,7 +679,7 @@ perform_irls_conditioned(const distribution<Float> & correct,
 
 distribution<float>
 perform_irls(const distribution<float> & correct,
-             const boost::multi_array<float, 2> & outputs,
+             const MLDB::MatrixRef<float, 2> & outputs,
              const distribution<float> & w,
              Link_Function link_function,
              Regularization regularization,
@@ -700,7 +698,7 @@ perform_irls(const distribution<float> & correct,
 
 distribution<double>
 perform_irls(const distribution<double> & correct,
-             const boost::multi_array<double, 2> & outputs,
+             const MLDB::MatrixRef<double, 2> & outputs,
              const distribution<double> & w,
              Link_Function link_function,
              Regularization regularization,
@@ -719,7 +717,7 @@ perform_irls(const distribution<double> & correct,
 
 distribution<double>
 irls_logit(const distribution<double> & correct,
-           const boost::multi_array<double, 2> & outputs,
+           const MLDB::MatrixRef<double, 2> & outputs,
            const distribution<double> & w,
            const Regressor & regressor)
 {
@@ -729,7 +727,7 @@ irls_logit(const distribution<double> & correct,
 
 distribution<double>
 irls_log(const distribution<double> & correct,
-         const boost::multi_array<double, 2> & outputs,
+         const MLDB::MatrixRef<double, 2> & outputs,
          const distribution<double> & w,
          const Regressor & regressor)
 {
@@ -739,7 +737,7 @@ irls_log(const distribution<double> & correct,
 
 distribution<double>
 irls_linear(const distribution<double> & correct,
-            const boost::multi_array<double, 2> & outputs,
+            const MLDB::MatrixRef<double, 2> & outputs,
             const distribution<double> & w,
             const Regressor & regressor)
 {
@@ -749,7 +747,7 @@ irls_linear(const distribution<double> & correct,
 
 distribution<double>
 irls_probit(const distribution<double> & correct,
-            const boost::multi_array<double, 2> & outputs,
+            const MLDB::MatrixRef<double, 2> & outputs,
             const distribution<double> & w,
             const Regressor & regressor)
 {
@@ -759,7 +757,7 @@ irls_probit(const distribution<double> & correct,
 
 distribution<double>
 irls_complog(const distribution<double> & correct,
-             const boost::multi_array<double, 2> & outputs,
+             const MLDB::MatrixRef<double, 2> & outputs,
              const distribution<double> & w,
              const Regressor & regressor)
 {
@@ -769,7 +767,7 @@ irls_complog(const distribution<double> & correct,
 
 distribution<double>
 run_irls(const distribution<double> & correct,
-         const boost::multi_array<double, 2> & outputs,
+         const MLDB::MatrixRef<double, 2> & outputs,
          const distribution<double> & w, 
          Link_Function func,
          const Regressor & regressor)
@@ -799,7 +797,7 @@ run_irls(const distribution<double> & correct,
 
 distribution<float>
 irls_logit(const distribution<float> & correct,
-           const boost::multi_array<float, 2> & outputs,
+           const MLDB::MatrixRef<float, 2> & outputs,
            const distribution<float> & w,
            const Regressor & regressor)
 {
@@ -809,7 +807,7 @@ irls_logit(const distribution<float> & correct,
 
 distribution<float>
 irls_log(const distribution<float> & correct,
-         const boost::multi_array<float, 2> & outputs,
+         const MLDB::MatrixRef<float, 2> & outputs,
          const distribution<float> & w,
          const Regressor & regressor)
 {
@@ -819,7 +817,7 @@ irls_log(const distribution<float> & correct,
 
 distribution<float>
 irls_linear(const distribution<float> & correct,
-            const boost::multi_array<float, 2> & outputs,
+            const MLDB::MatrixRef<float, 2> & outputs,
             const distribution<float> & w,
             const Regressor & regressor)
 {
@@ -829,7 +827,7 @@ irls_linear(const distribution<float> & correct,
 
 distribution<float>
 irls_probit(const distribution<float> & correct,
-            const boost::multi_array<float, 2> & outputs,
+            const MLDB::MatrixRef<float, 2> & outputs,
             const distribution<float> & w,
             const Regressor & regressor)
 {
@@ -839,7 +837,7 @@ irls_probit(const distribution<float> & correct,
 
 distribution<float>
 irls_complog(const distribution<float> & correct,
-             const boost::multi_array<float, 2> & outputs,
+             const MLDB::MatrixRef<float, 2> & outputs,
              const distribution<float> & w,
              const Regressor & regressor)
 {
@@ -849,7 +847,7 @@ irls_complog(const distribution<float> & correct,
 
 distribution<float>
 run_irls(const distribution<float> & correct,
-         const boost::multi_array<float, 2> & outputs,
+         const MLDB::MatrixRef<float, 2> & outputs,
          const distribution<float> & w, 
          Link_Function func,
          const Regressor & regressor)
@@ -940,28 +938,28 @@ std::ostream & operator << (std::ostream & stream, Link_Function link)
 
 COMPACT_PERSISTENT_ENUM_IMPL(Link_Function);
   
-const Enum_Opt<ML::Link_Function>
-Enum_Info<ML::Link_Function>::OPT[5] = {
-    { "logit",        ML::LOGIT          },
-    { "probit",       ML::PROBIT         },
-    { "comp_log_log", ML::COMP_LOG_LOG   },
-    { "linear",       ML::LINEAR         },
-    { "log",          ML::LOG            } };
+const Enum_Opt<MLDB::Link_Function>
+Enum_Info<MLDB::Link_Function>::OPT[5] = {
+    { "logit",        MLDB::LOGIT          },
+    { "probit",       MLDB::PROBIT         },
+    { "comp_log_log", MLDB::COMP_LOG_LOG   },
+    { "linear",       MLDB::LINEAR         },
+    { "log",          MLDB::LOG            } };
 
-const char * Enum_Info<ML::Link_Function>::NAME
+const char * Enum_Info<MLDB::Link_Function>::NAME
    = "Link_Function";
 
 COMPACT_PERSISTENT_ENUM_IMPL(Regularization);
   
-const Enum_Opt<ML::Regularization>
-Enum_Info<ML::Regularization>::OPT[3] = {
-    { "none", ML::Regularization_none },
-    { "l1",   ML::Regularization_l1 },
-    { "l2",   ML::Regularization_l2 }};
+const Enum_Opt<MLDB::Regularization>
+Enum_Info<MLDB::Regularization>::OPT[3] = {
+    { "none", MLDB::Regularization_none },
+    { "l1",   MLDB::Regularization_l1 },
+    { "l2",   MLDB::Regularization_l2 }};
 
-const char * Enum_Info<ML::Regularization>::NAME
+const char * Enum_Info<MLDB::Regularization>::NAME
    = "Regularization";
 
-} // namespace ML
+} // namespace MLDB
 
 

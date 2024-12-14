@@ -11,7 +11,7 @@ Generic
 * Standardize and fix NaN handling (x < x doesn't work) (DONE)
   * Move from isnan() to ismissing() and check performance of isnan()
 * Least squares: fall back to gelsd if rank deficient in gels (DONE)
-* Use eigen2 matrix and vector classes (stop using boost::multi_array) (NO).  The eigen2 classes have a size limit of 10000 in each dimension and are unuseable.  It's a shame.
+* Use eigen2 matrix and vector classes (stop using MLDB::MatrixRef) (NO).  The eigen2 classes have a size limit of 10000 in each dimension and are unuseable.  It's a shame.
 
 Datasets
 * Deterministic adaptive quantization

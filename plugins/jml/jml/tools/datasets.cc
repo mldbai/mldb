@@ -14,13 +14,13 @@
 #include "mldb/plugins/jml/jml/sparse_features.h"
 #include "mldb/plugins/jml/jml/dense_features.h"
 #include "mldb/plugins/jml/jml/feature_transformer.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/plugins/jml/jml/feature_set_filter.h"
+#include "mldb/arch/timers.h"
 
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 std::ostream & operator << (std::ostream & stream, Disposition d)
 {
@@ -80,7 +80,7 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
     
     /* First, read in all of the data. */
     for (unsigned i = 0;  i < files.size();  ++i) {
-        boost::timer::cpu_timer timer;
+        MLDB::Timer timer;
 
         /* Look for a marker to change the disposition. */
         if (files[i] == "TRAIN") {
@@ -122,7 +122,7 @@ init(const std::vector<std::string> & files, int verbosity, bool profile)
         
         if (profile)
             cerr << "[load dataset '" << files[i] << "': "
-                 << timer.elapsed().wall << "s]" << endl;
+                 << timer.elapsed_wall() << "s]" << endl;
     }
 }
 
@@ -366,4 +366,4 @@ transform(const Feature_Transformer & transformer)
         transform_dataset(testing[i], transformer);
 }
 
-} // namespace ML
+} // namespace MLDB

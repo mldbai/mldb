@@ -11,7 +11,7 @@
 
 #include <mutex>
 
-namespace ML {
+namespace MLDB {
 
 namespace {
 
@@ -339,7 +339,7 @@ struct Bias_Accum {
     }
 };
 
-} // namespace ML
+} // namespace MLDB
 
 
    

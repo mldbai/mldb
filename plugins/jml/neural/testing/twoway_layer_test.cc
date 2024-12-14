@@ -22,7 +22,7 @@
 #include "mldb/arch/exception_handler.h"
 
 
-using namespace ML;
+using namespace MLDB;
 using namespace MLDB::DB;
 using namespace std;
 
@@ -45,8 +45,8 @@ BOOST_AUTO_TEST_CASE( test_serialize_reconstitute_twoway_layer )
     layer2.forward.weights[0][0] -= 1.0;
     BOOST_CHECK(layer != layer2);
 
-    BOOST_CHECK_EQUAL(layer.forward.weights.shape()[0], ni);
-    BOOST_CHECK_EQUAL(layer.forward.weights.shape()[1], no);
+    BOOST_CHECK_EQUAL(layer.forward.weights.dim(0), ni);
+    BOOST_CHECK_EQUAL(layer.forward.weights.dim(1), no);
     BOOST_CHECK_EQUAL(layer.forward.bias.size(), no);
     BOOST_CHECK_EQUAL(layer.forward.missing_replacements.size(), 0);
     BOOST_CHECK_EQUAL(layer.forward.missing_activations.num_elements(), 0);

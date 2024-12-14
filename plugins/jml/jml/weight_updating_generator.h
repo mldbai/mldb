@@ -13,7 +13,7 @@
 
 #include "mldb/plugins/jml/jml/early_stopping_generator.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -31,12 +31,12 @@ public:
     virtual std::shared_ptr<Classifier_Impl>
     generate_and_update(Thread_Context & context,
                         const Training_Data & training_data,
-                        boost::multi_array<float, 2> & weights,
+                        MLDB::Matrix<float, 2> & weights,
                         const std::vector<Feature> & features) const = 0;
 };
 
 
-} // namespace ML
+} // namespace MLDB
 
 
 

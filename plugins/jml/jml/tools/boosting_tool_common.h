@@ -18,7 +18,7 @@
 #include <memory>
 
 
-namespace ML {
+namespace MLDB {
 
 
 class Classifier_Impl;
@@ -85,7 +85,7 @@ void print_data_stats(const Training_Data & data);
 void print_weight_spec(const std::vector<Weight_Spec> & weight_spec,
                        std::shared_ptr<Feature_Space> feature_space);
 
-} // namespace ML
+} // namespace MLDB
 
 
 #endif /* __boosting_tool_common_h__ */

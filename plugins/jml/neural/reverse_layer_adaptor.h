@@ -13,7 +13,7 @@
 
 #include "auto_encoder.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -257,6 +257,6 @@ struct Reverse_Layer_Adaptor : public Auto_Encoder {
 
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__neural__reverse_layer_adaptor_h__ */

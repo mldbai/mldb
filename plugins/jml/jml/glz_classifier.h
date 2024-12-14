@@ -16,7 +16,7 @@
 #include "mldb/plugins/jml/algebra/irls.h"
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -181,7 +181,7 @@ protected:
 
 public:
     virtual Explanation explain(const Feature_Set & feature_set,
-                                const ML::Label & label,
+                                const MLDB::Label & label,
                                 double weight = 1.0,
                                 PredictionContext * context = 0) const;
 
@@ -216,7 +216,7 @@ public:
     std::vector<int> feature_indexes;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 
 

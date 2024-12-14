@@ -31,7 +31,7 @@
 
 
 using namespace std;
-using namespace ML;
+using namespace MLDB;
 
 
 //#if (__GNUC__ < 4) || (__GNUC__ == 4 && __GNUC_MINOR__ <= 6)
@@ -69,7 +69,7 @@ ProbabilizerConfigDescription()
              "the derived columns as a previous step and use a query on that dataset instead.");
     addField("link", &ProbabilizerConfig::link,
              "Link function to use.",
-             ML::LOGIT);
+             MLDB::LOGIT);
     addField("modelFileUrl", &ProbabilizerConfig::modelFileUrl,
              "URL where the model file (with extension '.prb') should be saved. "
              "This file can be loaded by the ![](%%doclink probabilizer function). "
@@ -210,7 +210,7 @@ ProbabilizeFunctionConfigDescription()
 }
 
 struct ProbabilizeFunction::Itl {
-    ML::GLZ_Probabilizer probabilizer;
+    MLDB::GLZ_Probabilizer probabilizer;
 };
 
 ProbabilizeFunction::
@@ -230,7 +230,7 @@ ProbabilizeFunction(MldbEngine * owner,
 
 ProbabilizeFunction::
 ProbabilizeFunction(MldbEngine * owner,
-                   const ML::GLZ_Probabilizer & in)
+                   const MLDB::GLZ_Probabilizer & in)
     : Function(owner, PolyConfig())
 {
     itl.reset(new Itl());
@@ -255,7 +255,7 @@ apply(const FunctionApplier & applier,
       const ExpressionValue & context) const
 {
     ExpressionValue score = context.getColumn(PathElement("score"));
-    float prob  = itl->probabilizer.apply(ML::Label_Dist(1, score.toDouble()))[0];
+    float prob  = itl->probabilizer.apply(MLDB::Label_Dist(1, score.toDouble()))[0];
 
     StructValue result;
     result.emplace_back(PathElement("prob"),

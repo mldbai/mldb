@@ -13,7 +13,7 @@
 
 #include "auto_encoder.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -156,6 +156,6 @@ struct Reconstruct_Layer_Adaptor : public Layer {
     std::shared_ptr<Auto_Encoder> ae_;
 };
 
-} // namespace ML
+} // namespace MLDB
 
 #endif /* __jml__neural__reconstruct_layer_adaptor_h__ */

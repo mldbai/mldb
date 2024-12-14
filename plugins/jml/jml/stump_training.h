@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 #include "mldb/utils/distribution.h"
-#include <boost/multi_array.hpp>
+#include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/arch/exception.h"
 #include <numeric>
 #include "stump.h"
@@ -21,7 +21,7 @@
 #include "split.h"
 #include "mldb/utils/fixed_point_accum.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -48,7 +48,7 @@ namespace ML {
 template<class Float>
 struct W_normalT {
     W_normalT(size_t nl)
-        : data(boost::extents[3][2][nl])
+        : data(MLDB::extents[3][2][nl])
     {
     }
     
@@ -59,7 +59,7 @@ struct W_normalT {
 
     void swap(W_normalT & other)
     {
-        swap_multi_arrays(data, other.data);
+        std::swap(data, other.data);
     }
 
     W_normalT & operator = (const W_normalT & other)
@@ -214,7 +214,7 @@ struct W_normalT {
     }
 
 private:
-    boost::multi_array<Float, 3> data;
+    MLDB::Matrix<Float, 3> data;
 };
 
 //typedef W_normalT<double> W_normal;
@@ -546,4 +546,4 @@ struct C_any {
     Stump::Update alg;
 };
 
-} // namespace ML
+} // namespace MLDB

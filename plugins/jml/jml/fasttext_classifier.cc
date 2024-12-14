@@ -20,7 +20,7 @@
 using namespace std;
 using namespace MLDB::DB;
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -110,7 +110,7 @@ predict(const Feature_Set & infeatures,
 Explanation 
 FastTest_Classifier::
 explain(const Feature_Set & feature_set,
-        const ML::Label & label,
+        const MLDB::Label & label,
         double weight,
         PredictionContext * context) const
 {
@@ -185,7 +185,7 @@ summary() const
 }
 
 
-std::vector<ML::Feature>
+std::vector<MLDB::Feature>
 FastTest_Classifier::
 all_features() const
 {
@@ -358,5 +358,5 @@ Register_Factory<Classifier_Impl, FastTest_Classifier> REGISTER("FASTTEXT");
 
 } // file scope
 
-} // namespace ML
+} // namespace MLDB
 

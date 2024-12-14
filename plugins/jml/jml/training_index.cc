@@ -13,7 +13,6 @@
 #include "mldb/plugins/jml/jml/feature_space.h"
 #include "training_data.h"
 #include "mldb/utils/vector_utils.h"
-#include <boost/timer/timer.hpp>
 #include "mldb/utils/string_functions.h"
 #include "mldb/arch/demangle.h"
 #include "mldb/base/exc_assert.h"
@@ -23,7 +22,7 @@
 using namespace std;
 
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
@@ -60,7 +59,7 @@ Dataset_Index::
 init(const Training_Data & data,
      const std::vector<Feature> & features_)
 {
-    //boost::timer::cpu_timert;
+    //MLDB::Timert;
 
     itl.reset(new Itl());
     itl->feature_space = data.feature_space();
@@ -173,7 +172,7 @@ init(const Training_Data & data,
 
     std::sort(itl->all_features.begin(), itl->all_features.end());
 
-    //cerr << "finalize features: " << t.elapsed().wall << "s" << endl;
+    //cerr << "finalize features: " << t.elapsed_wall() << "s" << endl;
 
     //cerr << "Dataset_Index::init(): " << format("%6.2fs", t.elapsed()) << endl;
 }
@@ -589,5 +588,5 @@ guess_info_categorical(const Feature & feat) const
 }
 
 
-} // namespace ML
+} // namespace MLDB
 

@@ -16,7 +16,7 @@
 #include "plugins/jml/configuration.h"
 #include "output_encoder.h"
 
-namespace ML {
+namespace MLDB {
 
 
 /*****************************************************************************/
