@@ -17,6 +17,7 @@
 #include "mldb/types/map_description.h"
 #include "mldb/types/tuple_description.h"
 #include "mldb/utils/environment.h"
+#include "mldb/utils/to_lower.h"
 #include "mldb/types/pointer_description.h"
 #include "mldb/types/set_description.h"
 #include "sql_expression_operations.h"
@@ -33,8 +34,6 @@
 #include <mutex>
 #include <numeric>
 
-#include <boost/algorithm/string/trim.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
 #include "mldb/utils/split.h"
 
 
@@ -1337,7 +1336,7 @@ parse(ParseContext & context, int currentPrecedence, bool allowUtf8)
         std::string type = matchIdentifier(context, allowUtf8).extractAscii();
         if (type.empty())
             context.exception("Expected type name as identifier");
-        boost::to_lower(type);
+        MLDB::to_lower(type);
 
         skip_whitespace(context);
         context.expect_literal(')');

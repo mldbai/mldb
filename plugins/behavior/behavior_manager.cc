@@ -26,7 +26,6 @@
 #define st_mtim st_mtimespec
 #endif
 
-#include <boost/algorithm/string/split.hpp>
 #include "mldb/compiler/filesystem.h"
 
 #include "mldb/arch/fslock.h"

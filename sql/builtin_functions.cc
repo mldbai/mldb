@@ -20,7 +20,6 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/sql/join_utils.h"
 #include "mldb/sql/binding_contexts.h"
-#include <boost/algorithm/clamp.hpp>
 #include "mldb/ext/edlib/edlib/include/edlib.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/vfs/filter_streams.h"
@@ -3104,7 +3103,7 @@ BoundFunction clamp(const std::vector<BoundSqlExpression> & args)
                         return std::max(val, lower);
                     }
                     else {
-                        CellValue clamped = boost::algorithm::clamp(val, lower, upper);
+                        CellValue clamped = val < lower ? lower : (val > upper ? upper : val);
                         return clamped;
                     }
                 };
