@@ -36,3 +36,5 @@ $(eval $(call test,csv_parsing_test,arch utils base,boost))
 $(eval $(call test,round_test,,boost))
 $(eval $(call test,for_each_line_test,utils log arch block types value_description vfs,boost))
 $(eval $(call test,floating_point_test,utils log arch,boost))
+
+$(eval $(call test,string_algorithm_test,utils arch value_description,catch2))

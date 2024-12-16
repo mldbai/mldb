@@ -12,72 +12,90 @@
 #include <string>
 #include <vector>
 #include <type_traits>
+#include "array_limits.h"
 
 namespace MLDB {
-
-#if 0
-inline size_t get_length(const char * s) { return std::strlen(s); }
-template<typename Container>
-size_t get_length(const Container & container, decltype(std::declval<const Container>().length()) * = 0)
-{
-    return container.length();
-}
-
-template<typename Char>
-size_t get_length(const Char * s)
-{
-    using std::strlen;
-    return strlen(s);
-}
-#endif
 
 template<typename Haystack, typename Needle, typename Replacement>
 void replace_all(Haystack& haystack, Needle&& needle, Replacement&& replacement)
 {
-    using HaystackIt = decltype(haystack.begin());
-    using std::begin;
-    using std::end;
-    using std::size;
+    using namespace std;
+
+    using HaystackIt = decltype(arr_begin(haystack));
 
     std::vector<std::pair<HaystackIt, HaystackIt>> matches;
 
-    const auto nbeg = begin(needle);
-    const auto nend = end(needle);
+    const auto nbeg = arr_begin(needle), nend = arr_end(needle);
+    const auto hbeg = arr_begin(haystack), hend = arr_end(haystack);
+
+#if 0
+    int i = 0;
+    for (auto it = nbeg; it != nend; ++it, ++i) {
+        cerr << "needle[" << i << "] = " << *it << endl;
+    }
+
+    i = 0;
+    for (auto it = hbeg; it != hend; ++it, ++i) {
+        cerr << "haystack[" << i << "] = " << *it << endl;
+    }
+#endif
 
     // Find all places where it matches. We find them all at the beginning so that the replacement
     // doesn't cause any problems.
-    for (auto it = haystack.begin(), end = haystack.end(); it != end; /* no inc */) {
+    //auto last = hbeg;
+    for (auto it = hbeg, end = hend; it != end; /* no inc */) {
         auto it2 = it;
         auto nit = nbeg;
-        for (auto it2 = it; it2 != end && nit != nend && *it == *nit; ++it2, ++nit);
+        for (; it2 != end && nit != nend && *it2 == *nit; ++it2, ++nit);
         if (nit == nend) {
             matches.emplace_back(it, it2);
+            //cerr << "added match " << string(it, it2) << endl;
+            //cerr << "needle distance = " << std::distance(nbeg, nend) << endl;
             it = it2;
+            if (nbeg == nend && it != end) {
+                // Special case: empty needle. We need to make sure we don't get stuck in an infinite loop
+                ++it;
+            }
         }
         else {
             ++it;
         }
+
+        //if (it == last) {
+        //    throw std::logic_error("no progress");
+        //}
+        //last = it;
     }
+
+#if 0
+    // Special case: empty needle and empty haystack. Should be one replacement to match
+    // boost::replace_all
+    if (nbeg == nend && hbeg == hend) {
+        matches.emplace_back(hbeg, hend);
+    }
+#endif
 
     if (matches.empty())
         return;
 
-    // Total length of the replacement
-    size_t replacement_length = haystack.size() + (matches.size() * (size(replacement) - size(needle)));
+    //cerr << "got " << matches.size() << " matches" << endl;
 
-    auto rbeg = begin(replacement);
-    auto rend = end(replacement);
+    // Total length of the replacement
+    size_t replacement_length = arr_size(haystack) + (arr_size(matches) * (arr_size(replacement) - arr_size(needle)));
+
+    auto rbeg = arr_begin(replacement);
+    auto rend = arr_end(replacement);
 
     // TODO: lots of possible optimizations
     typename std::remove_reference_t<Haystack> result;
     result.reserve(replacement_length);
-    auto it = haystack.begin();
+    auto it = hbeg;
     for (auto [mbeg, mend]: matches) {
         result.append(it, mbeg);
         result.append(rbeg, rend);
         it = mend;
     }
-    result.append(it, haystack.end());
+    result.append(it, hend);
 
     std::swap(haystack, result);
 }

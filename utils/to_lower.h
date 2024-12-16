@@ -14,6 +14,8 @@
 
 namespace MLDB {
 
+struct Utf8String;
+
 template<typename String>
 inline void to_lower(String& s)
 {
@@ -21,5 +23,7 @@ inline void to_lower(String& s)
                   "to_lower only works on strings of char");
     std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 }
+
+void to_lower(Utf8String & s); // in string.cc
 
 } // namespace MLDB

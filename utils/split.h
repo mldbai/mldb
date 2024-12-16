@@ -9,6 +9,8 @@
 #pragma once
 
 #include <utility>
+//#include <iostream> // for debugging
+#include "mldb/utils/array_limits.h"
 
 namespace MLDB {
 
@@ -26,15 +28,57 @@ inline bool split_match(const Char c, Match&& match)
     return match(c);
 }
 
-template<typename ResultString, typename String, typename Match>
-void split(std::vector<ResultString> & result, String&& str, Match&& match)
+template<typename It, typename Enable = decltype(declval<It>() < declval<It>())>
+void check_in_range(It it, It end)
 {
-    for (auto it = str.begin(), end = str.end(); it != end; ++it) {
-        auto start = it;
-        while (it != end && !split_match(*it, match)) ++it;
-        result.emplace_back(start, it);
-        if (it != end) ++it;
+    if (it < end || it == end)
+        return;
+    throw std::logic_error("it < end");
+}
+
+template<typename It>
+void check_in_range(It it, It end)
+{
+}
+
+template<typename ResultString, typename String, typename Match>
+void split(std::vector<ResultString> & result, String&& str, Match&& match, bool include_empty_at_end = true)
+{
+    //constexpr bool debug = false;
+
+    //using namespace std;
+
+    //if constexpr (debug) { 
+    //    cerr << "split(\"" << str << "\",\"" << match << "\")" << endl;
+    //    cerr << "distance is " << std::distance(arr_begin(str), arr_end(str)) << endl;
+    //    cerr << "type of str is " << typeid(str).name() << endl;
+    //    cerr << "type of iterator is " << typeid(arr_begin(str)).name() << endl;
+    //}
+
+    auto ibegin = arr_begin(str), iend = arr_end(str), it = ibegin;
+    for (; it != iend; /* no inc */) {
+        //check_in_range(it, iend);
+        //if constexpr (debug) { cerr << "at character \'" << *it << "\' at distance " << std::distance(arr_begin(str), it) << endl; }
+        auto istart = it;
+        while (it != iend && !split_match(*it, match)) ++it;
+        //if constexpr (debug) {
+        //    if (it == iend)
+        //        cerr << "skipped to end" << endl;
+        //    else
+        //        cerr << "  skipped to character \'" << *it << "\' at distance " << std::distance(arr_begin(str), it) << endl;
+        //    cerr << "  distance from istart to it is " << std::distance(istart, it) << endl;
+        //    for (auto istart2 = istart; istart2 != it; ++istart2)
+        //        cerr << "    char '" << *istart2 << "' (" << ((int)*istart2) << ")" << endl;
+        //}
+        result.emplace_back(istart, it);
+        //if constexpr (debug) { cerr << "  added result \"" << result.back() << "\"" << endl; }
+        if (it == iend) break;
+        ++it;
+        if (it == iend && include_empty_at_end)
+            result.emplace_back();
     }
+    if (ibegin == iend && include_empty_at_end)
+        result.emplace_back();
 }
 
 } // namespace MLDB

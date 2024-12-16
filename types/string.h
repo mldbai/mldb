@@ -10,6 +10,8 @@
 #pragma once
 
 #include <string>
+#include <string_view>
+#include <span>
 #include "mldb/ext/utfcpp/source/utf8.h"
 
 
@@ -30,6 +32,8 @@ class Utf8String
 public:
     typedef utf8::iterator<std::string::const_iterator> const_iterator;
     typedef utf8::iterator<std::string::iterator> iterator;
+    using size_type = size_t;
+    using value_type = char32_t;
 
     static Utf8String fromLatin1(const std::string & lat1Str);
     static Utf8String fromLatin1(std::string && lat1Str);
@@ -54,32 +58,49 @@ public:
     /** Copy part of another string, by index. */
     Utf8String(const Utf8String & str, size_t startAt, ssize_t endAt = -1);
 
-    /** Construct from wide string constant. */
-    Utf8String(const wchar_t * str);
-
     /**
      * Take possession of a utf8-encoded string.
      * @param input A string that contains utf8-encoded characters
      * @param check If true we will make sure that the string contains valid
      * utf-8 characters and will throw an exception if invalid characters are found
      */
-    Utf8String(const std::string &in, bool check=true) ;
 
-    Utf8String(std::string &&in, bool check=true) ;
-
-    Utf8String(const char * in, bool check=true) ;
+    Utf8String(const char * in, bool check=true);
     
     Utf8String(const char *start, size_t len, bool check=true);
 
-    Utf8String(const char8_t * in, bool check=true) ;
+    Utf8String(const char *start, const char * end, bool check=true);
+
+    Utf8String(std::string str, bool check = true);
+    Utf8String(const std::wstring & str, bool check = true);
+    Utf8String(const std::u8string & str, bool check = true);
+    Utf8String(const std::u16string & str, bool check = true);
+    Utf8String(const std::u32string & str, bool check = true);
+
+    Utf8String(std::string_view str, bool check = true);
+    Utf8String(std::wstring_view str, bool check = true);
+    Utf8String(std::u8string_view str, bool check = true);
+    Utf8String(std::u16string_view str, bool check = true);
+    Utf8String(std::u32string_view str, bool check = true);
+
+    Utf8String(std::span<char> str, bool check = true);
+    Utf8String(std::span<wchar_t> str, bool check = true);
+    Utf8String(std::span<char8_t> str, bool check = true);
+    Utf8String(std::span<char16_t> str, bool check = true);
+    Utf8String(std::span<char32_t> str, bool check = true);
     
+    Utf8String(const char8_t * in, bool check=true);
+    Utf8String(const wchar_t * in, bool check=true);
+    Utf8String(const char16_t *start, bool check=true);
+    Utf8String(const char32_t *start, bool check=true);
+
     Utf8String(const char8_t *start, size_t len, bool check=true);
 
-    Utf8String(const std::basic_string<char32_t> & str);
+    Utf8String(const char8_t *start, const char8_t * end, bool check=true);
 
-    Utf8String(const const_iterator & first, const const_iterator & last);
+    Utf8String(const const_iterator & first, const const_iterator & last, bool /* check */ = false);
 
-    Utf8String(const iterator & first, const iterator & last);
+    Utf8String(const iterator & first, const iterator & last, bool /* check */ = false);
 
     Utf8String & operator=(Utf8String && str) noexcept
     {
@@ -144,6 +165,22 @@ public:
     Utf8String &operator+=(const Utf8String &utf8str);
 
     Utf8String& operator += (char32_t ch);
+
+    template<typename It>
+    Utf8String& append(It first, It last, bool check=true)
+    {
+        Utf8String toAppend(first, last, check);
+        data_.append(toAppend.data_);
+        return *this;
+    }
+
+    template<typename It>
+    Utf8String& insert(iterator where, It first, It last, bool check=true)
+    {
+        Utf8String toInsert(first, last, check);
+        data_.insert(where.base(), toInsert.data_.begin(), toInsert.data_.end());
+        return *this;
+    }
 
     /*
      * Returns access to the underlying representation - unsafe
@@ -295,6 +332,37 @@ private:
     /** Check for invalid code points in the string. */
     void doCheck() const;
 
+    template<typename InputIterator>
+    void init_from_range(InputIterator start, InputIterator end, bool check);
+    template<typename Char>
+    void init_from_null_terminated(const Char * start, bool check);
+
+    template<typename InputIterator>
+    void init_from_range_u8(InputIterator start, InputIterator end, bool check);
+    template<typename Char>
+    void init_from_range_u8(const Char * start, const Char * end, bool check);
+    template<typename Char>
+    void init_from_null_terminated_u8(const Char * start, bool check);
+
+    template<typename InputIterator>
+    void init_from_range_u16(InputIterator start, InputIterator end, bool check);
+    template<typename Char>
+    void init_from_range_u16(const Char * start, const Char * end, bool check);
+    template<typename Char>
+    void init_from_null_terminated_u16(const Char * start, bool check);
+
+    template<typename InputIterator>
+    void init_from_range_u32(InputIterator start, InputIterator end, bool check);
+    template<typename Char>
+    void init_from_range_u32(const Char * start, const Char * end, bool check);
+    template<typename Char>
+    void init_from_null_terminated_u32(const Char * start, bool check);
+
+    template<typename InputIterator>
+    void inefficient_init_from_range_wide(InputIterator start, InputIterator end, bool check);
+    template<typename Char>
+    void inefficient_init_from_null_terminated_wide(const Char * start, bool check);
+
     std::string data_; // original utf8-encoded string
 };
 
@@ -383,6 +451,29 @@ inline auto end(Utf8String & str) -> decltype(str.end())
 {
     return str.end();
 }
+
+inline Utf8String to_lower(const Utf8String & str)
+{
+    return str.toLower();
+}
+
+inline Utf8String to_upper(const Utf8String & str)
+{
+    return str.toUpper();
+}
+
+template<typename String>
+bool starts_with(const Utf8String & str1, String&& str2)
+{
+    return str1.startsWith(std::forward<String>(str2));
+}
+
+template<typename String>
+bool ends_with(const Utf8String & str1, String&& str2)
+{
+    return str1.endsWith(std::forward<String>(str2));
+}
+
 
 
 /*****************************************************************************/
