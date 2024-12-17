@@ -744,8 +744,10 @@ BOOST_AUTO_TEST_CASE(test_explicit_cast)
     BOOST_CHECK_EQUAL(run("CAST (1.0 AS string)"), "1");
     BOOST_CHECK_EQUAL(run("CAST (1.1 AS string)"), "1.1");
     BOOST_CHECK_EQUAL(run("CAST (1.1000 AS string)"), "1.1");
-    BOOST_CHECK_EQUAL(run("CAST (Inf AS string)"), "Infinity");
-    BOOST_CHECK_EQUAL(run("CAST (NaN AS string)"), "NaN");
+    BOOST_CHECK_EQUAL(run("CAST (Inf AS string)"), "inf");
+    BOOST_CHECK_EQUAL(run("CAST (NaN AS string)"), "nan");
+    BOOST_CHECK_EQUAL(run("CAST (-Inf AS string)"), "-inf");
+    BOOST_CHECK_EQUAL(run("CAST (-NaN AS string)"), "-nan");
     BOOST_CHECK_EQUAL(run("CAST (NULL AS integer) IS NULL"), true);
     BOOST_CHECK_EQUAL(run("CAST ('1' AS integer)"), 1);
     BOOST_CHECK_EQUAL(run("CAST ('1.1' AS integer)"), 1);

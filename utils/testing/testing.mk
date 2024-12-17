@@ -38,3 +38,4 @@ $(eval $(call test,for_each_line_test,utils log arch block types value_descripti
 $(eval $(call test,floating_point_test,utils log arch,boost))
 
 $(eval $(call test,string_algorithm_test,utils arch value_description,catch2))
+$(eval $(call test,lexical_cast_test,arch types value_description,catch2))

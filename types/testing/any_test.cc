@@ -27,5 +27,5 @@ BOOST_AUTO_TEST_CASE( test_any_float )
     std::string theStr = blah.asJsonStr();
     // we need this test because previously when the value was 0.0
     // asJsonStr was returning "0." which is of course invalid JSON
-    BOOST_CHECK_EQUAL(theStr, "0.0");
+    BOOST_CHECK_EQUAL(theStr, "0");
 }

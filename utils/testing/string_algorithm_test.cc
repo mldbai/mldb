@@ -1,3 +1,8 @@
+/* string_algorithm_test.cc
+ * Jeremy Barnes, 22 April 2018
+ * This file is part of MLDB.  See the accompanying file LICENSE for licensing details.
+ */
+
 #include "catch2/catch_all.hpp"
 #include "mldb/utils/split.h"
 #include "mldb/utils/to_lower.h"

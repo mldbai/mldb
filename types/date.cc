@@ -22,6 +22,20 @@
 #include <errno.h>
 #include "mldb/utils/possibly_dynamic_buffer.h"
 
+extern "C" {
+
+char *
+soa_dtoa(double dd, int mode, int ndigits,
+          int *decpt, int *sign, char **rve);
+
+void
+soa_freedtoa(char *s);
+
+double
+soa_strtod(const char *s00, char **se);
+
+} // extern "C"
+
 
 
 using namespace std;

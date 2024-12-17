@@ -324,15 +324,17 @@ void load(portable_bin_iarchive & archive,
           MLDB::MatrixBase<T, NumDims> & arr)
 {
     using namespace std;
+    //cerr << "loading matrix at offset " << archive.offset() << endl;
+
     char version;
     load(archive, version);
     if (version != 1)
-        throw Exception("unknown multi array version");
+        throw Exception("unknown multi array version %d", (int)version);
 
     char nd;
     load(archive, nd);
     if (nd != NumDims)
-        throw Exception("NumDims wrong");
+        throw Exception("NumDims wrong (%zd != %zd)", (size_t)nd, (size_t)NumDims);
 
     std::array<size_t, NumDims> sizes;
     for (unsigned i = 0;  i < NumDims;  ++i) {
@@ -340,10 +342,12 @@ void load(portable_bin_iarchive & archive,
         sizes[i] = sz;
     }
 
+    //cerr << "loading matrix with " << NumDims << " dimensions " << sizes << endl;
+
     MLDB::MatrixBase<T, NumDims> new_arr(sizes);
 
-    size_t ne = arr.num_elements();
-    T * el = arr.data();
+    size_t ne = new_arr.num_elements();
+    T * el = new_arr.data();
     for (unsigned i = 0;  i < ne;  ++i, ++el)
         archive >> *el;
 

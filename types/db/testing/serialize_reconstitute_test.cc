@@ -124,7 +124,7 @@ BOOST_AUTO_TEST_CASE( test_char )
 
 BOOST_AUTO_TEST_CASE( test_multi_array )
 {
-    MLDB::Matrix<float, 2> A(MLDB::extents[3][3]);
+    MLDB::Matrix<float, 2> A(3, 3);
     for (unsigned i = 0;  i < 3;  ++i)
         for (unsigned j = 0;  j < 3;  ++j)
             A[i][j] = j * j - i;

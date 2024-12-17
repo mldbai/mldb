@@ -16,6 +16,7 @@
 #include <charconv>
 #include <iostream>
 #include "mldb/arch/exception.h"
+#include "mldb/types/dtoa.h"
 
 namespace MLDB {
 
@@ -48,7 +49,7 @@ std::string lexical_cast_number_to_string(Number num)
 
     constexpr size_t BUF_SIZE = 128;
     char buf[BUF_SIZE];
-    auto [ptr, ec] = std::to_chars(result.data(), result.data() + result.capacity(), num);
+    auto [ptr, ec] = std::to_chars(buf, buf + BUF_SIZE, num);
     if (ec != std::errc()) {
         throw std::logic_error("Failed to convert number to string");
     }
@@ -57,6 +58,15 @@ std::string lexical_cast_number_to_string(Number num)
     return result;
 }
 
+inline std::string lexical_cast_number_to_string(float f)
+{
+    return ftoa(f);
+}
+
+inline std::string lexical_cast_number_to_string(double f)
+{
+    return dtoa(f);
+}
 
 template<>
 struct LexicalCaster<std::string> {
@@ -92,7 +102,7 @@ static inline Number do_cast_number(std::string_view str)
 {
     Number result;
     auto [ptr, ec] = std::from_chars(str.data(), str.data() + str.size(), result);
-    if (ec != std::errc()) throw MLDB::Exception("Invalid number value: " + std::string(str) + ": " + std::make_error_code(ec).message());
+    if (ec != std::errc() || ptr != str.data() + str.size()) throw MLDB::Exception("Invalid number value: " + std::string(str) + ": " + std::make_error_code(ec).message());
     return result;
 }
 
@@ -134,22 +144,34 @@ struct LexicalCaster<unsigned long long int> {
 
 template<>
 struct LexicalCaster<float> {
-    static int cast(const std::string & str)
+    static float cast(const std::string & str)
     {
         //return do_cast_number<double>(str); // not supported by libc++ yet
-        return std::stof(str);
+        size_t pos = 0;
+        auto result = std::stof(str, &pos);
+        if (pos != str.size()) throw MLDB::Exception("Invalid float value: " + str);
+        //if (!str.empty() && str[0] == '-') {
+        //    ::printf("result = %f with negative sign\n", result);
+        //    result = std::copysignf(result, -1.0f); // handle -nan
+        //    ::printf("result now = %f with negative sign\n", result);
+        //}
+        return result;
     }
-    static int cast(float f) { return f; }
+    static float cast(float f) { return f; }
 };
 
 template<>
 struct LexicalCaster<double> {
-    static int cast(const std::string & str)
+    static double cast(const std::string & str)
     {
-        //return do_cast_number<double>(str); // not supported by libc++ yet
-        return std::stod(str);
+        size_t pos = 0;
+        auto result = std::stod(str, &pos);
+        if (pos != str.size()) throw MLDB::Exception("Invalid float value: " + str);
+        //if (!str.empty() && str[0] == '-')
+        //    result = std::copysign(result, -1.0); // handle -nan
+        return result;
     }
-    static int cast(double f) { return f; }
+    static double cast(double f) { return f; }
 };
 
 inline bool lexical_cast_bool(std::string_view str)

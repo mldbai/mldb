@@ -245,11 +245,13 @@ void save(portable_bin_oarchive & archive,
 {
     char version = 1;
     using MLDB::DB::save;
+    using namespace std;
+    //cerr << "saving matrix with " << NumDims << " dimensions " << arr.shape() << " at offset " << archive.offset() << endl;
     save(archive, version);
     char nd = NumDims;
     save(archive, nd);
     for (unsigned i = 0;  i < NumDims;  ++i) {
-        compact_size_t dim(arr.shape()[i]);
+        compact_size_t dim(arr.dim(i));
         dim.serialize(archive);
     }
 
