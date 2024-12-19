@@ -205,11 +205,16 @@ Date
 Date::
 parseIso8601DateTime(std::string_view dateTimeStr)
 {
-    if (dateTimeStr == "NaD" || dateTimeStr == "NaN")
+    constexpr std::string_view NaD_pattern_1 = "NaD";
+    constexpr std::string_view NaD_pattern_2 = "NaN";
+    constexpr std::string_view Inf_pattern = "Inf";
+    constexpr std::string_view NegInf_pattern = "-Inf";
+
+    if (dateTimeStr == NaD_pattern_1 || dateTimeStr == NaD_pattern_2)
         return notADate();
-    else if (dateTimeStr == "Inf")
+    else if (dateTimeStr == Inf_pattern)
         return positiveInfinity();
-    else if (dateTimeStr == "-Inf")
+    else if (dateTimeStr == NegInf_pattern)
         return negativeInfinity();
     else {
         Date date;

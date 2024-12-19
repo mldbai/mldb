@@ -10,12 +10,15 @@
 
 #include <string>
 #include <iterator>
+#include <utility>
 
 namespace MLDB {
 
 namespace details {
 
 using std::size;
+using std::declval;
+
 template<typename Array>
 constexpr auto arr_size(const Array & array) -> decltype(size(array))
 {

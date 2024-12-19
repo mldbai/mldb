@@ -32,7 +32,7 @@ namespace MLDB {
 // 
 // The default value of 6 allows numbers up to one million to be written out as integers.
 
-std::string dtoa(double floatVal, int biasAgainstScientific = 6);
-std::string ftoa(float floatVal, int biasAgainstScientific = 6);
+std::string dtoa(double floatVal, int biasAgainstScientific = 5);
+std::string ftoa(float floatVal, int biasAgainstScientific = 5);
 
 } // namespace MLDB

@@ -17,6 +17,7 @@
 #include <cxxabi.h>
 #include <unicode/unistr.h>
 #include <clocale>
+#include <algorithm>
 
 using namespace std;
 

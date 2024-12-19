@@ -9,6 +9,7 @@
 #pragma once
 
 #include <utility>
+#include <vector>
 //#include <iostream> // for debugging
 #include "mldb/utils/array_limits.h"
 
@@ -28,7 +29,7 @@ inline bool split_match(const Char c, Match&& match)
     return match(c);
 }
 
-template<typename It, typename Enable = decltype(declval<It>() < declval<It>())>
+template<typename It, typename Enable = decltype(std::declval<It>() < std::declval<It>())>
 void check_in_range(It it, It end)
 {
     if (it < end || it == end)

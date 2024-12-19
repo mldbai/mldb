@@ -11,6 +11,8 @@
 #include "dtoa.h"
 #include "mldb/base/exc_assert.h"
 #include <iostream> // debug
+#include <cmath>
+
 using namespace std;
 
 
@@ -68,6 +70,8 @@ namespace MLDB {
 
 std::string dtoa_impl(double floatVal, int mode, int numDigits, int biasAgainstScientific)
 {
+    constexpr bool debug = false;
+
     // if exactly 0 then return 0.0
     if (floatVal == 0.0) {
         return std::signbit(floatVal) ? "-0" : "0";
@@ -84,9 +88,11 @@ std::string dtoa_impl(double floatVal, int mode, int numDigits, int biasAgainstS
     std::string toReturn(result);
     soa_freedtoa(result);
 
-    cerr << "decpt = " << decpt << " sign = " << sign
-         << " result = " << toReturn << " val = " << floatVal
-         << endl;
+    if (debug) {
+        cerr << "decpt = " << decpt << " sign = " << sign
+            << " result = " << toReturn << " val = " << floatVal
+            << endl;
+    }
     if (decpt > 0 && decpt <= toReturn.size())
         toReturn.insert(decpt, ".");
     else if (decpt == 9999)
@@ -107,22 +113,24 @@ std::string dtoa_impl(double floatVal, int mode, int numDigits, int biasAgainstS
             = toReturn.size() // digits
             + (decpt > 1 ? decpt - 1 : 0); // extra zeros
 
-        cerr << "working on decpt" << endl;
-        cerr << "lenScientific = " << lenScientific << endl;
-        cerr << "lenNormal = " << lenNormal << endl;
-        cerr << "biasAgainstScientific = " << biasAgainstScientific << endl;
-        if (decpt > 1 && lenNormal - biasAgainstScientific <= lenScientific) {
+        if (debug) {
+            cerr << "working on decpt" << endl;
+            cerr << "lenScientific = " << lenScientific << endl;
+            cerr << "lenNormal = " << lenNormal << endl;
+            cerr << "biasAgainstScientific = " << biasAgainstScientific << endl;
+        }
+        if (decpt > 1 && lenNormal <= lenScientific + biasAgainstScientific) {
             // If it's short enough then just add zeros, so we don't get 10 -> 1e1
-            cerr << "appending " << decpt - 1 << " zeros" << endl;
+            if (debug) cerr << "appending " << decpt - 1 << " zeros" << endl;
             toReturn.append(decpt - 1, '0');
             ExcAssertEqual(toReturn.size(), lenNormal);
         }
         else {
-            cerr << "chose scientific" << endl;
+            if (debug) cerr << "chose scientific" << endl;
             if (toReturn.size() > 1)
                 toReturn.insert(1, ".");
             toReturn += "e" + std::to_string(decpt - 1);
-            cerr << "toReturn = " << toReturn << endl;
+            if (debug) cerr << "toReturn = " << toReturn << endl;
             ExcAssertEqual(toReturn.size(), lenScientific);
         }
     }

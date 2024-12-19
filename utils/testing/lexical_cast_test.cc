@@ -120,6 +120,19 @@ TEST_CASE("to string")
         CHECK(do_lexical_cast<std::string>(-INFINITY) == "-inf");
         CHECK(do_lexical_cast<std::string>(NAN) == "nan");
         CHECK(do_lexical_cast<std::string>(-NAN) == "-nan");
+
+        // Make sure the biasAgainstScientific works
+        CHECK(do_lexical_cast<std::string>(1.0) == "1");
+        CHECK(do_lexical_cast<std::string>(10.0) == "10");
+        CHECK(do_lexical_cast<std::string>(50.0) == "50");
+        CHECK(do_lexical_cast<std::string>(100.0) == "100");
+        CHECK(do_lexical_cast<std::string>(1000.0) == "1000");
+        CHECK(do_lexical_cast<std::string>(1e6) == "1000000");
+        CHECK(do_lexical_cast<std::string>(1e7) == "10000000");
+        CHECK(   lexical_cast<std::string>(1e8) == "1e8");
+        CHECK(   lexical_cast<std::string>(1e9) == "1e9");
+        CHECK(   lexical_cast<std::string>(1e10) == "1e10");
+        CHECK(   lexical_cast<std::string>(1e13) == "1e13");
     }
 
     SECTION("float to string")
@@ -135,6 +148,19 @@ TEST_CASE("to string")
         CHECK(do_lexical_cast<std::string>(float(-INFINITY)) == "-inf");
         CHECK(do_lexical_cast<std::string>(float(NAN)) == "nan");
         CHECK(do_lexical_cast<std::string>(float(-NAN)) == "-nan");
+
+        // Make sure the biasAgainstScientific works
+        CHECK(do_lexical_cast<std::string>(1.0f) == "1");
+        CHECK(do_lexical_cast<std::string>(10.0f) == "10");
+        CHECK(do_lexical_cast<std::string>(50.0f) == "50");
+        CHECK(do_lexical_cast<std::string>(100.0f) == "100");
+        CHECK(do_lexical_cast<std::string>(1000.0f) == "1000");
+        CHECK(do_lexical_cast<std::string>(1e6f) == "1000000");
+        CHECK(do_lexical_cast<std::string>(1e7f) == "10000000");
+        CHECK(   lexical_cast<std::string>(1e8f) == "1e8");
+        CHECK(   lexical_cast<std::string>(1e9f) == "1e9");
+        CHECK(   lexical_cast<std::string>(1e10f) == "1e10");
+        //CHECK(   lexical_cast<std::string>(1e13f) == "1e13"); // TODO: num digits needs tuning
     }
 }
 

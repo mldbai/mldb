@@ -13,6 +13,7 @@
 #include <iostream>
 #include <type_traits>
 #include <string_view>
+#include <cstring>
 #include <charconv>
 #include <iostream>
 #include "mldb/arch/exception.h"
