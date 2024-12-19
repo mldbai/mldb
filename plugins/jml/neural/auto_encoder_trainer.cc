@@ -1028,8 +1028,8 @@ test_and_update(const Auto_Encoder & encoder,
             MLDB::MatrixRef<LFloat, 2> layer2 = layer.weights;
             int nvalues = std::min(ni, nh);
         
-            MLDB::MatrixRef<LFloat, 2> rvectors(MLDB::extents[ni][nvalues]);
-            MLDB::MatrixRef<LFloat, 2> lvectorsT(MLDB::extents[nvalues][nh]);
+            MLDB::MatrixRef<LFloat, 2> rvectors(ni, nvalues);
+            MLDB::MatrixRef<LFloat, 2> lvectorsT(nvalues, nh);
 
             int result = LAPack::gesdd("S", nh, ni,
                                        layer2.data(), nh,

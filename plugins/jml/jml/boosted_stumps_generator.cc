@@ -212,10 +212,10 @@ generate_stumps(Thread_Context & context,
     stumps.output = output_function;
 
     MLDB::Matrix<float, 2> training_output
-        (MLDB::extents[training_set.example_count()][nl]);
+        (training_set.example_count(), nl);
 
     MLDB::Matrix<float, 2> validation_output
-        (MLDB::extents[validation_set.example_count()][nl]);
+        (validation_set.example_count(), nl);
     
     MLDB::Matrix<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
@@ -379,7 +379,7 @@ generate_and_update(Thread_Context & context,
     int best_iter = 0;
 
     MLDB::Matrix<float, 2> training_output
-        (MLDB::extents[training_set.example_count()][nl]);
+        (training_set.example_count(), nl);
 
     if (weights.dim(0) != training_set.example_count()
         || weights.dim(1) != nl)

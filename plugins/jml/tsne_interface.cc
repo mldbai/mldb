@@ -275,7 +275,7 @@ run(const ProcedureRunConfig & run,
     DEBUG_MSG(logger) << "numDims = " << numDims;
 
     MLDB::Matrix<float, 2> coords
-        (MLDB::extents[rows.size()][numDims]);
+        (rows.size(), numDims);
 
     for (unsigned i = 0;  i < rows.size();  ++i) {
         for (auto & e: std::get<2>(rows[i]))
@@ -300,7 +300,7 @@ run(const ProcedureRunConfig & run,
 //     DEBUG_MSG(logger) << "rows[0] dist rows[2] = " << (rows[0].second - rows[2].second).two_norm();
 //     DEBUG_MSG(logger) << "rows[1] dist rows[2] = " << (rows[1].second - rows[2].second).two_norm();
 
-    itl->inputPath.resize(MLDB::extents[rows.size()][numDims]);
+    itl->inputPath.resize(rows.size(), numDims);
     itl->inputPath = coords;
 
     MLDB::TSNE_Callback callback = [&] (int iter, float cost,
@@ -314,7 +314,7 @@ run(const ProcedureRunConfig & run,
 
     ExcAssertGreaterEqual(runProcConf.numOutputDimensions, 1);
 
-    itl->outputPath.resize(MLDB::extents[rows.size()][runProcConf.numOutputDimensions]);
+    itl->outputPath.resize(rows.size(), runProcConf.numOutputDimensions);
     itl->outputPath
         = MLDB::tsneApproxFromCoords(coords, runProcConf.numOutputDimensions,
                                    itl->params, callback, &itl->vpTree,

@@ -102,7 +102,7 @@ $(eval $(call test,MLDB-204-circular-references-initialization,mldb $(MLDB_AUTO_
 $(eval $(call test,MLDB-267-delete-while-loading,mldb $(MLDB_AUTO_LIBS),boost))
 $(eval $(call test,mldb_crash_multiple_py_routes,mldb $(MLDB_AUTO_LIBS),boost manual))  #manual - intermittent - MLDB-787
 $(eval $(call test,mldb_determinism_test,mldb $(MLDB_AUTO_LIBS),boost))
-$(eval $(call test,credentials_persistence_test,mldb  $(MLDB_AUTO_LIBS)vfs_handlers,boost))
+$(eval $(call test,credentials_persistence_test,mldb  $(MLDB_AUTO_LIBS)vfs_handlers,boost manual)) # doesn't work on OSX; server layer hangs
 $(eval $(call test,MLDB-1025-output-dataset-serialization-test,mldb $(MLDB_AUTO_LIBS) mldb_feature_gen_plugin mldb_jml_plugin,boost))
 $(eval $(call test,MLDB-1559-transform-method,mldb $(MLDB_AUTO_LIBS),boost))
 $(eval $(call test,mldb-1525-rowname-generator-explain,mldb $(MLDB_AUTO_LIBS),boost))

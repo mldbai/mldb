@@ -203,7 +203,7 @@ generate(Thread_Context & context,
         .example_count();
 
     MLDB::MatrixRef<float, 2> val_decorrelated
-        (MLDB::extents[nx_validate][decorrelated.dim(1)]);
+        (nx_validate, decorrelated.dim(1));
 
     if (validate_is_train) val_decorrelated = decorrelated;
     else val_decorrelated = current.decorrelate(validation_set);
@@ -366,7 +366,7 @@ cholesky(const MLDB::MatrixRef<double, 2> & A_)
     
     int n = A_.dim(0);
 
-    MLDB::MatrixRef<double, 2> A(MLDB::extents[n][n]);
+    MLDB::MatrixRef<double, 2> A(n, n);
     std::copy(A_.begin(), A_.end(), A.begin());
     
     int res = LAPack::potrf('U', n, A.data(), n);
@@ -385,7 +385,7 @@ cholesky(const MLDB::MatrixRef<double, 2> & A_)
 #if 0
     //cerr << "residuals = " << endl << (A * transpose(A)) - A_ << endl;
 
-    MLDB::MatrixRef<float, 2> result(MLDB::extents[n][n]);
+    MLDB::MatrixRef<float, 2> result(n, n);
     std::copy(A.begin(), A.end(), result.begin());
 
     return result;
@@ -486,7 +486,7 @@ decorrelate(const Training_Data & data,
     size_t nf = features.size();
 
     /* Get a dense matrix of the features. */
-    MLDB::MatrixRef<double, 2> input(MLDB::extents[nx][nf + 1]);
+    MLDB::MatrixRef<double, 2> input(nx, nf + 1);
     
     for (unsigned x = 0;  x < nx;  ++x) {
         result.extract_features(data[x], &input[x][0]);
@@ -590,7 +590,7 @@ decorrelate(const Training_Data & data,
 
     distribution<double> mean(nf, 0.0);
     distribution<double> stdev(nf, 0.0);
-    MLDB::MatrixRef<double, 2> covar(MLDB::extents[nf][nf]);
+    MLDB::MatrixRef<double, 2> covar(nf, nf);
 
     if (do_decorrelate && !do_normalize)
         throw Exception("normalization required if decorrelation is done");
@@ -622,7 +622,7 @@ decorrelate(const Training_Data & data,
         }
     }
     
-    MLDB::MatrixRef<double, 2> transform(MLDB::extents[nf][nf]);
+    MLDB::MatrixRef<double, 2> transform(nf, nf);
 
     if (do_decorrelate) {
         /* Do the cholevsky stuff */
@@ -659,13 +659,13 @@ decorrelate(const Training_Data & data,
     std::shared_ptr<Dense_Layer<float> > layer
         (new Dense_Layer<float>("decorrelation", nf, nf, TF_IDENTITY,
                                 MV_NONE));
-    layer->weights.resize(MLDB::extents[transform.dim(0)][transform.dim(1)]);
+    layer->weights.resize(transform.dim(0), transform.dim(1));
     layer->weights = transform;
     layer->bias = distribution<float>(nf, 0.0);  // already have mean removed
     
     //cerr << "transform = " << transform << endl;
 
-    MLDB::MatrixRef<float, 2> decorrelated(MLDB::extents[nx][nf]);
+    MLDB::MatrixRef<float, 2> decorrelated(nx, nf);
     float fv_in[nf];
 
     for (unsigned x = 0;  x < nx;  ++x) {

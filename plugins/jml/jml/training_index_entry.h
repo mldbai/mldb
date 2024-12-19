@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <mutex>
 #include "training_index.h"
 #include "feature_map.h"
 #include "mldb/utils/xdiv.h"

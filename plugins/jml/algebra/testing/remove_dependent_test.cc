@@ -34,7 +34,7 @@ extern __thread std::ostream * debug_remove_dependent;
 template<typename Float>
 void do_test_identity()
 {
-    MLDB::Matrix<Float, 2> array(MLDB::extents[2][2]);
+    MLDB::Matrix<Float, 2> array(2, 2);
     array[0][0] = 1;
     array[1][1] = 1;
 
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE( test_identity )
 template<typename Float>
 void do_test_null()
 {
-    MLDB::Matrix<Float, 2> array(MLDB::extents[2][2]);
+    MLDB::Matrix<Float, 2> array(2, 2);
 
     BOOST_CHECK_EQUAL(array.dim(0), 2);
     BOOST_CHECK_EQUAL(array.dim(1), 2);
@@ -84,7 +84,7 @@ BOOST_AUTO_TEST_CASE( test_null )
 template<typename Float>
 void do_test_uniform()
 {
-    MLDB::Matrix<Float, 2> array(MLDB::extents[2][2]);
+    MLDB::Matrix<Float, 2> array(2, 2);
     array[0][0] = array[0][1] = array[1][0] = array[1][1] = 1.0;
 
     BOOST_CHECK_EQUAL(array.dim(0), 2);
@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE( test_uniform )
 template<typename Float>
 void do_test_dependent()
 {
-    MLDB::Matrix<Float, 2> array(MLDB::extents[3][2]);
+    MLDB::Matrix<Float, 2> array(3, 2);
     array[0][0] = 1;
     array[1][1] = 1;
     array[2][1] = 1;

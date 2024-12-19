@@ -130,10 +130,10 @@ generate(Thread_Context & context,
         validate_is_train = true;
 
     MLDB::Matrix<float, 2> training_output
-        (MLDB::extents[training_set.example_count()][nl]);
+        (training_set.example_count(), nl);
 
     MLDB::Matrix<float, 2> validation_output
-        (MLDB::extents[validation_set.example_count()][nl]);
+        (validation_set.example_count(), nl);
     
     MLDB::Matrix<float, 2> weights
         = expand_weights(training_set, training_ex_weights, predicted);
@@ -229,7 +229,7 @@ generate(Thread_Context & context,
 
         cerr << "ratio = " << max_weight / min_weight << endl;
 
-        last_weights.resize(MLDB::extents[weights.dim(0)][weights.dim(1)]);
+        last_weights.resize(weights.dim(0), weights.dim(1));
         last_weights = weights;
 #endif
 
@@ -292,7 +292,7 @@ generate_and_update(Thread_Context & context,
     int best_iter = 0;
 
     MLDB::Matrix<float, 2> training_output
-        (MLDB::extents[training_set.example_count()][nl]);
+        (training_set.example_count(), nl);
 
     if (weights.dim(0) != training_set.example_count()
         || weights.dim(1) != nl)

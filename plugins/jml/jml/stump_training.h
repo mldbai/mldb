@@ -48,7 +48,7 @@ namespace MLDB {
 template<class Float>
 struct W_normalT {
     W_normalT(size_t nl)
-        : data(MLDB::extents[3][2][nl])
+        : data(3, 2, nl)
     {
     }
     
@@ -99,7 +99,7 @@ struct W_normalT {
         return result;
     }
     
-    size_t nl() const { return data.shape()[2]; }
+    size_t nl() const { return data.dim(2); }
 
     /** Add weight to a bucket over all labels.
         \param correct_label The correct label for this training sample.

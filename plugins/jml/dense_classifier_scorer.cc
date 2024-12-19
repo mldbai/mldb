@@ -292,7 +292,7 @@ trainProbabilizer(const DataPartition & partition,
     
     /* Convert to the correct data structures. */
 
-    MLDB::Matrix<double, 2> outputs(MLDB::extents[2][nd]);  // value, bias
+    MLDB::Matrix<double, 2> outputs(2, nd);  // value, bias
     distribution<double> correct(nd);
 
     Date before = Date::now();

@@ -25,7 +25,7 @@ fortran(const MLDB::MatrixRef<Float, 2> & A)
        one.  The copying was probably necessary as most of the LAPACK
        routines destroy their arguments.
     */
-    MLDB::MatrixRef<Float, 2> X(MLDB::extents[A.dim(0)][std::max<size_t>(A.dim(1), 1)]);
+    MLDB::MatrixRef<Float, 2> X(A.dim(0), std::max<size_t>(A.dim(1), 1));
     for (unsigned i = 0;  i < A.dim(0);  ++i)
         for (unsigned j = 0;  j < A.dim(1);  ++j)
             X[i][j] = A[i][j];

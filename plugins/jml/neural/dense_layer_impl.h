@@ -45,7 +45,7 @@ Dense_Layer(const std::string & name,
             Missing_Values missing_values)
     : Layer(name, inputs, units),
       missing_values(missing_values),
-      weights(MLDB::extents[inputs][units]), bias(units)
+      weights(inputs, units), bias(units)
 {
     switch (missing_values) {
     case MV_NONE:
@@ -55,7 +55,7 @@ Dense_Layer(const std::string & name,
         missing_replacements.resize(inputs);
         break;
     case MV_DENSE:
-        missing_activations.resize(MLDB::extents[inputs][units]);
+        missing_activations.resize(inputs, units);
         break;
     default:
         throw Exception("Dense_Layer: invalid missing values");
@@ -78,7 +78,7 @@ Dense_Layer(const std::string & name,
             float limit)
     : Layer(name, inputs, units),
       missing_values(missing_values),
-      weights(MLDB::extents[inputs][units]), bias(units)
+      weights(inputs, units), bias(units)
 {
     switch (missing_values) {
     case MV_NONE:
@@ -88,7 +88,7 @@ Dense_Layer(const std::string & name,
         missing_replacements.resize(inputs);
         break;
     case MV_DENSE:
-        missing_activations.resize(MLDB::extents[inputs][units]);
+        missing_activations.resize(inputs, units);
         break;
     default:
         throw Exception("Dense_Layer: invalid missing values");

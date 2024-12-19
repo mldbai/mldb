@@ -389,7 +389,7 @@ accuracy(const Training_Data & data,
     unsigned nx = data.example_count();
     unsigned nl = label_count();
     
-    MLDB::MatrixRef<float, 2> scores(MLDB::extents[nx][nl]);
+    MLDB::MatrixRef<float, 2> scores(nx, nl);
 
     bool bin_sym = convert_bin_sym(scores, data, predicted_, all_features());
     

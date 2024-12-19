@@ -119,7 +119,7 @@ generate(Thread_Context & context,
     size_t nx = training_data.example_count();
 
     /* Expand the weights */
-    MLDB::Matrix<float, 2> weights(MLDB::extents[nx][nl]);
+    MLDB::Matrix<float, 2> weights(nx, nl);
 
     if (ex_weights.empty())
         std::fill(weights.data(), weights.data() + nx * nl, 1.0 / nl * nx);

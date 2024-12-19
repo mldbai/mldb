@@ -98,15 +98,11 @@ diag_mult(const MLDB::MatrixRef<double, 2> & U,
     NOTE: the X array will be *overwritten* by this call.
 */
 
-void svd_square(MLDB::MatrixRef<float, 2> & X,
-                MLDB::MatrixRef<float, 2> & VT,
-                MLDB::MatrixRef<float, 2> & U,
-                distribution<float> & svalues);
+std::tuple<distribution<float>, MLDB::Matrix<float, 2>, MLDB::Matrix<float, 2>>
+svd_square(MLDB::MatrixRef<float, 2> X);
 
-void svd_square(MLDB::MatrixRef<double, 2> & X,
-                MLDB::MatrixRef<double, 2> & VT,
-                MLDB::MatrixRef<double, 2> & U,
-                distribution<double> & svalues);
+std::tuple<distribution<double>, MLDB::Matrix<double, 2>, MLDB::Matrix<double, 2>>
+svd_square(MLDB::MatrixRef<double, 2> X);
 
 
 /** Solve a least squares linear problem using ridge regression.
@@ -202,7 +198,7 @@ diag_mult2(const MLDB::MatrixRef<Float, 2> & X,
     size_t nx = X.dim(1);
     size_t nv = X.dim(0);
 
-    MLDB::MatrixRef<Float, 2> Y(MLDB::extents[nv][nx]);
+    MLDB::MatrixRef<Float, 2> Y(nv, nx);
 
     for (unsigned i = 0;  i < nv;  ++i) {
         for (unsigned j = 0;  j < nx;  ++j) {

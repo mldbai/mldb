@@ -153,7 +153,7 @@ template<typename Float>
 MLDB::Matrix<Float, 2>
 transpose(const MLDB::MatrixRef<Float, 2> & A)
 {
-    MLDB::Matrix<Float, 2> X(MLDB::extents[A.dim(1)][A.dim(0)]);
+    MLDB::Matrix<Float, 2> X(A.dim(1), A.dim(0));
     for (unsigned i = 0;  i < A.dim(0);  ++i)
         for (unsigned j = 0;  j < A.dim(1);  ++j)
             X[j][i] = A[i][j];
@@ -164,7 +164,7 @@ template<typename Float>
 MLDB::Matrix<Float, 2>
 diag(const distribution<Float> & d)
 {
-    MLDB::Matrix<Float, 2> D(MLDB::extents[d.size()][d.size()]);
+    MLDB::Matrix<Float, 2> D(d.size(), d.size());
     for (unsigned i = 0;  i < d.size();  ++i)
         D[i][i] = d[i];
     return D;
@@ -174,7 +174,7 @@ template<typename Float>
 MLDB::Matrix<Float, 2> &
 setIdentity(int numDim, MLDB::Matrix<Float, 2> & D)
 {
-    D.resize(MLDB::extents[numDim][numDim]);
+    D.resize(numDim, numDim);
     for (unsigned i = 0;  i < numDim;  ++i)
     {
         for (unsigned j = 0;  j < numDim;  ++j)
@@ -311,7 +311,7 @@ multiply_r(const MLDB::MatrixRef<Float1, 2> & A,
 
     MLDB::Matrix<FloatR, 2> X(m, n);
 
-    bool a_contiguous = A.contiguous();
+    bool a_contiguous = A.is_contiguous();
 
     PossiblyDynamicBuffer<Float2> bentries_storage(A.dim(1));
     Float2 * bentries = bentries_storage.data();
@@ -368,7 +368,7 @@ multiply_transposed(const MLDB::MatrixRef<Float, 2> & A)
     int As0 = A.dim(0);
     int As1 = A.dim(1);
 
-    MLDB::Matrix<FloatR, 2> X(MLDB::extents[As0][As0]);
+    MLDB::Matrix<FloatR, 2> X(As0, As0);
     for (unsigned i = 0;  i < As0;  ++i) 
         for (unsigned j = 0;  j <= i;  ++j)
             X[i][j] = X[j][i] = SIMD::vec_dotprod_dp(&A[i][0], &A[j][0], As1);
@@ -388,7 +388,7 @@ multiply_transposed(const MLDB::MatrixRef<Float1, 2> & A,
     if (A.dim(1) != BT.dim(1))
         throw MLDB::Exception("Incompatible matrix sizes");
 
-    MLDB::Matrix<FloatR, 2> X(MLDB::extents[As0][Bs0]);
+    MLDB::Matrix<FloatR, 2> X(As0, Bs0);
     for (unsigned j = 0;  j < Bs0;  ++j) {
         for (unsigned i = 0;  i < As0;  ++i)
             X[i][j] = SIMD::vec_dotprod_dp(&A[i][0], &BT[j][0], As1);
@@ -424,7 +424,7 @@ add_r(const MLDB::MatrixRef<Float1, 2> & A,
         || A.dim(1) != B.dim(1))
         throw MLDB::Exception("Incompatible matrix sizes");
     
-    MLDB::Matrix<FloatR, 2> X(MLDB::extents[A.dim(0)][A.dim(1)]);
+    MLDB::Matrix<FloatR, 2> X(A.dim(0), A.dim(1));
 
     for (unsigned i = 0;  i < A.dim(0);  ++i)
         SIMD::vec_add(&A[i][0], &B[i][0], &X[i][0], A.dim(1));
@@ -458,7 +458,7 @@ operator + (const MLDB::MatrixRef<Float1, 2> & A,
 /*****************************************************************************/
 
 template<typename FloatR, typename Float1, typename Float2>
-MLDB::MatrixRef<FloatR, 2>
+MLDB::Matrix<FloatR, 2>
 subtract_r(const MLDB::MatrixRef<Float1, 2> & A,
            const MLDB::MatrixRef<Float2, 2> & B)
 {
@@ -466,7 +466,7 @@ subtract_r(const MLDB::MatrixRef<Float1, 2> & A,
         || A.dim(1) != B.dim(1))
         throw MLDB::Exception("Incompatible matrix sizes");
     
-    MLDB::Matrix<FloatR, 2> X(MLDB::extents[A.dim(0)][A.dim(1)]);
+    MLDB::Matrix<FloatR, 2> X(A.dim(0), A.dim(1));
 
     for (unsigned i = 0;  i < A.dim(0);  ++i)
         SIMD::vec_minus(&A[i][0], &B[i][0], &X[i][0], A.dim(1));
@@ -475,7 +475,7 @@ subtract_r(const MLDB::MatrixRef<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-MLDB::MatrixRef<typename float_traits<Float1, Float2>::return_type, 2>
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
 subtract(const MLDB::MatrixRef<Float1, 2> & A,
     const MLDB::MatrixRef<Float2, 2> & B)
 {
@@ -485,7 +485,7 @@ subtract(const MLDB::MatrixRef<Float1, 2> & A,
 }
 
 template<typename Float1, typename Float2>
-MLDB::MatrixRef<typename float_traits<Float1, Float2>::return_type, 2>
+MLDB::Matrix<typename float_traits<Float1, Float2>::return_type, 2>
 operator - (const MLDB::MatrixRef<Float1, 2> & A,
             const MLDB::MatrixRef<Float2, 2> & B)
 {
@@ -505,7 +505,7 @@ operator * (const MLDB::MatrixRef<double, 2> & A,
 {
     int As0 = A.dim(0);
     int As1 = A.dim(1);
-    MLDB::Matrix<double, 2> X(MLDB::extents[As0][As1]);
+    MLDB::Matrix<double, 2> X(As0, As1);
     for (unsigned i = 0;  i < As0;  ++i) {
         for (unsigned j = 0;  j < As1;  ++j)
             X[i][j] = A[i][j] * B;
@@ -520,7 +520,7 @@ operator / (const MLDB::MatrixRef<Float1, 2> & A,
 {
     int As0 = A.dim(0);
     int As1 = A.dim(1);
-    MLDB::Matrix<Float1, 2> X(MLDB::extents[As0][As1]);
+    MLDB::Matrix<Float1, 2> X(As0, As1);
     for (unsigned i = 0;  i < As0;  ++i) {
         for (unsigned j = 0;  j < As1;  ++j)
             X[i][j] = A[i][j] / B;

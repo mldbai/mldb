@@ -263,7 +263,7 @@ transfer_core(double * from, double * to, const float * weights, float k,
 template<class Float>
 struct W_multi {
     W_multi(size_t nl)
-        : data(MLDB::extents[3][2][nl]), nl_(nl)
+        : data(3, 2, nl), nl_(nl)
     {
     }
     

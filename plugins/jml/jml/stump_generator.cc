@@ -272,7 +272,7 @@ get_bias(const Training_Data & data,
         MLDB::Matrix<float, 2> weights_ = weights;  // shallow copy
         
         if (weights.dim(1) == 1) {
-            weights_.resize(MLDB::extents[weights.dim(0)][nl]);
+            weights_.resize(weights.dim(0), nl);
             for (unsigned x = 0;  x < nx;  ++x)
                 for (unsigned l = 0;  l < nl;  ++l)
                     weights_[x][l] = weights[x][0];
@@ -413,7 +413,7 @@ train_all(Thread_Context & context,
         MLDB::Matrix<float, 2> weights_ = weights;  // shallow copy
         
         if (weights.dim(1) == 1) {
-            weights_.resize(MLDB::extents[weights.dim(0)][nl]);
+            weights_.resize(weights.dim(0), nl);
             for (unsigned x = 0;  x < nx;  ++x)
                 for (unsigned l = 0;  l < nl;  ++l)
                     weights_[x][l] = weights[x][0];
@@ -442,7 +442,7 @@ train_all(Thread_Context & context,
            it. */
         MLDB::Matrix<float, 2> weights_ = weights;
         if (weights.dim(1) == 1) {
-            weights_.resize(MLDB::extents[weights.dim(0)][nl]);
+            weights_.resize(weights.dim(0), nl);
             for (unsigned x = 0;  x < nx;  ++x)
                 for (unsigned l = 0;  l < nl;  ++l)
                     weights_[x][l] = weights[x][0];

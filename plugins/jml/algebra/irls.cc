@@ -237,7 +237,7 @@ vector<int> remove_dependent_impl(MLDB::Matrix<FloatIn, 2> & x,
     if (nrows2 < nrows) {
         /* We have removed some columns, so we need to rearrange our
            matrix. */
-        MLDB::Matrix<FloatIn, 2> x2(MLDB::extents[nrows2][ncols]);
+        MLDB::Matrix<FloatIn, 2> x2(nrows2, ncols);
         for (unsigned i = 0;  i < nrows2;  ++i)
             x2[i].assign(x[source[i]]);
         
@@ -577,7 +577,7 @@ perform_irls_conditioned(const distribution<Float> & correct,
     for (unsigned i = 0;  i < nkeep;  ++i)
         new_loc[permutations[i]] = i;
 
-    MLDB::Matrix<Float, 2> outputs_reduced(MLDB::extents[nkeep][nx]);
+    MLDB::Matrix<Float, 2> outputs_reduced(nkeep, nx);
     for (unsigned i = 0;  i < nx;  ++i)
         for (unsigned j = 0;  j < nv;  ++j)
             if (new_loc[j] != -1)

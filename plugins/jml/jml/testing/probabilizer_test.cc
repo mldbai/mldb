@@ -42,7 +42,6 @@ BOOST_AUTO_TEST_CASE( test_probabilizer_single_dof_sparse )
         output.push_back(1.0 - output1);
 
         GLZ_Probabilizer::add_data_sparse(data, output, label);
-
     }
 
     cerr << "data = " << data << endl;
@@ -55,6 +54,7 @@ BOOST_AUTO_TEST_CASE( test_probabilizer_single_dof_sparse )
 
 #endif
 
+#if 1
 BOOST_AUTO_TEST_CASE( test_probabilizer_single_dof_mode2 )
 {
     // We had a problem with mode 2 when, for a binary classifier, the
@@ -64,7 +64,7 @@ BOOST_AUTO_TEST_CASE( test_probabilizer_single_dof_mode2 )
     // tests sets up that situation and tests that the probabilizer is
     // properly learned.
 
-    MLDB::Matrix<double, 2> outputs(MLDB::extents[4][100]);
+    MLDB::Matrix<double, 2> outputs(4, 100);
     vector<distribution<double> > correct(2, distribution<double>(100));
     distribution<int> num_correct(2);
     distribution<float> weights(100, 1);
@@ -124,3 +124,5 @@ BOOST_AUTO_TEST_CASE( test_probabilizer_single_dof_mode2 )
     BOOST_CHECK_GT(true_probs.mean(), 0.20);
     BOOST_CHECK_LT(false_probs.mean(), 0.20);
 }
+
+#endif

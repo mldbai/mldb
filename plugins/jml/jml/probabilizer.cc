@@ -69,7 +69,7 @@ train(const std::vector<std::tuple<float, float, float> >& fvs,
 {
     auto logger = MLDB::getMldbLog<ProbabilizerModel>();
     size_t nx = fvs.size();
-    MLDB::Matrix<double, 2> outputs(MLDB::extents[2][nx]);  // value, bias
+    MLDB::Matrix<double, 2> outputs(2, nx);  // value, bias
     distribution<double> correct(nx, 0.0);
     distribution<double> weights(nx, 1.0);
 
@@ -330,7 +330,7 @@ train_sparse(const std::vector<distribution<double> > & data,
     distribution<double> weights = weights_;
     if (weights.empty()) weights.resize(nd, 1.0);
 
-    MLDB::Matrix<double, 2> outputs(MLDB::extents[3][nd]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs(3, nd);  // value, max, bias
     distribution<double> correct(nd);
     
     for (unsigned d = 0;  d < nd;  ++d) {
@@ -445,7 +445,7 @@ train_one_mode1(const MLDB::MatrixRef<double, 2> & outputs,
 
     //cerr << "ol = " << ol << " nx = " << nx << endl;
 
-    MLDB::Matrix<double, 2> outputs2(MLDB::extents[3][nx]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs2(3, nx);  // value, max, bias
     for (unsigned x = 0;  x < nx;  ++x) {
         outputs2[0][x] = outputs[l][x];
         outputs2[1][x] = outputs[ol - 2][x];
@@ -592,7 +592,7 @@ train_mode2(const MLDB::MatrixRef<double, 2> & outputs,
     distribution<double> w(nx * nlu, 1.0);
         
     /* Get the entire enormous data set. */
-    MLDB::Matrix<double, 2> outputs2(MLDB::extents[3][nx * nlu]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs2(3, nx * nlu);  // value, max, bias
     distribution<double> correct2(nx * nlu);
 
     for (unsigned x = 0;  x < nx;  ++x) {
@@ -721,7 +721,7 @@ train_mode5(const MLDB::MatrixRef<double, 2> & outputs,
     distribution<double> w(nx, 1.0);
         
     /* Get the entire enormous data set. */
-    MLDB::Matrix<double, 2> outputs2(MLDB::extents[3][nx]);  // value, max, bias
+    MLDB::Matrix<double, 2> outputs2(3, nx);  // value, max, bias
     distribution<double> correct2(nx);
     
     for (unsigned x = 0;  x < nx;  ++x) {
@@ -851,7 +851,7 @@ train(const Training_Data & training_data,
     
     //bool debug = false;
     
-    MLDB::Matrix<double, 2> outputs(MLDB::extents[ol][nx]);
+    MLDB::Matrix<double, 2> outputs(ol, nx);
     distribution<double> model(nx, 0.0);
     vector<distribution<double> > correct(nl, model);
     distribution<int> num_correct(nl);

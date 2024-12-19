@@ -451,7 +451,7 @@ struct ColumnCorrelations {
     template<typename It>
     ColumnCorrelations(It begin, It end)
         : columns(begin, end),
-          correlations(MLDB::extents[columns.size()][columns.size()])
+          correlations(columns.size(), columns.size())
     {
     }
 

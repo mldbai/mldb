@@ -13,7 +13,6 @@
 #undef NDEBUG
 
 #include <boost/test/unit_test.hpp>
-#include <boost/multi_array.hpp>
 #include "mldb/plugins/jml/neural/twoway_layer.h"
 #include "mldb/jml/utils/testing/serialize_reconstitute_include.h"
 #include <boost/assign/list_of.hpp>

@@ -119,8 +119,8 @@ svd_impl(const MLDB::MatrixRef<Float, 2> & A, int nsv)
        ...
     */
     
-    MLDB::MatrixRef<Float, 2> U(MLDB::extents[nsv][m]);
-    MLDB::MatrixRef<Float, 2> V(MLDB::extents[nsv][n]);
+    MLDB::MatrixRef<Float, 2> U(nsv, m);
+    MLDB::MatrixRef<Float, 2> V(nsv, n);
 
     for (unsigned i = 0;  i < m;  ++i)
         for (unsigned j = 0;  j < nsv;  ++j)

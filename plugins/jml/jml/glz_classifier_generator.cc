@@ -211,6 +211,10 @@ train_weighted(Thread_Context & thread_context,
        2.  Train on each column
     */
 
+    //cerr << "weights = " << weights << endl;
+
+    constexpr bool debug = false;
+
     result = model;
     result.features.clear();
     result.add_bias = add_bias;
@@ -292,7 +296,8 @@ train_weighted(Thread_Context & thread_context,
     
     // Use double precision, we have enough memory (<= 1GB)
     // NOTE: always on due to issues with convergence
-    MLDB::Matrix<double, 2> dense_data(MLDB::extents[nv][nx2]);  // training data, dense
+    MLDB::Matrix<double, 2> dense_data(nv, nx2);  // training data, dense
+    dense_data.fill(0.0);
         
     distribution<double> model(nx2, 0.0);  // to initialise weights, correct
     vector<distribution<double> > w(nl, model);       // weights for each label
@@ -308,7 +313,8 @@ train_weighted(Thread_Context & thread_context,
             distribution<float> decoded = result.decode(data[x]);
             if (add_bias) decoded.push_back(1.0);
             
-            //cerr << "x = " << x << "  decoded = " << decoded << endl;
+            if (x < 100 && debug)
+                cerr << "x = " << x << "  decoded = " << decoded << endl;
             
             /* Record the values of the variables. */
             assert(decoded.size() == nv);
@@ -378,6 +384,12 @@ train_weighted(Thread_Context & thread_context,
 
     cerr << "normalization: " << t.elapsed() << endl;
     t.restart();
+
+    if (debug) {
+        cerr << "means = " << means << endl;
+        cerr << "stds = " << stds << endl;
+        //cerr << "dense_data = " << dense_data << endl;
+    }
 
     int nlr = nl;
     if (nl == 2) nlr = 1;

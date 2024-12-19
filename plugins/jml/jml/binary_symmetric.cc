@@ -64,7 +64,7 @@ convert_bin_sym(MLDB::Matrix<float, 2> & weights, const Training_Data & data,
         if (!bin_sym && weights.dim(1) == 1) {
             /* Not bin sym for these features... expand them. */
             //cerr << "expanding" << endl;
-            MLDB::Matrix<float, 2> new_weights(MLDB::extents[nx][2]);
+            MLDB::Matrix<float, 2> new_weights(nx, 2);
             for (unsigned x = 0;  x < nx;  ++x)
                 new_weights[x][0] = new_weights[x][1] = weights[x][0];
             std::swap(weights, new_weights);
@@ -83,7 +83,7 @@ convert_bin_sym(MLDB::Matrix<float, 2> & weights, const Training_Data & data,
             /* If we are binary symmetric, then we can reduce our weights
                array. */
             if (bin_sym) {
-                MLDB::Matrix<float, 2> new_weights(MLDB::extents[nx][1]);
+                MLDB::Matrix<float, 2> new_weights(nx, 1);
                 for (unsigned x = 0;  x < nx;  ++x)
                     new_weights[x][0] = weights[x][0];
                 std::swap(weights, new_weights);

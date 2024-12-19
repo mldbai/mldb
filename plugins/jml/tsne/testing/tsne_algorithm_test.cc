@@ -13,7 +13,6 @@
 #undef NDEBUG
 
 #include <boost/test/unit_test.hpp>
-#include <boost/multi_array.hpp>
 
 #include "mldb/plugins/jml/tsne/tsne.h"
 #include "mldb/arch/timers.h"
@@ -106,7 +105,7 @@ BOOST_AUTO_TEST_CASE( test_vectors_to_distances )
         boost::assign::list_of<float>(-1.0)(2.0)(-2.0)(0.0),
         boost::assign::list_of<float>(1.0)(0.0)(-1.0)(4.0) };
 
-    MLDB::MatrixRef<float, 2> vectors(MLDB::extents[4][4]);
+    MLDB::MatrixRef<float, 2> vectors(4, 4);
 
     for (unsigned i = 0;  i < 4;  ++i)
         for (unsigned j = 0;  j < 4;  ++j) 
@@ -237,7 +236,7 @@ BOOST_AUTO_TEST_CASE( test_small )
     int nd = 784;
     int nx = 100;
 
-    MLDB::MatrixRef<float, 2> data(MLDB::extents[nx][nd]);
+    MLDB::MatrixRef<float, 2> data(nx, nd);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -307,7 +306,7 @@ BOOST_AUTO_TEST_CASE( test_small )
     for (unsigned i = 1;  i < nx;  ++i)
         probs[i - 1] = probabilities[0][i];
 
-    MLDB::MatrixRef<float, 2> reduction2(MLDB::extents[nx - 1][2]);
+    MLDB::MatrixRef<float, 2> reduction2(nx - 1, 2);
 
     for (unsigned i = 1;  i < nx;  ++i) {
         for (unsigned j = 0;  j < 2;  ++j) {
@@ -339,7 +338,7 @@ BOOST_AUTO_TEST_CASE( test_vantage_point_tree )
     int nd = 784;
     int nx = 2500;
 
-    MLDB::Matrix<float, 2> data(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> data(nx, nd);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -432,7 +431,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     int nd = 784;
     int nx = 100;
 
-    MLDB::Matrix<float, 2> data(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> data(nx, nd);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {
@@ -478,7 +477,7 @@ BOOST_AUTO_TEST_CASE( test_small_approx )
     for (unsigned i = 1;  i < nx;  ++i)
         probs[i - 1] = probabilities[0][i];
 
-    MLDB::Matrix<float, 2> reduction2(MLDB::extents[nx - 1][2]);
+    MLDB::Matrix<float, 2> reduction2(nx - 1, 2);
 
     for (unsigned i = 1;  i < nx;  ++i) {
         for (unsigned j = 0;  j < 2;  ++j) {
@@ -517,7 +516,7 @@ BOOST_AUTO_TEST_CASE( test_distance_to_probability_big )
     int nd = 784;
     int nx = 2500;
 
-    MLDB::Matrix<float, 2> data(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> data(nx, nd);
 
     cerr << "loading " << nx << " examples...";
     for (unsigned i = 0;  i < nx;  ++i) {

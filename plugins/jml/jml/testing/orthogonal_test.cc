@@ -10,7 +10,6 @@
 
 #include <iostream>
 #include "mldb/plugins/jml/jml/config_impl.h"
-#include <boost/multi_array.hpp>
 #include "mldb/utils/distribution.h"
 
 using namespace std;

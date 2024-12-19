@@ -297,7 +297,7 @@ expand_weights(const Training_Data & data,
     int nl = data.label_count(predicted);
     
     MLDB::Matrix<float, 2> result
-        (MLDB::extents[data.example_count()][nl]);
+        (data.example_count(), nl);
     double recip = 1.0 / (nl * weights.total());
 
     for (unsigned x = 0;  x < data.example_count();  ++x)

@@ -287,7 +287,7 @@ decorrelate(const Training_Data & data) const
     size_t nx = data.example_count();
     size_t nf = features.size();
 
-    MLDB::MatrixRef<float, 2> result(MLDB::extents[nx][nf]);
+    MLDB::MatrixRef<float, 2> result(nx, nf);
     
     float input[nf];
 

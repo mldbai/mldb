@@ -13,7 +13,6 @@
 #undef NDEBUG
 
 #include <boost/test/unit_test.hpp>
-#include <boost/multi_array.hpp>
 #include "mldb/plugins/jml/neural/dense_layer.h"
 #include "mldb/plugins/jml/neural/layer_stack.h"
 #include "mldb/jml/utils/testing/serialize_reconstitute_include.h"

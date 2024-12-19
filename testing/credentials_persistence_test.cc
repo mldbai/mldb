@@ -19,6 +19,7 @@
 #include "mldb/types/value_description.h"
 #include "mldb/utils/environment.h"
 #include "mldb/utils/split.h"
+#include "mldb/utils/testing/watchdog.h"
 
 #include <future>
 #include <chrono>
@@ -179,6 +180,8 @@ struct SubprocessMldbRunner {
 
 BOOST_AUTO_TEST_CASE( test_credentials_persistence )
 {
+    Watchdog watchdog(30.0);
+
     constexpr const char * credentialsPath = "tmp/credentials_test";
 
     // make sure we start with a clean folder

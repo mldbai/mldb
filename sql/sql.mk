@@ -34,7 +34,8 @@ SQL_EXPRESSION_SOURCES := \
 	sql_expression_operations.cc \
 	eval_sql.cc \
 	expression_value_conversions.cc \
-	expression_value_description.cc
+	expression_value_description.cc \
+	
 
 # Unfortunately the S2 library needs you to mess with the include path as its includes
 # aren't prefixed.

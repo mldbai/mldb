@@ -1032,7 +1032,7 @@ init(const std::vector<Data_Source> & data_sources,
     //cerr << "feature space is " << feature_space->print() << endl;
     
     /* Allocate our array. */
-    dataset.resize(MLDB::extents[row_count][var_count]);
+    dataset.resize(row_count, var_count);
     row_comments.resize(row_count);
     row_offsets.resize(row_count);
 

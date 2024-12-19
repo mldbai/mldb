@@ -397,7 +397,7 @@ distances_to_probabilities(MLDB::MatrixRef<float, 2> & D,
     if (D.dim(1) != n)
         throw Exception("D is not square");
 
-    MLDB::Matrix<float, 2> P(MLDB::extents[n][n]);
+    MLDB::Matrix<float, 2> P(n, n);
     distribution<float> beta(n, 1.0);
 
     int chunk_size = 256;
@@ -432,8 +432,8 @@ pca(MLDB::Matrix<float, 2> & coords, int num_dims)
         throw Exception("svd_reduction: num_dims not low enough");
         
     distribution<float> svalues(nvalues);
-    MLDB::Matrix<float, 2> lvectorsT(MLDB::extents[nvalues][nd]);
-    MLDB::Matrix<float, 2> rvectors(MLDB::extents[nx][nvalues]);
+    MLDB::Matrix<float, 2> lvectorsT(nvalues, nd);
+    MLDB::Matrix<float, 2> rvectors(nx, nvalues);
 
     int res = LAPack::gesdd("S", nd, nx,
                             coords.data(), nd,
@@ -447,7 +447,7 @@ pca(MLDB::Matrix<float, 2> & coords, int num_dims)
     if (res != 0)
         throw Exception("gesdd returned non-zero");
         
-    MLDB::Matrix<float, 2> result(MLDB::extents[nx][ndr]);
+    MLDB::Matrix<float, 2> result(nx, ndr);
     for (unsigned i = 0;  i < nx;  ++i)
         std::copy(&rvectors[i][0], &rvectors[i][0] + ndr, &result[i][0]);
 
@@ -966,7 +966,7 @@ tsne_init(int nx, int nd, int randomSeed)
 
     std::function<double()> randn(std::bind(norm, rng));
 
-    MLDB::Matrix<float, 2> Y(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> Y(nx, nd);
     for (unsigned i = 0;  i < nx;  ++i)
         for (unsigned j = 0;  j < nd;  ++j)
             Y[i][j] = 0.0001 * randn();
@@ -1024,16 +1024,16 @@ tsne(const MLDB::MatrixRef<float, 2> & probs,
     Timer timer;
 
     // Pseudo-distance array for reduced space.  Q = D * qfactor
-    MLDB::Matrix<float, 2> D(MLDB::extents[n][n]);
+    MLDB::Matrix<float, 2> D(n, n);
 
     // Y delta
-    MLDB::Matrix<float, 2> dY(MLDB::extents[n][d]);
+    MLDB::Matrix<float, 2> dY(n, d);
 
     // Last change in Y; so that we can see if we're going in the same dir
-    MLDB::Matrix<float, 2> iY(MLDB::extents[n][d]);
+    MLDB::Matrix<float, 2> iY(n, d);
 
     // Per-variable factors to multiply the gradient by to improve convergence
-    MLDB::Matrix<float, 2> gains(MLDB::extents[n][d]);
+    MLDB::Matrix<float, 2> gains(n, d);
     std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
 
 
@@ -1736,22 +1736,22 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
     //forceExactSolution = true;
 
     // Z * Frep
-    MLDB::Matrix<double, 2> FrepZ(MLDB::extents[nx][nd]);
+    MLDB::Matrix<double, 2> FrepZ(nx, nd);
 
     // Y delta
-    MLDB::Matrix<float, 2> dY(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> dY(nx, nd);
 
     // Last change in Y; so that we can see if we're going in the same dir
-    MLDB::Matrix<float, 2> iY(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> iY(nx, nd);
 
     // Per-variable factors to multiply the gradient by to improve convergence
-    MLDB::Matrix<float, 2> gains(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> gains(nx, nd);
     std::fill(gains.data(), gains.data() + gains.num_elements(), 1.0f);
 
-    MLDB::Matrix<double, 2> FattrApprox(MLDB::extents[nx][nd]);
-    MLDB::Matrix<double, 2> FrepApprox(MLDB::extents[nx][nd]);
+    MLDB::Matrix<double, 2> FattrApprox(nx, nd);
+    MLDB::Matrix<double, 2> FrepApprox(nx, nd);
 
-    MLDB::Matrix<float, 2> lastNormalizedY(MLDB::extents[nx][nd]);
+    MLDB::Matrix<float, 2> lastNormalizedY(nx, nd);
 
     double cost = INFINITY;
     double last_cost = INFINITY;
@@ -2108,9 +2108,9 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
 #if 0  // exact calculations for verification        
         double Z = 0.0, C = 0.0;
 
-        MLDB::Matrix<float, 2> QZ(MLDB::extents[nx][nx]);
-        MLDB::Matrix<double, 2> Fattr(MLDB::extents[nx][nd]);
-        MLDB::Matrix<double, 2> Frep(MLDB::extents[nx][nd]);
+        MLDB::Matrix<float, 2> QZ(nx, nx);
+        MLDB::Matrix<double, 2> Fattr(nx, nd);
+        MLDB::Matrix<double, 2> Frep(nx, nd);
         
         for (unsigned x = 0;  x < nx;  ++x) {
 
@@ -2349,7 +2349,7 @@ tsneApproxFromSparse(const std::vector<TsneSparseProbs> & exampleNeighbours,
         PossiblyDynamicBuffer<float> maxAbsCoord(nd);
         std::fill(maxAbsCoord.data(), maxAbsCoord.data() + nd, 0.0);
 
-        MLDB::Matrix<float, 2> normalizedY(MLDB::extents[nx][nd]);
+        MLDB::Matrix<float, 2> normalizedY(nx, nd);
         for (unsigned x = 0;  x < nx;  ++x) {
             for (unsigned i = 0;  i < nd;  ++i) {
                 maxAbsCoord[i] = std::max(maxAbsCoord[i], fabs(Y[x][i]));

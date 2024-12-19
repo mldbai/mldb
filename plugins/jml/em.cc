@@ -71,13 +71,13 @@ EstimateCovariance(int i,
     if (totalWeight < 0.000001f)
       return variant;
 
-    variant.resize(MLDB::extents[average.size()][average.size()]);
+    variant.resize(average.size(), average.size());
     for (int n = 0; n < distanceMatrix.dim(0); ++n)
     {
         distribution<double> pt = points[n] - average;
         double distance = distanceMatrix[n][i];
         int dim = average.size();
-        MatrixType variantPt(MLDB::extents[dim][dim]);
+        MatrixType variantPt(dim, dim);
 
 	    for (unsigned i = 0;  i < dim;  ++i)
 	    {
@@ -120,7 +120,7 @@ train(const std::vector<distribution<double>> & points,
     clusters.resize(nbClusters);
 
     MLDB::Matrix<double, 2> distanceMatrix
-        (MLDB::extents[npoints][nbClusters]);
+        (npoints, nbClusters);
 
     // Smart initialization of the centroids
     // Same as Kmeans at the moment
@@ -165,7 +165,7 @@ train(const std::vector<distribution<double>> & points,
 
         MLDB::setIdentity<double>(numdimensions, clusters[i].covarianceMatrix);
         clusters[i].invertCovarianceMatrix
-            .resize(MLDB::extents[numdimensions][numdimensions]);
+            .resize(numdimensions, numdimensions);
         clusters[i].invertCovarianceMatrix = clusters[i].covarianceMatrix;
         clusters[i].pseudoDeterminant = 1.0f; 
     }
@@ -235,9 +235,7 @@ train(const std::vector<distribution<double>> & points,
                            clusters[i].covarianceMatrix.dim(1));
 
             auto svdMatrix = clusters[i].covarianceMatrix;
-            MatrixType VT,U;
-            distribution<double> svalues;
-            MLDB::svd_square(svdMatrix, VT, U, svalues);
+            auto [svalues, VT, U] = MLDB::svd_square(svdMatrix);
 
             //Remove small values and calculate pseudo determinant
             double pseudoDeterminant = 1.0f;

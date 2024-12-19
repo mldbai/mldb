@@ -246,21 +246,21 @@ train_weighted(Thread_Context & context,
     bool regression_problem
         = result.feature_space()->info(predicted).type() == REAL;
 
-    if (random_feature_propn < 0.0 || random_feature_propn > 1.0)
-        throw Exception("random_feature_propn is not between 0.0 and 1.0");
-
+    if (random_feature_propn <= 0.0 || random_feature_propn > 1.0)
+        throw Exception("random_feature_propn is not between (0.0 and 1.0]");
 
     vector<Feature> filtered_features;
     if (random_feature_propn < 1.0) {
 
         int iter = 0;
-        while (filtered_features.empty() && iter < 50) {
+        while (filtered_features.empty() && ++iter < 50) {
             typedef mt19937 engine_type;
             engine_type engine(context.random());
             std::uniform_real_distribution<> rng(0, 1);
             
             for (unsigned i = 0;  i < features.size();  ++i) {
-                if (rng(engine) < random_feature_propn)
+                auto num = rng(engine);
+                if (num < random_feature_propn)
                     filtered_features.push_back(features[i]);
             }
         }
@@ -1257,7 +1257,7 @@ train_recursive_regression(Thread_Context & context,
     vector<Feature> features = features_;
     
     /* We need it in a fixed array like this. */
-    MLDB::Matrix<float, 2> weights2(MLDB::extents[weights.size()][1]);
+    MLDB::Matrix<float, 2> weights2(weights.size(), 1);
     std::copy(weights.begin(), weights.end(), weights2.data());
     trainer.test_all_and_sort(features, data, model.predicted(), weights2,
                               in_class, accum);

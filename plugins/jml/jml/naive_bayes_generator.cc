@@ -283,7 +283,7 @@ struct Naive_Bayes_Accum {
             sorted.push_back(make_pair(features[i], i));
         sort_on_first_ascending(sorted);
         
-        MLDB::Matrix<float, 3> probs(MLDB::extents[features.size()][3][nl]);
+        MLDB::Matrix<float, 3> probs(features.size(), 3, nl);
         distribution<double> missing(nl);
         std::vector<Naive_Bayes::Bayes_Feature> newFeatures;
         newFeatures.reserve(sorted.size());

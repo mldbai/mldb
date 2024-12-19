@@ -32,7 +32,7 @@ void do_test1()
 {
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
-    MLDB::Matrix<Float, 2> A(MLDB::extents[5][4]);
+    MLDB::Matrix<Float, 2> A(5, 4);
     distribution<Float> b(5), x(4);
 
     A[0][0] = 0.00002;
@@ -94,7 +94,7 @@ void do_test2()
 {
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
-    MLDB::Matrix<Float, 2> A(MLDB::extents[5][4]);
+    MLDB::Matrix<Float, 2> A(5, 4);
     distribution<Float> b(5), x(4);
 
     A[0][0] = 0.00002;
@@ -157,7 +157,7 @@ void do_test3()
 {
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
-    MLDB::Matrix<Float, 2> A(MLDB::extents[5][4]);
+    MLDB::Matrix<Float, 2> A(5, 4);
     distribution<Float> b(5), x(4);
 
     A[0][0] = 0.00002;
@@ -232,7 +232,7 @@ void do_test_lasso()
 {
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
-    MLDB::Matrix<Float, 2> A(MLDB::extents[5][4]);
+    MLDB::Matrix<Float, 2> A(5, 4);
     distribution<Float> b(5);
 
     A[0][0] = 0.00002;
@@ -283,7 +283,7 @@ void do_test_lasso2()
 {
     /* See https://www-old.cae.wisc.edu/pipermail/bug-octave/2007-October/003689.html for the test case */
 
-    MLDB::Matrix<Float, 2> A(MLDB::extents[5][4]);
+    MLDB::Matrix<Float, 2> A(5, 4);
     distribution<Float> b(5), secret(4);
 
     A[0][0] = 1;
@@ -355,7 +355,7 @@ void test_lasso_scikit_learn()
 
     int n=5000;
     int d=10;
-    MLDB::Matrix<Float, 2> A(MLDB::extents[n][d+1]);
+    MLDB::Matrix<Float, 2> A(n, d+1);
     distribution<Float> b(n);
 
     // (ugly) shortcut to get the mean and std of the columns
@@ -416,7 +416,7 @@ void test_ridge_scikit_learn()
     // print(ridge.coef_)
     // # [ 0.2  0.2]
 
-    MLDB::Matrix<Float, 2> A(MLDB::extents[3][2]);
+    MLDB::Matrix<Float, 2> A(3, 2);
     distribution<Float> b(3);
     for (int i=0; i < 3; ++i) {
         A[i][0] = i;

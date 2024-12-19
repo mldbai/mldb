@@ -14,7 +14,6 @@
 
 #include <boost/test/unit_test.hpp>
 #include <boost/test/tools/floating_point_comparison.hpp>
-#include <boost/multi_array.hpp>
 #include "mldb/plugins/jml/neural/dense_layer.h"
 #include "mldb/jml/utils/testing/serialize_reconstitute_include.h"
 #include "mldb/plugins/jml/check_not_nan.h"

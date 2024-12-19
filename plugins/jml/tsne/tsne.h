@@ -72,7 +72,7 @@ vectors_to_distances(const MLDB::MatrixRef<float, 2> & X,
                      bool fill_upper = true)
 {
     int n = X.dim(0);
-    MLDB::Matrix<float, 2> result(MLDB::extents[n][n]);
+    MLDB::Matrix<float, 2> result(n, n);
     vectors_to_distances(X, result, fill_upper);
     return result;
 }
@@ -82,7 +82,7 @@ vectors_to_distances(MLDB::MatrixRef<double, 2> X,
                      bool fill_upper = true)
 {
     int n = X.dim(0);
-    MLDB::Matrix<double, 2> result(MLDB::extents[n][n]);
+    MLDB::Matrix<double, 2> result(n, n);
     vectors_to_distances(X, result, fill_upper);
     return result;
 }

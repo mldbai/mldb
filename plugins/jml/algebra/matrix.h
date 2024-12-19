@@ -9,9 +9,13 @@
 
 #pragma once
 
+#include <climits>
 #include <array>
 #include <iostream>
 #include <type_traits>
+#include <memory>
+#include <algorithm>
+
 #include "mldb/utils/ostream_array.h"
 #include "mldb/compiler/compiler.h"
 #include "mldb/arch/exception.h"
@@ -26,21 +30,6 @@ constexpr El prod(const std::array<El, Sz> & a)
         result *= el;
     return result;
 }
-
-template<size_t Dims>
-struct Extents {
-    std::array<size_t, Dims> dims;
-
-    constexpr Extents<Dims + 1> operator [] (size_t n) const
-    {
-        Extents<Dims + 1> result;
-        std::copy_n(dims.begin(), Dims, result.dims.begin());
-        result.dims[Dims] = n;
-        return result;
-    }
-};
-
-constexpr Extents<0> extents;
 
 void matrix_throw_out_of_range(const char * function, int line, const char * what, ssize_t index, ssize_t min, ssize_t max) MLDB_NORETURN;
 void matrix_throw_incompatible_ranges(const char * function, int line, ssize_t dim1, ssize_t dim2, const char * what) MLDB_NORETURN;
@@ -57,9 +46,30 @@ void matrix_throw_incompatible_dimensions(const char * function, int line, const
 #define MLDB_MATRIX_THROW_INCOMPATIBLE_DIMENSIONS(a, b, what) \
     matrix_throw_incompatible_dimensions(__PRETTY_FUNCTION__, __LINE__, a.shape().data(), a.shape().size(), b.shape().data(), b.shape().size(), what)
 
+template<typename Float, size_t Dims>
+struct MatrixRef;
 
 template<typename Float, size_t Dims>
 struct MatrixBase;
+
+// Pass to not initialize the matrix as an optimization
+constexpr struct matrix_uninitialized_t {
+    template<typename Float, size_t Dims> static void initialize(MatrixRef<Float, Dims> matrix) {}
+} matrix_uninitialized;
+
+// Pass to initialize with zeros
+constexpr struct matrix_zero_t {
+    template<typename Float, size_t Dims> static void initialize(MatrixRef<Float, Dims> matrix) { matrix.fill(0); }
+    //template<typename Element> static void initialize(Element & element) { element = 0; }
+} matrix_zero;
+
+// Pass to initialize with a constant value
+template<typename Float> struct matrix_fill_t {
+    Float val;
+    template<typename Float2, size_t Dims> void initialize(MatrixRef<Float2, Dims> matrix) { matrix.fill(val); }
+    //template<typename Element> void initialize(Element & element) { element = val; }
+};
+template<typename Float> constexpr matrix_fill_t<Float> matrix_fill(Float val) { return { val }; }
 
 
 template<typename Float, size_t Dims>
@@ -105,21 +115,21 @@ public:
     }
 #endif
 
-    template<typename Float2>
-    void assign(const MatrixRef<Float2, Dims> & other)
+    template<typename Float2, typename Fill = matrix_zero_t>
+    void assign(const MatrixRef<Float2, Dims> & other, Fill fill = matrix_zero)
     {
         MLDB_MATRIX_CHECK_COMPATIBLE_RANGES(other.dim(0), this->dim(0), "Assign of incompatible ranges");
 
-        if (this->num_elements() == other.num_elements() && this->contiguous() && other.contiguous()) {
+        if (this->num_elements() == other.num_elements() && this->is_contiguous() && other.is_contiguous()) {
             std::copy_n(other.data(), this->num_elements(), this->data());
         }
         else {
             auto n = std::min(this->dim(0), other.dim(0));
             for (size_t i = 0; i < n;  ++i) {
-                this->assign(i, other[i]);
+                this->assign(i, other[i], fill);
             }
             for (size_t i = n;  i < this->dim(0);  ++i) {
-                this->fill(0);
+                fill.initialize(operator [] (i));
             }
         }
     }
@@ -132,7 +142,7 @@ public:
         auto it = other.begin();
         auto n = std::min<size_t>(other.size(), this->dim(0));
         for (size_t i = 0;  i < n;  ++i, ++it) {
-                this->assign(i, *it);
+                this->assign(i, *it, matrix_zero);
         }
         for (size_t i = n;  i < this->dim(0);  ++i) {
             this->fill(0);
@@ -151,10 +161,10 @@ public:
     }
 #endif
 
-    template<typename Other>
-    void assign(size_t i, const Other & other)
+    template<typename Other, typename Fill>
+    void assign(size_t i, const Other & other, Fill fill = matrix_zero)
     {
-        this->operator [] (i).assign(other);
+        this->operator [] (i).assign(other, fill);
     }
 
     size_t dim(size_t n) const
@@ -197,14 +207,14 @@ public:
         return MatrixRef<Float, Dims-1>{data_ + offset, strides_ + 1, dims_ + 1};
     }
 
-    bool contiguous() const
+    bool is_contiguous() const
     {
         return stride(0) == dim(1);
     }
 
     void fill(Float value)
     {
-        if (contiguous())
+        if (is_contiguous())
             std::fill_n(data(), num_elements(), value);
         else {
             for (size_t i = 0;  i < dim(0);  ++i) {
@@ -231,27 +241,13 @@ template<typename Float>
 struct MatrixRef<Float, 1> {
     static constexpr size_t Dims = 1;
 
-#if 0
-    template<typename Float2>
-    MatrixRef & operator = (const MatrixRef<Float2, 1> & other)
+    template<typename Float2, typename Fill = matrix_zero_t>
+    void assign(const MatrixRef<Float2, 1> & other, Fill fill = matrix_zero)
     {
-        this->assign(other);
-        return *this;
-    }
-
-    MatrixRef & operator = (const MatrixRef & other)
-    {
-        this->assign(other);
-        return *this;
-    }
-#endif
-
-    template<typename Float2>
-    void assign(const MatrixRef<Float2, 1> & other)
-    {
+        // TODO: this should work by either partially copying or filling excess
         MLDB_MATRIX_CHECK_COMPATIBLE_RANGES(other.dim(0), this->dim(0), "Assign of incompatible ranges");
 
-        if (num_elements() == other.num_elements() && contiguous() && other.contiguous()) {
+        if (num_elements() == other.num_elements() && is_contiguous() && other.is_contiguous()) {
             std::copy_n(other.data(), num_elements(), data());
         }
         else {
@@ -261,34 +257,34 @@ struct MatrixRef<Float, 1> {
         }
     }
 
-    template<typename Float2>
-    void assign(const std::initializer_list<Float2> & other)
+    template<typename Float2, typename Fill = matrix_zero_t>
+    void assign(const std::initializer_list<Float2> & other, Fill fill = matrix_zero)
     {
         MLDB_MATRIX_CHECK_COMPATIBLE_RANGES(other.size(), this->dim(0), "Assign of incompatible ranges");
 
         auto it = other.begin();
         for (size_t i = 0;  i < this->dim(0);  ++i, ++it) {
-                this->assign(i, *it);
+                this->assign(i, *it, fill);
         }
     }
 
-    template<typename Float2, size_t N>
-    void assign(const std::array<Float2, N> & other)
+    template<typename Float2, size_t N, typename Fill = matrix_zero_t>
+    void assign(const std::array<Float2, N> & other, Fill fill = matrix_zero)
     {
         MLDB_MATRIX_CHECK_COMPATIBLE_RANGES(N, this->dim(0), "Assign of incompatible ranges");
 
-        if (contiguous()) {
+        if (is_contiguous()) {
             std::copy_n(other.data(), N, data());
         }
         else {
             for (size_t i = 0;  i < this->dim(0);  ++i) {
-                    this->assign(i, other[i]);
+                    this->assign(i, other[i], fill);
             }
         }
     }
 
-    template<typename Float2>
-    void assign(size_t i, Float2 other)
+    template<typename Float2, typename Fill = matrix_zero_t>
+    void assign(size_t i, Float2 other, Fill fill = matrix_zero)
     {
         this->operator [] (i) = other;
     }
@@ -337,14 +333,14 @@ struct MatrixRef<Float, 1> {
         return dims_[0];
     }
 
-    bool contiguous() const
+    bool is_contiguous() const
     {
         return strides_[0] == 1;
     }
 
     void fill(Float value)
     {
-        if (contiguous())
+        if (is_contiguous())
             std::fill_n(data(), num_elements(), value);
         else {
             auto * p = data();
@@ -363,21 +359,19 @@ struct MatrixRef<Float, 1> {
 
 template<typename Float, size_t Dims>
 struct MatrixBase: public MatrixRef<Float, Dims> {
-    MatrixBase()
+
+    template<typename Init = matrix_zero_t>
+    MatrixBase(Init initialize = {}, decltype(std::declval<Init>().initialize(std::declval<MatrixBase &>())) * = nullptr)
     {
         std::array<size_t, Dims> shape;
         std::fill(shape.begin(), shape.end(), 0);
-        init(shape);
+        init(shape, initialize);
     }
 
-    MatrixBase(const Extents<Dims> & extents)
+    template<typename Init = matrix_zero_t>
+    MatrixBase(const std::array<size_t, Dims> & shape, Init initialize = {}, decltype(std::declval<Init>().initialize(std::declval<MatrixBase &>())) * = nullptr)
     {
-        init(extents.dims);
-    }
-
-    MatrixBase(const std::array<size_t, Dims> & shape)
-    {
-        init(shape);
+        init(shape, initialize);
     }
 
     MatrixBase(const MatrixBase & other)
@@ -412,11 +406,13 @@ struct MatrixBase: public MatrixRef<Float, Dims> {
     {
         using namespace std;
         //cerr << "MatrixBase operator (copy) = " << endl;
-        resize(other.shape());
+
+        // The shape will be copied from the other matrix, so all elements will be initialized
+        resize(other.shape(), matrix_uninitialized);
         
         // Copy each slice on this dimension
         for (size_t i = 0;  i < this->dim(0);  ++i) {
-            this->assign(i, other.operator [] (i));
+            this->assign(i, other.operator [] (i), matrix_zero);
         }
 
         return *this;
@@ -445,18 +441,24 @@ struct MatrixBase: public MatrixRef<Float, Dims> {
         std::swap(this->state_, other.state_);
     }
 
-    template<size_t Dim, typename First, typename... Rest>
-    void make_shape(std::array<size_t, Dims> & shape, First&&first, Rest&&... rest)
+    template<size_t Dim, typename... Rest>
+    void init_shape(std::array<size_t, Dims> & shape, size_t first, Rest&&... rest)
     {
         static_assert(Dim < Dims, "Too many dimensions passed to Matrix");
         shape[Dim] = first;
-        make_shape<Dim + 1>(shape, std::forward<Rest>(rest)...);
+        init_shape<Dim + 1>(shape, std::forward<Rest>(rest)...);
     }
 
     template<size_t Dim>
-    void make_shape(std::array<size_t, Dims> &)
+    void init_shape(std::array<size_t, Dim> & shape)
     {
-        static_assert(Dim == Dims, "Not enough dimensions passed to Matrix");
+        init(shape, matrix_zero);
+    }
+
+    template<size_t Dim, typename Init>
+    void init_shape(std::array<size_t, Dim> & shape, Init initialize)
+    {
+        init(shape, initialize);
     }
 
     template<typename... Args>
@@ -464,32 +466,48 @@ struct MatrixBase: public MatrixRef<Float, Dims> {
     {
         std::array<size_t, Dims> shape;
         shape[0] = shape0;
-        make_shape<1>(shape, std::forward<Args>(args)...);
-        init(shape);
+        init_shape<1>(shape, std::forward<Args>(args)...);
     }
 
-    template<typename... ArgDims>
-    void resize(ArgDims... args)
+    template<size_t Dim, typename... Rest>
+    void resize_shape(std::array<size_t, Dims> & shape, size_t first, Rest&&... rest)
     {
-        std::array<size_t, Dims> shape{ args... };
-        resize(shape);
+        static_assert(Dim < Dims, "Too many dimensions passed to Matrix resize");
+        shape[Dim] = first;
+        resize_shape<Dim + 1>(shape, std::forward<Rest>(rest)...);
     }
 
-    void resize(const Extents<Dims> & extents)
+    template<size_t Dim>
+    void resize_shape(std::array<size_t, Dim> & shape)
     {
-        resize(extents.dims);
+        resize(shape, matrix_zero);
     }
 
-    void resize(const std::array<size_t, Dims> & dims)
+    template<size_t Dim, typename Init>
+    void resize_shape(std::array<size_t, Dim> & shape, Init initialize)
+    {
+        resize(shape, initialize);
+    }
+
+    template<typename... Args>
+    void resize(Args... args)
+    {
+        std::array<size_t, Dims> shape{};
+        resize_shape<0>(shape, args...);
+    }
+
+    template<typename Init>
+    void resize(const std::array<size_t, Dims> & dims, Init init = matrix_zero,
+                decltype(std::declval<Init>().initialize(std::declval<MatrixBase &>())) * = nullptr)
     {
         // TODO: don't copy when it's not needed
         MatrixBase newMatrix(dims);
         size_t n = std::min<size_t>(this->dim(0), newMatrix.dim(0));
         for (size_t i = 0;  i < n;  ++i) {
-            newMatrix.assign(i, this->operator [] (i));
+            newMatrix.assign(i, this->operator [] (i), init);
         }
         for (size_t i = n;  i < newMatrix.dim(0);  ++i) {
-            newMatrix[i].fill(0);
+            init.initialize(newMatrix[i]);
         }
         swap(newMatrix);
     }
@@ -523,12 +541,14 @@ struct MatrixBase: public MatrixRef<Float, Dims> {
     }
 
 //protected:
-    void init(std::array<size_t, Dims> shape)
+    template<typename Init>
+    void init(std::array<size_t, Dims> shape, Init init = matrix_zero)
     {
         state_.reset(new State(shape));
         this->data_ = state_->data;
         this->strides_ = state_->strides;
         this->dims_ = state_->dims;
+        init.initialize(*this);
     }
 
     template<typename Float2>
@@ -557,7 +577,7 @@ struct MatrixBase: public MatrixRef<Float, Dims> {
     {
         using namespace std;
         //cerr << "initFrom " << getShape(other) << endl;
-        init(getShape(other));
+        init(getShape(other), matrix_uninitialized);
         //cerr << "shape = " << this->shape() << endl;
         this->assign(other);
         //cerr << "after assign shape = " << this->shape() << endl;
