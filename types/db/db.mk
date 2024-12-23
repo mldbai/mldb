@@ -9,7 +9,7 @@ LIBDB_SOURCES := \
 
 $(eval $(call add_sources,$(LIBDB_SOURCES)))
 
-LIBDB_LINK := arch
+LIBDB_LINK := arch base
 
 
 $(eval $(call library,db,$(LIBDB_SOURCES),$(LIBDB_LINK)))

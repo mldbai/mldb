@@ -2,21 +2,25 @@
 
 
 LIBBASE_SOURCES := \
-        parse_context.cc \
+    parse_context.cc \
 	thread_pool.cc \
 	parallel.cc \
 	optimized_path.cc \
 	hex_dump.cc \
-
+	../types/string.cc \
 
 LIBBASE_LINK :=	\
 	arch \
-	gc
+	gc \
+	icui18n \
+	icuuc \
+	icudata \
 
 $(eval $(call library,base,$(LIBBASE_SOURCES),$(LIBBASE_LINK)))
 
 # gcc 4.7
 $(eval $(call set_compile_option,hash.cc,-fpermissive))
+$(eval $(call set_compile_option,../types/string.cc,-I$(ICU_INCLUDE_PATH)))
 
 $(eval $(call set_compile_option,hash.cc,-I $(CRYPTOPP_INCLUDE_DIR)))
 $(eval $(call library,hash,hash.cc,arch cryptopp))

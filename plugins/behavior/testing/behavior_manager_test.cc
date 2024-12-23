@@ -96,11 +96,11 @@ BOOST_AUTO_TEST_CASE( test_beh_mgr_getS3CacheEntries )
     */
     auto compareEntries = [&] (const BehaviorManager::RemoteCacheEntry & file1,
                                const BehaviorManager::RemoteCacheEntry & file2) {
-        return file1.name.compare(file2.name) < 0;
+        return file1.name < file2.name;
     };
     sort(results.begin(), results.end(), compareEntries);
     for (const auto & entry: results) {
-        BOOST_CHECK_GT(entry.accessTime, now);
+        BOOST_CHECK_GT(entry.modificationTime, now);
         BOOST_CHECK_EQUAL(entry.size, 3);
     }
 
@@ -116,5 +116,5 @@ BOOST_AUTO_TEST_CASE( test_beh_mgr_getS3CacheEntries )
     results = bMgr.getRemoteCacheEntries();
     sort(results.begin(), results.end(), compareEntries);
     BOOST_CHECK_EQUAL(oldEntry.name, results[0].name);
-    BOOST_CHECK_GT(results[0].accessTime, oldEntry.accessTime);
+    BOOST_CHECK_GT(results[0].modificationTime, oldEntry.modificationTime);
 }

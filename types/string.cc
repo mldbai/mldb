@@ -24,6 +24,18 @@ using namespace std;
 
 namespace MLDB {
 
+// Put this here, since it needs Utf8String to work
+Exception::Exception(const Utf8String & msg)
+    : message(msg.rawString())
+{
+}
+
+Exception::
+Exception(int errnum, const Utf8String & msg, const char * function)
+: Exception(errnum, msg.rawString(), function)
+{
+}
+
 
 /*****************************************************************************/
 /* UTF8STRING                                                                */
@@ -46,6 +58,11 @@ Utf8String::fromLatin1(const std::string & lat1Str)
 
     // No need to check for valid code points, since already done before
     return Utf8String(std::move(utf8Str), false /* check */);
+}
+
+Utf8String::operator std_filesystem_path() const
+{
+    return std_filesystem_path(data_);
 }
 
 Utf8String
@@ -419,6 +436,30 @@ Utf8String::end() const
     return const_iterator(data_.end(), data_.begin(), data_.end()) ;
 }
 
+Utf8String::reverse_iterator
+Utf8String::rbegin()
+{
+    return std::make_reverse_iterator(end());
+}
+
+Utf8String::reverse_iterator
+Utf8String::rend()
+{
+    return std::make_reverse_iterator(begin());
+}
+
+Utf8String::const_reverse_iterator
+Utf8String::rbegin() const
+{
+    return std::make_reverse_iterator(end());
+}
+
+Utf8String::const_reverse_iterator
+Utf8String::rend() const
+{
+    return std::make_reverse_iterator(begin());
+}
+
 Utf8String &Utf8String::operator+=(const Utf8String &utf8str)
 {
     data_ += utf8str.data_;
@@ -452,7 +493,8 @@ string Utf8String::extractAscii() const
         if (c >= ' ' && c < 127) {
             s += c;
         } else {
-            s += '?';
+            throw MLDB::Exception("Not an ASCII string: " + std::to_string(c));
+            //s += '?';
         }
     }
     return s;
@@ -467,6 +509,31 @@ Utf8String::isAscii() const
             return false;
     }
     return true;
+}
+
+std::string
+Utf8String::
+uriEncode() const
+{
+    string result;
+    for (unsigned c: data_) {
+
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~' || c == '/')
+            result += c;
+        else result += MLDB::format("%%%02X", c);
+    }
+
+    return result;
+}
+
+std::string
+Utf8String::
+stealAsciiString()
+{
+    if (isAscii()) {
+        return stealRawString();
+    }
+    else throw MLDB::Exception("Not an ASCII string");
 }
 
 size_t Utf8String::length() const
@@ -490,84 +557,102 @@ capacity() const
 
 Utf8String::const_iterator
 Utf8String::
-find(int c) const
+find(int c, const_iterator start) const
 {
-    return std::find(begin(), end(), c);
+    return std::find(start, end(), c);
 }
 
 Utf8String::const_iterator
 Utf8String::
-find(const char * s) const
+find(const char * s, const_iterator start) const
 {
-    return find(Utf8String(s));
+    return find(Utf8String(s), start);
 }
 
 Utf8String::const_iterator
 Utf8String::
-find(const wchar_t * s) const
+find(const wchar_t * s, const_iterator start) const
 {
-    return find(Utf8String(s));
+    return find(Utf8String(s), start);
 }
 
 Utf8String::const_iterator
 Utf8String::
-find(const std::string & s) const
+find(const std::string & s, const_iterator start) const
 {
-    return find(Utf8String(s));
+    return find(Utf8String(s), start);
 }
 
 Utf8String::const_iterator
 Utf8String::
-find(const Utf8String & s) const
+find(const Utf8String & s, const_iterator start) const
 {
-    return std::search(begin(), end(),
-                       s.begin(), s.end());
+    // For now, shortcut through the pointers
+    const char * startPtr = start.base().base();
+    const char * endPtr = data_.end().base();
+    const char * sPtr = s.rawData();
+    const char * sEnd = sPtr + s.rawLength();
+
+    const char * result = std::search(startPtr, endPtr, sPtr, sEnd);
+    if (result == endPtr)
+        return end();
+
+    return const_iterator(data_.begin() + (result - rawData()), data_.begin(), data_.end());
 }
 
 Utf8String::iterator
 Utf8String::
-find(int c)
+find(int c, iterator start)
 {
-    return std::find(begin(), end(), c);
+    return std::find(start, end(), c);
 }
 
 Utf8String::iterator
 Utf8String::
-find(const char * s)
+find(const char * s, iterator start)
 {
-    return find(Utf8String(s));
+    return find(Utf8String(s), start);
 }
 
 Utf8String::iterator
 Utf8String::
-find(const wchar_t * s)
+find(const wchar_t * s, iterator start)
 {
-    return find(Utf8String(s));
+    return find(Utf8String(s), start);
 }
 
 Utf8String::iterator
 Utf8String::
-find(const std::string & s)
+find(const std::string & s, iterator start)
 {
-    return find(Utf8String(s));
+    return find(Utf8String(s), start);
 }
 
 Utf8String::iterator
 Utf8String::
-find(const Utf8String & s)
+find(const Utf8String & s, iterator start)
 {
-    return std::search(begin(), end(),
-                       s.begin(), s.end());
+    // For now, shortcut through the pointers
+    char * startPtr = start.base().base();
+    char * endPtr = data_.end().base();
+    const char * sPtr = s.rawData();
+    const char * sEnd = sPtr + s.rawLength();
+
+    char * result = std::search(startPtr, endPtr, sPtr, sEnd);
+    if (result == endPtr)
+        return end();
+
+    return iterator(data_.begin() + (result - rawData()), data_.begin(), data_.end());
 }
 
 Utf8String::const_iterator
 Utf8String::
-rfind(int c) const
+rfind(int c, const_iterator start) const
 {
     if (empty())
         return end();
 
-    for (auto it = std::prev(end()), beg = begin(); it != beg;  --it) {
+    for (auto it = std::prev(start), beg = begin(); it != beg;  --it) {
         //cerr << "checking " << (char)*it << " at position " << std::distance(begin(), it) << endl;
 
         if (*it == c)
@@ -582,37 +667,37 @@ rfind(int c) const
 
 Utf8String::const_iterator
 Utf8String::
-rfind(const char * s) const
+rfind(const char * s, const_iterator start) const
+{
+    return rfind(Utf8String(s), start);
+}
+
+Utf8String::const_iterator
+Utf8String::
+rfind(const wchar_t * s, const_iterator start) const
 {
     return rfind(Utf8String(s));
 }
 
 Utf8String::const_iterator
 Utf8String::
-rfind(const wchar_t * s) const
+rfind(const std::string & s, const_iterator start) const
 {
-    return rfind(Utf8String(s));
-}
-
-Utf8String::const_iterator
-Utf8String::
-rfind(const std::string & s) const
-{
-    return rfind(Utf8String(s));
+    return rfind(Utf8String(s), start);
 }
 
 namespace { // file scope
 
-template<typename String>
-auto do_rfind(String && haystack, const Utf8String & s) -> decltype(declval<String>().end())
+template<typename String, typename StringIterator>
+auto do_rfind(String && haystack, const Utf8String & s, StringIterator start) -> decltype(declval<String>().end())
 {
-    if (s.empty() || haystack.empty())
+    if (s.empty() || start == haystack.begin())
         return haystack.end();
 
     int pivot = *s.begin();
 
     // Point to the first place it could match
-    auto it = haystack.end();
+    auto it = start;
     for (size_t i = 0;  i < s.length();  ++i) {
         if (it == haystack.begin())
             return haystack.end();
@@ -646,19 +731,19 @@ auto do_rfind(String && haystack, const Utf8String & s) -> decltype(declval<Stri
 
 Utf8String::const_iterator
 Utf8String::
-rfind(const Utf8String & s) const
+rfind(const Utf8String & s, const_iterator start) const
 {
-    return do_rfind(*this, s);
+    return do_rfind(*this, s, start);
 }
 
 Utf8String::iterator
 Utf8String::
-rfind(int c)
+rfind(int c, iterator start)
 {
     if (empty())
         return end();
 
-    for (auto it = std::prev(end()), beg = begin(); it != beg;  --it) {
+    for (auto it = std::prev(start), beg = begin(); it != beg;  --it) {
         //cerr << "checking " << (char)*it << " at position " << std::distance(begin(), it) << endl;
 
         if (*it == c)
@@ -673,30 +758,30 @@ rfind(int c)
 
 Utf8String::iterator
 Utf8String::
-rfind(const char * s)
+rfind(const char * s, iterator start)
 {
-    return rfind(Utf8String(s));
+    return rfind(Utf8String(s), start);
 }
 
 Utf8String::iterator
 Utf8String::
-rfind(const wchar_t * s)
+rfind(const wchar_t * s, iterator start)
 {
-    return rfind(Utf8String(s));
+    return rfind(Utf8String(s), start);
 }
 
 Utf8String::iterator
 Utf8String::
-rfind(const std::string & s)
+rfind(const std::string & s, iterator start)
 {
-    return rfind(Utf8String(s));
+    return rfind(Utf8String(s), start);
 }
 
 Utf8String::iterator
 Utf8String::
-rfind(const Utf8String & s)
+rfind(const Utf8String & s, iterator start)
 {
-    return do_rfind(*this, s);
+    return do_rfind(*this, s, start);
 }
 
 bool Utf8String::startsWith(const Utf8String & prefix) const

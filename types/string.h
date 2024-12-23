@@ -13,6 +13,8 @@
 #include <string_view>
 #include <span>
 #include "mldb/ext/utfcpp/source/utf8.h"
+#include "mldb/compiler/compiler.h"
+#include "mldb/compiler/filesystem_fwd.h"
 
 
 namespace MLDB {
@@ -30,13 +32,37 @@ struct JSValue;
 class Utf8String
 {
 public:
-    typedef utf8::iterator<std::string::const_iterator> const_iterator;
-    typedef utf8::iterator<std::string::iterator> iterator;
     using size_type = size_t;
     using value_type = char32_t;
 
+    struct iterator: utf8::iterator<std::string::iterator> {
+        using base_iterator = utf8::iterator<std::string::iterator>;
+        using base_iterator::iterator;
+        iterator(base_iterator it): base_iterator(it) {}
+        iterator operator += (ssize_t n) { if (n < 0) return operator -= (-n); for (size_t i = 0; i < n; ++i) ++(*this); return *this; }
+        iterator operator -= (ssize_t n) { if (n < 0) return operator += (-n); for (size_t i = 0; i < n; ++i) --(*this); return *this; }
+        iterator operator + (ssize_t n) { iterator result = *this; result += n; return result; }
+        iterator operator - (ssize_t n) { iterator result = *this; result -= n; return result; }
+    };
+
+    struct const_iterator: utf8::iterator<std::string::const_iterator> {
+        using base_iterator = utf8::iterator<std::string::const_iterator>;
+        using base_iterator::iterator;
+        const_iterator(base_iterator it): base_iterator(it) {}
+        const_iterator operator += (ssize_t n) { if (n < 0) return operator -= (-n); for (size_t i = 0; i < n; ++i) ++(*this); return *this; }
+        const_iterator operator -= (ssize_t n) { if (n < 0) return operator += (-n); for (size_t i = 0; i < n; ++i) --(*this); return *this; }
+        const_iterator operator + (ssize_t n) { const_iterator result = *this; result += n; return result; }
+        const_iterator operator - (ssize_t n) { const_iterator result = *this; result -= n; return result; }
+    };
+
+    using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+    using reverse_iterator = std::reverse_iterator<iterator>;
+
     static Utf8String fromLatin1(const std::string & lat1Str);
     static Utf8String fromLatin1(std::string && lat1Str);
+
+    operator std::basic_string_view<char8_t>() const { return {(const char8_t *)data_.data(), data_.length()}; }
+    operator std_filesystem_path() const;
 
     /** Allow default construction of an empty string. */
     Utf8String()
@@ -102,6 +128,16 @@ public:
 
     Utf8String(const iterator & first, const iterator & last, bool /* check */ = false);
 
+    template<typename InputIterator>
+    Utf8String(InputIterator start, InputIterator end, bool /* check */ = false)
+    {
+        // TODO: there are better ways...
+        Utf8String result;
+        for (auto it = start; it != end; ++it)
+            result += *it;
+        swap(result);
+    }
+
     Utf8String & operator=(Utf8String && str) noexcept
     {
         Utf8String newMe(std::move(str));
@@ -146,9 +182,13 @@ public:
 
     iterator begin();
     iterator end();
+    reverse_iterator rbegin();
+    reverse_iterator rend();
 
     const_iterator begin() const;
-    const_iterator end() const ;
+    const_iterator end() const;
+    const_reverse_iterator rbegin() const;
+    const_reverse_iterator rend() const ;
 
     Utf8String&  operator+=(const std::string& str)
     {
@@ -185,10 +225,17 @@ public:
     /*
      * Returns access to the underlying representation - unsafe
      */
-    std::string stealRawString() const { return std::move(data_); }
+    std::string stealRawString() { return std::move(data_); }
+    std::string stealAsciiString();
     const std::string & rawString() const { return data_; }
     const std::string & utf8String() const { return data_; }
+
+    // Data but not necessarily null terminated
     const char * rawData() const { return data_.c_str(); }
+
+    // Null terminated string of utf8 encoded charadcters
+    const char * c_str() const { return data_.c_str(); }
+
     size_t rawLength() const { return data_.length() ; }
 
     bool startsWith(const Utf8String & prefix) const;
@@ -232,34 +279,59 @@ public:
     */
     size_t capacity() const;
 
-    const_iterator find(int c) const;
-    const_iterator find(const char * s) const;
-    const_iterator find(const wchar_t * s) const;
-    const_iterator find(const std::string & s) const;
-    const_iterator find(const Utf8String & s) const;
+    const_iterator find(int c) const { return find(c, begin()); }
+    const_iterator find(const char * s) const { return find(s, begin()); }
+    const_iterator find(const wchar_t * s) const { return find(s, begin()); }
+    const_iterator find(const std::string & s) const { return find(s, begin()); }
+    const_iterator find(const Utf8String & s) const { return find(s, begin()); }
 
-    iterator find(int c);
-    iterator find(const char * s);
-    iterator find(const wchar_t * s);
-    iterator find(const std::string & s);
-    iterator find(const Utf8String & s);
+    const_iterator find(int c, const_iterator start) const;
+    const_iterator find(const char * s, const_iterator start) const;
+    const_iterator find(const wchar_t * s, const_iterator start) const;
+    const_iterator find(const std::string & s, const_iterator start) const;
+    const_iterator find(const Utf8String & s, const_iterator start) const;
 
-    const_iterator rfind(int c) const;
-    const_iterator rfind(const char * s) const;
-    const_iterator rfind(const wchar_t * s) const;
-    const_iterator rfind(const std::string & s) const;
-    const_iterator rfind(const Utf8String & s) const;
+    iterator find(int c) { return find(c, begin()); }
+    iterator find(const char * s) { return find(s, begin()); }
+    iterator find(const wchar_t * s) { return find(s, begin()); }
+    iterator find(const std::string & s) { return find(s, begin()); }
+    iterator find(const Utf8String & s) { return find(s, begin()); }
 
-    iterator rfind(int c);
-    iterator rfind(const char * s);
-    iterator rfind(const wchar_t * s);
-    iterator rfind(const std::string & s);
-    iterator rfind(const Utf8String & s);
+    iterator find(int c, iterator start);
+    iterator find(const char * s, iterator start);
+    iterator find(const wchar_t * s, iterator start);
+    iterator find(const std::string & s, iterator start);
+    iterator find(const Utf8String & s, iterator start);
+
+    const_iterator rfind(int c) const { return rfind(c, end()); }
+    const_iterator rfind(const char * s) const { return rfind(s, end()); }
+    const_iterator rfind(const wchar_t * s) const { return rfind(s, end()); }
+    const_iterator rfind(const std::string & s) const { return rfind(s, end()); }
+    const_iterator rfind(const Utf8String & s) const { return rfind(s, end()); }
+
+    const_iterator rfind(int c, const_iterator start) const;
+    const_iterator rfind(const char * s, const_iterator start) const;
+    const_iterator rfind(const wchar_t * s, const_iterator start) const;
+    const_iterator rfind(const std::string & s, const_iterator start) const;
+    const_iterator rfind(const Utf8String & s, const_iterator start) const;
+
+    iterator rfind(int c) { return rfind(c, end()); }
+    iterator rfind(const char * s) { return rfind(s, end()); }
+    iterator rfind(const wchar_t * s) { return rfind(s, end()); }
+    iterator rfind(const std::string & s) { return rfind(s, end()); }
+    iterator rfind(const Utf8String & s) { return rfind(s, end()); }
+
+    iterator rfind(int c, iterator start);
+    iterator rfind(const char * s, iterator start);
+    iterator rfind(const wchar_t * s, iterator start);
+    iterator rfind(const std::string & s, iterator start);
+    iterator rfind(const Utf8String & s, iterator start);
 
     iterator wrapIterator(std::string::iterator it);
     const_iterator wrapIterator(std::string::const_iterator it) const;
 
     std::string extractAscii() const;
+    std::string uriEncode() const;
     bool isAscii() const;
 
     /** Return a lowercase version of this string. */
@@ -425,6 +497,19 @@ inline Utf8String operator + (const std::string & str1, const Utf8String & str2)
     return result;
 }
 
+inline Utf8String operator + (Utf8String str1, char32_t ch)
+{
+    return str1 += ch;
+}
+
+inline Utf8String operator + (char32_t ch, const Utf8String & str1)
+{
+    Utf8String result;
+    result += ch;
+    result += str1;
+    return result;
+}
+
 inline void swap(Utf8String & s1, Utf8String & s2)
 {
     s1.swap(s2);
@@ -462,18 +547,28 @@ inline Utf8String to_upper(const Utf8String & str)
     return str.toUpper();
 }
 
-template<typename String>
-bool starts_with(const Utf8String & str1, String&& str2)
-{
-    return str1.startsWith(std::forward<String>(str2));
-}
+#define MLDB_UTF8STRING_FREE_FUNCTION(ret, name, method, type) \
+    inline ret name(const Utf8String & str1, type str2) { return str1.method(str2); }
 
-template<typename String>
-bool ends_with(const Utf8String & str1, String&& str2)
-{
-    return str1.endsWith(std::forward<String>(str2));
-}
+MLDB_UTF8STRING_FREE_FUNCTION(bool, starts_with, startsWith, const Utf8String &);
+MLDB_UTF8STRING_FREE_FUNCTION(bool, starts_with, startsWith, const char *);
+MLDB_UTF8STRING_FREE_FUNCTION(bool, starts_with, startsWith, const std::string &);
+MLDB_UTF8STRING_FREE_FUNCTION(bool, ends_with, endsWith, const Utf8String &);
+MLDB_UTF8STRING_FREE_FUNCTION(bool, ends_with, endsWith, const char *);
+MLDB_UTF8STRING_FREE_FUNCTION(bool, ends_with, endsWith, const std::string &);
 
+#undef MLDB_UTF8STRING_FREE_FUNCTION
+
+// Free functions for array limits
+inline Utf8String::const_iterator arr_begin(const Utf8String & str) { return str.begin(); }
+inline Utf8String::const_iterator arr_end(const Utf8String & str) { return str.end(); }
+inline Utf8String::iterator arr_begin(Utf8String & str) { return str.begin(); }
+inline Utf8String::iterator arr_end(Utf8String & str) { return str.end(); }
+inline Utf8String::const_reverse_iterator arr_rbegin(const Utf8String & str) { return str.rbegin(); }
+inline Utf8String::const_reverse_iterator arr_rend(const Utf8String & str) { return str.rend(); }
+inline Utf8String::reverse_iterator arr_rbegin(Utf8String & str) { return str.rbegin(); }
+inline Utf8String::reverse_iterator arr_rend(Utf8String & str) { return str.rend(); }
+inline size_t arr_size(const Utf8String & str) { return str.length(); }
 
 
 /*****************************************************************************/
@@ -606,6 +701,13 @@ std::ostream & operator << (std::ostream & stream, const Utf32String & str);
 typedef Utf8String UnicodeString;
 
 Utf8String getUtf8ExceptionString();
+
+// This is a helper function to allow us to pass a Utf8String to a printf
+// Called in arch/format.h
+MLDB_ALWAYS_INLINE const char * forwardForPrintf(const Utf8String & s)
+{
+    return s.c_str();
+}
 
 } // namespace MLDB
 

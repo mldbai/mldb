@@ -46,24 +46,23 @@ std::map<std::string, Decompressor::Info> decompressors;
 
 std::string
 Compressor::
-filenameToCompression(const std::string & filename)
+filenameToCompression(const Utf8String & filename)
 {
-    std::unique_lock<std::mutex> guard(mutex);
-
-    for (string::size_type pos = filename.rfind('.');
-         pos != string::npos && pos > 0;
-         pos = filename.rfind('.', pos - 1)) {
+    for (auto pos = filename.rfind('.');
+         pos != filename.end() && pos != filename.begin();
+         pos = filename.rfind('.', std::prev(pos))) {
         
-        std::string extension(filename, pos + 1);
+        Utf8String extension(std::next(pos), filename.end());
 
-        while (!extension.empty() && extension[extension.size() - 1] == '~') {
-            extension = string(extension, 0, extension.size() - 1);
+        while (!extension.empty() && *std::prev(extension.end()) == '~') {
+            extension = Utf8String(extension.begin(), std::prev(extension.end()));
         }
 
         if (extension.empty())
             return std::string();
 
-        auto it = extensions.find(extension);
+        std::unique_lock<std::mutex> guard(mutex);
+        auto it = extensions.find(extension.extractAscii());
         if (it != extensions.end()) {
             return it->second;
         }

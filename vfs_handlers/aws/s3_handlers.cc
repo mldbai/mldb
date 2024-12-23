@@ -21,6 +21,8 @@
 #include "mldb/vfs/exception_ptr.h"
 #include "mldb/vfs_handlers/aws/s3.h"
 #include "mldb/arch/wait_on_address.h"
+#include "mldb/utils/split.h"
+#include "mldb/utils/starts_with.h"
 
 using namespace std;
 using namespace MLDB;
@@ -33,17 +35,17 @@ namespace {
 struct S3UrlFsHandler : public UrlFsHandler {
     virtual FsObjectInfo getInfo(const Url & url) const
     {
-        string bucket = url.host();
+        auto bucket = url.host();
         auto api = getS3ApiForUri(url.toDecodedString());
-        auto bucketPath = S3Api::parseUri(url.original);
+        auto bucketPath = S3Api::parseUri(url.original());
         return api->getObjectInfo(bucket, bucketPath.second);
     }
 
     virtual FsObjectInfo tryGetInfo(const Url & url) const
     {
-        string bucket = url.host();
+        auto bucket = url.host();
         auto api = getS3ApiForUri(url.toDecodedString());
-        auto bucketPath = S3Api::parseUri(url.original);
+        auto bucketPath = S3Api::parseUri(url.original());
         return api->tryGetObjectInfo(bucket, bucketPath.second);
     }
 
@@ -53,9 +55,9 @@ struct S3UrlFsHandler : public UrlFsHandler {
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        string bucket = url.host();
+        auto bucket = url.host();
         auto api = getS3ApiForUri(url.toDecodedString());
-        auto bucketPath = S3Api::parseUri(url.original);
+        auto bucketPath = S3Api::parseUri(url.original());
         if (throwException) {
             api->eraseObject(bucket, "/" + bucketPath.second);
             return true;
@@ -71,17 +73,17 @@ struct S3UrlFsHandler : public UrlFsHandler {
                          const std::string & delimiter,
                          const std::string & startAt) const
     {
-        string bucket = prefix.host();
+        Utf8String bucket = prefix.host();
         auto api = getS3ApiForUri(prefix.toString());
 
         bool result = true;
 
-        auto onObject2 = [&] (const std::string & prefix,
-                              const std::string & objectName,
+        auto onObject2 = [&] (const Utf8String & prefix,
+                              const Utf8String & objectName,
                               const S3Api::ObjectInfo & info,
                               int depth)
             {
-                std::string filename = "s3://" + bucket + "/" + prefix + objectName;
+                Utf8String filename = "s3://" + bucket + "/" + prefix + objectName;
                 OpenUriObject open = [=,this] (const std::map<std::string, std::string> & options) -> UriHandler
                 {
                     if (!options.empty())
@@ -96,8 +98,8 @@ struct S3UrlFsHandler : public UrlFsHandler {
                 return onObject(filename, info, open, depth);
             };
 
-        auto onSubdir2 = [&] (const std::string & prefix,
-                              const std::string & dirName,
+        auto onSubdir2 = [&] (const Utf8String & prefix,
+                              const Utf8String & dirName,
                               int depth)
             {
                 return onSubdir("s3://" + bucket + "/" + prefix + dirName,
@@ -105,7 +107,7 @@ struct S3UrlFsHandler : public UrlFsHandler {
             };
 
         // Get rid of leading / on prefix
-        string prefix2 = string(prefix.path(), 1);
+        auto prefix2 = must_remove_prefix(prefix.path(), 1);
 
         api->forEachObject(bucket, prefix2, onObject2,
                            onSubdir ? onSubdir2 : S3Api::OnSubdir(),
@@ -135,8 +137,8 @@ size_t getTotalSystemMemory()
 
 struct S3Downloader {
     S3Downloader(const S3Api * api,
-                 const string & bucket,
-                 const string & resource, // starts with "/", unescaped (buggy)
+                 const Utf8String & bucket,
+                 Utf8String resource, // starts with "/", unescaped (buggy)
                  ssize_t startOffset = 0, ssize_t endOffset = -1)
         : api(api),
           bucket(bucket), resource(resource),
@@ -150,7 +152,8 @@ struct S3Downloader {
           currentRq(0),
           activeRqs(0)
     {
-        fileInfo = api->getObjectInfo(bucket, resource.substr(1));
+        resource = must_remove_prefix(resource, '/');
+        fileInfo = api->getObjectInfo(bucket, resource);
         if (!fileInfo) {
             throw MLDB::Exception("missing object: " + resource);
         }
@@ -429,8 +432,8 @@ private:
 
     /* static variables, set during or right after construction */
     const S3Api * api;
-    std::string bucket;
-    std::string resource;
+    Utf8String bucket;
+    Utf8String resource;
     S3Api::ObjectInfo fileInfo;
     uint64_t offset; /* the lower position in the file from which the download
                       * is started */
@@ -466,12 +469,11 @@ private:
 /****************************************************************************/
 
 struct StreamingDownloadSource {
-    StreamingDownloadSource(const std::string & urlStr)
+    StreamingDownloadSource(const Utf8String & urlStr)
     {
         owner = getS3ApiForUri(urlStr);
 
-        string bucket, resource;
-        std::tie(bucket, resource) = S3Api::parseUri(urlStr);
+        auto [bucket, resource] = S3Api::parseUri(urlStr);
         downloader.reset(new S3Downloader(owner.get(),
                                           bucket, "/" + resource));
     }
@@ -513,7 +515,7 @@ private:
 
 
 std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
-makeStreamingDownload(const std::string & uri)
+makeStreamingDownload(const Utf8String & uri)
 {
     std::unique_ptr<std::streambuf> result;
     StreamingDownloadSource source(uri);
@@ -549,8 +551,8 @@ inline void touch(const char * start, size_t size)
 
 struct S3Uploader {
     S3Uploader(const S3Api * api,
-               const string & bucket,
-               const string & resource, // starts with "/", unescaped (buggy)
+               const Utf8String & bucket,
+               const Utf8String & resource, // starts with "/", unescaped (buggy)
                const OnUriHandlerException & excCallback,
                const S3Api::ObjectMetadata & objectMetadata)
         : api(api),
@@ -717,8 +719,8 @@ struct S3Uploader {
 
 private:
     const S3Api * api;
-    std::string bucket;
-    std::string resource;
+    Utf8String bucket;
+    Utf8String resource;
     S3Api::ObjectMetadata metadata;
     OnUriHandlerException onException;
 
@@ -742,13 +744,12 @@ private:
 /****************************************************************************/
 
 struct StreamingUploadSource {
-    StreamingUploadSource(const std::string & urlStr,
+    StreamingUploadSource(const Utf8String & urlStr,
                           const OnUriHandlerException & excCallback,
                           const S3Api::ObjectMetadata & metadata)
         : owner(getS3ApiForUri(urlStr))
     {
-        string bucket, resource;
-        std::tie(bucket, resource) = S3Api::parseUri(urlStr);
+        auto [bucket, resource] = S3Api::parseUri(urlStr);
         uploader.reset(new S3Uploader(owner.get(), bucket, "/" + resource,
                                       excCallback, metadata));
     }
@@ -783,7 +784,7 @@ private:
 };
 
 std::unique_ptr<std::streambuf>
-makeStreamingUpload(const std::string & uri,
+makeStreamingUpload(const Utf8String & uri,
                     const OnUriHandlerException & onException,
                     const S3Api::ObjectMetadata & metadata)
 {
@@ -800,16 +801,15 @@ makeStreamingUpload(const std::string & uri,
 struct RegisterS3Handler {
     static UriHandler
     getS3Handler(const std::string & scheme,
-                 const std::string & resource,
+                 const Utf8String & resource,
                  std::ios_base::openmode mode,
                  const std::map<std::string, std::string> & options,
                  const OnUriHandlerException & onException)
     {
-        string::size_type pos = resource.find('/');
-        if (pos == string::npos)
+        auto [bucket, object, found] = split_on_first(resource, '/');
+        if (!found)
             throw MLDB::Exception("unable to find s3 bucket name in resource "
                                 + resource);
-        string bucket(resource, 0, pos);
 
         if (mode == ios::in) {
             std::unique_ptr<std::streambuf> source;

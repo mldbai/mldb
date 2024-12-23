@@ -253,7 +253,7 @@ struct JSONImporter: public Procedure {
         std::atomic<int64_t> recordedLines(0);
         int64_t lineOffset = 1;
         std::string line;
-        std::string filename = runProcConf.dataFileUrl.toDecodedString();
+        auto filename = runProcConf.dataFileUrl.toDecodedString();
 
         filter_istream stream(filename);
 

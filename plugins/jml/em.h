@@ -43,8 +43,8 @@ struct EstimationMaximisation
   
     void serialize(MLDB::DB::Store_Writer & store) const;
     void reconstitute(MLDB::DB::Store_Reader & store);
-    void save(const std::string & filename) const;
-    void load(const std::string & filename);
+    void save(const Utf8String & filename) const;
+    void load(const Utf8String & filename);
 
 };
 

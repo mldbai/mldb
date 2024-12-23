@@ -5,7 +5,7 @@
 # Set compile options for specific files when using GCC 4.7 and above
 set_source_files_properties(
     sqlite3.c shell.c
-    PROPERTIES COMPILE_OPTIONS "-Wno-array-bounds;-Wno-unused-const-variable;-Wno-misleading-indentation;$<CXX_COMPILER_VERSION:4.7>:-Wno-stringop-overread"
+    PROPERTIES COMPILE_OPTIONS "-Wno-array-bounds;-Wno-unused-const-variable;-Wno-misleading-indentation"
 )
 
 # Create a library named sqlite-mldb with the specified source files

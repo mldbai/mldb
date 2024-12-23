@@ -36,7 +36,7 @@ struct SocketConnection {
 
     ~SocketConnection();
 
-    void connect(const std::string & hostname,
+    void connect(const Utf8String & hostname,
                  const std::string & port);
 
     void close();
@@ -58,19 +58,19 @@ struct SshConnection : public SocketConnection {
 
     ~SshConnection();
 
-    void connect(const std::string & hostname,
+    void connect(const Utf8String & hostname,
                  const std::string & port);
 
-    void passwordAuth(const std::string & username,
-                      const std::string & password);
+    void passwordAuth(const Utf8String & username,
+                      const Utf8String & password);
 
-    void publicKeyAuth(const std::string & username,
-                       const std::string & publicKeyFile,
-                       const std::string & privateKeyFile);
+    void publicKeyAuth(const Utf8String & username,
+                       const Utf8String & publicKeyFile,
+                       const Utf8String & privateKeyFile);
 
     void setBlocking();
 
-    std::string lastError() const;
+    Utf8String lastError() const;
 
     void close();
 };
@@ -90,26 +90,26 @@ struct SftpConnection : public SshConnection {
 
     ~SftpConnection();
 
-    void connectPasswordAuth(const std::string & hostname,
-                             const std::string & username,
-                             const std::string & password,
+    void connectPasswordAuth(const Utf8String & hostname,
+                             const Utf8String & username,
+                             const Utf8String & password,
                              const std::string & port = "ssh");
 
-    void connectPublicKeyAuth(const std::string & hostname,
-                              const std::string & username,
-                              const std::string & publicKeyFile,
-                              const std::string & privateKeyFile,
+    void connectPublicKeyAuth(const Utf8String & hostname,
+                              const Utf8String & username,
+                              const Utf8String & publicKeyFile,
+                              const Utf8String & privateKeyFile,
                               const std::string & port = "ssh");
 
     struct Attributes : public LIBSSH2_SFTP_ATTRIBUTES {
     };
 
     struct File {
-        std::string path;
+        Utf8String path;
         LIBSSH2_SFTP_HANDLE *handle;
         SftpConnection * owner;
 
-        File(const std::string & path,
+        File(const Utf8String & path,
              LIBSSH2_SFTP_HANDLE * handle,
              SftpConnection * owner);
 
@@ -123,11 +123,11 @@ struct SftpConnection : public SshConnection {
     };
 
     struct Directory {
-        std::string path;
+        Utf8String path;
         LIBSSH2_SFTP_HANDLE *handle;
         const SftpConnection * owner;
         
-        Directory(const std::string & path,
+        Directory(const Utf8String & path,
                   LIBSSH2_SFTP_HANDLE * handle,
                   const SftpConnection * owner);
 
@@ -140,28 +140,28 @@ struct SftpConnection : public SshConnection {
         void forEachFile(const OnFile & onFile) const;
     };
 
-    Directory getDirectory(const std::string & path) const;
+    Directory getDirectory(const Utf8String & path) const;
 
-    File openFile(const std::string & path);
+    File openFile(const Utf8String & path);
 
     void uploadFile(const char * start,
                     size_t size,
-                    const std::string & path);
+                    const Utf8String & path);
 
-    bool getAttributes(const std::string & path, Attributes & attrs) const;
+    bool getAttributes(const Utf8String & path, Attributes & attrs) const;
     
     std::unique_ptr<std::streambuf>
-    streamingUploadStreambuf(const std::string & path,
+    streamingUploadStreambuf(const Utf8String & path,
                              const OnUriHandlerException & onException) const;
 
     std::unique_ptr<std::streambuf>
-    streamingDownloadStreambuf(const std::string & path) const;
+    streamingDownloadStreambuf(const Utf8String & path) const;
 
-    filter_ostream streamingUpload(const std::string & path) const;
-    filter_istream streamingDownload(const std::string & path) const;
+    filter_ostream streamingUpload(const Utf8String & path) const;
+    filter_istream streamingDownload(const Utf8String & path) const;
 
-    int unlink(const std::string & path) const;
-    int mkdir(const std::string & path) const;
+    int unlink(const Utf8String & path) const;
+    int mkdir(const Utf8String & path) const;
 
     void close();
 
@@ -177,24 +177,24 @@ struct SftpConnection : public SshConnection {
 
 class HostAlreadyRegistered : public MLDB::Exception {
 public:
-    HostAlreadyRegistered(const std::string & bucketName) : 
+    HostAlreadyRegistered(const Utf8String & bucketName) : 
         MLDB::Exception("sftp host %s already registered",
                       bucketName.c_str())
     {
     }
 };
 
-void registerSftpHostPassword(const std::string & hostname,
-                              const std::string & username,
-                              const std::string & password,
+void registerSftpHostPassword(const Utf8String & hostname,
+                              const Utf8String & username,
+                              const Utf8String & password,
                               const std::string & port = "ssh");
 
-void registerSftpHostPublicKey(const std::string & hostname,
-                               const std::string & username,
-                               const std::string & publicKeyFile,
-                               const std::string & privateKeyFile,
+void registerSftpHostPublicKey(const Utf8String & hostname,
+                               const Utf8String & username,
+                               const Utf8String & publicKeyFile,
+                               const Utf8String & privateKeyFile,
                                const std::string & port = "ssh");
 
-const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr);
+const SftpConnection & getSftpConnectionFromConnStr(const Utf8String & connStr);
 
 } // namespace MLDB

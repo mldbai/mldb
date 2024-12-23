@@ -6,6 +6,7 @@ set(LIBALGEBRA_SOURCES
     lapack.cc
     ilaenv.c
     svd.cc
+    matrix.cc
     matrix_ops.cc
 )
 

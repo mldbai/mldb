@@ -214,7 +214,7 @@ struct JsonParsingContext {
     /** Return a string that gives the context of where the parsing is
         at, for example line number and column.
     */
-    virtual std::string getContext() const = 0;
+    virtual Utf8String getContext() const = 0;
     
     /// Expect an integer at the current position and consume and return it.
     /// Throws if not found or overflow.
@@ -384,18 +384,18 @@ struct StreamingJsonParsingContext
     
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
-    StreamingJsonParsingContext(const std::string & filename);
+    StreamingJsonParsingContext(const Utf8String & filename);
     
     /** Initialize from an istream. */
-    StreamingJsonParsingContext(const std::string & filename, std::istream & stream,
+    StreamingJsonParsingContext(const Utf8String & filename, std::istream & stream,
                                 unsigned line = 1, unsigned col = 1,
                                 size_t chunk_size = DEFAULT_CHUNK_SIZE);
 
     /** Initialize from a memory region. */
-    StreamingJsonParsingContext(const std::string & filename, const char * start,
+    StreamingJsonParsingContext(const Utf8String & filename, const char * start,
                                 const char * finish, unsigned line = 1, unsigned col = 1);
     
-    StreamingJsonParsingContext(const std::string & filename, const char * start,
+    StreamingJsonParsingContext(const Utf8String & filename, const char * start,
                                 size_t length, unsigned line = 1, unsigned col = 1);
     
     /// Initialize from a general JML ParseContext object.
@@ -403,19 +403,19 @@ struct StreamingJsonParsingContext
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
-    void init(const std::string & filename);
+    void init(const Utf8String & filename);
     
     /** Initialize from a memory region. */
-    void init(const std::string & filename, const char * start,
+    void init(const Utf8String & filename, const char * start,
               const char * finish, unsigned line = 1, unsigned col = 1);
 
-    void init(const std::string & filename, const char * start,
+    void init(const Utf8String & filename, const char * start,
               size_t length, unsigned line = 1, unsigned col = 1);
 
     /** Initialize from an istream. */
-    void init(const std::string & filename, std::istream & stream,
-                                unsigned line = 1, unsigned col = 1,
-                                size_t chunk_size = DEFAULT_CHUNK_SIZE);
+    void init(const Utf8String & filename, std::istream & stream,
+              unsigned line = 1, unsigned col = 1,
+              size_t chunk_size = DEFAULT_CHUNK_SIZE);
 
     ParseContext * context;
     std::unique_ptr<ParseContext> ownedContext;
@@ -534,7 +534,7 @@ struct StreamingJsonParsingContext
 
     virtual void exception(const std::string & message) const;
 
-    virtual std::string getContext() const;
+    virtual Utf8String getContext() const;
 
     virtual Json::Value expectJson();
 
@@ -557,12 +557,12 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
 
     StructuredJsonParsingContext(const Json::Value & val);
 
-    const Json::Value * current;
-    const Json::Value * top;
+    const Json::Value * current = nullptr;
+    const Json::Value * top = nullptr;
 
     virtual void exception(const std::string & message) const;
     
-    virtual std::string getContext() const;
+    virtual Utf8String getContext() const;
 
     virtual int expectInt();
 

@@ -973,7 +973,7 @@ struct BehaviorDomain {
         KEEP_ALL_BEHAVIORS = -1
     };
 
-    void save(const std::string & filename,
+    void save(const Utf8String & filename,
               ssize_t maxSubjectBehaviors = KEEP_ALL_BEHAVIORS);
     void saveToStream(std::ostream & stream,
                       ssize_t maxSubjectBehaviors = KEEP_ALL_BEHAVIORS);

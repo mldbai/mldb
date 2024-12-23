@@ -59,7 +59,7 @@ DECLARE_STRUCTURE_DESCRIPTION(FsObjectInfo);
 /// Type of a callback when we find a subdirectory in a directory traversal
 /// If it returns false, then the subdirectory will not be traversed into
 
-typedef std::function<bool (const std::string & dirName,
+typedef std::function<bool (const Utf8String & dirName,
                             int depth)>
 OnUriSubdir;
 
@@ -75,7 +75,7 @@ OpenUriObject;
 /// The open method can be used to obtain a stream pointing to the object,
 /// which will normally be more efficient than opening the URI directly.
 
-typedef std::function<bool (const std::string & uri,
+typedef std::function<bool (const Utf8String & uri,
                             const FsObjectInfo & info,
                             const OpenUriObject & open,
                             int depth)>
@@ -121,29 +121,29 @@ void registerUrlFsHandler(const std::string & scheme,
 /*****************************************************************************/
 
 // Parse a string into an URL
-Url makeUrl(const std::string & urlStr);
+Url makeUrl(const Utf8String & urlStr);
 
 /// Set a GLOBAL flag that URIs without a scheme will not be accepted
 void setGlobalAcceptUrisWithoutScheme(bool accept);
 
 // Return the object info for either a file or an S3 object
-FsObjectInfo getUriObjectInfo(const std::string & filename);
+FsObjectInfo getUriObjectInfo(const Utf8String & filename);
 
 // Return the object info for either a file or an S3 object, or null if
 // it doesn't exist
-FsObjectInfo tryGetUriObjectInfo(const std::string & filename);
+FsObjectInfo tryGetUriObjectInfo(const Utf8String & filename);
 
 // Return the size of an URI for either a file or an s3 object
-size_t getUriSize(const std::string & filename);
+size_t getUriSize(const Utf8String & filename);
 
 // Return an etag for either a file or an s3 object
-std::string getUriEtag(const std::string & filename);
+std::string getUriEtag(const Utf8String & filename);
 
 // Return the scheme for the URI
-std::string getUriScheme(const std::string & uri);
+std::string getUriScheme(const Utf8String & uri);
 
 // Return the path (everything after the scheme) for the URI
-std::string getUriPath(const std::string & uri);
+std::string getUriPath(const Utf8String & uri);
 
 /* Create the directories for the given path.  For S3 it does nothing;
    for normal directories it does mkdir -p
@@ -153,13 +153,13 @@ std::string getUriPath(const std::string & uri);
    "/some/dirname/" gives "/some/dirname/"
    "dirname" throws */
 
-void makeUriDirectory(const std::string & uri);
+void makeUriDirectory(const Utf8String & uri);
 
 // Erase the object at the given uri
-bool eraseUriObject(const std::string & uri, bool throwException = true);
+bool eraseUriObject(const Utf8String & uri, bool throwException = true);
 
 // Erase the object at the given uri
-bool tryEraseUriObject(const std::string & uri);
+bool tryEraseUriObject(const Utf8String & uri);
 
 /** For each file matching the given prefix in the given bucket, call
     the callback.
@@ -178,7 +178,7 @@ bool tryEraseUriObject(const std::string & uri);
     Will return false if the result of an onOjbect call was false, true
     otherwise.
 */
-bool forEachUriObject(const std::string & uriPrefix,
+bool forEachUriObject(const Utf8String & uriPrefix,
                       const OnUriObject & onObject,
                       const OnUriSubdir & onSubdir = nullptr,
                       const std::string & delimiter = "/",
@@ -201,7 +201,7 @@ std::string dirName(const std::string & filename);
  * error before spending the time running the job
  */
 void
-checkWritability(const std::string & url, const std::string & parameterName);
+checkWritability(const Utf8String & url, const std::string & parameterName);
 
 
 /****************************************************************************/

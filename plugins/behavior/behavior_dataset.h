@@ -118,7 +118,7 @@ private:
 
     friend struct MutableBehaviorDatasetRowStream;
 
-    std::string address;
+    Utf8String address;
     std::shared_ptr<MutableBehaviorDomain> behs;
     std::shared_ptr<BehaviorColumnIndex> columns;
     std::shared_ptr<BehaviorMatrixView> matrix;

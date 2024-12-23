@@ -13,6 +13,7 @@ LIBVFS_HANDLERS_LINK := \
 	ssh2 \
 	aws_vfs_handlers \
 	arch \
+	base \
 	value_description \
 	vfs \
 	http \

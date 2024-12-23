@@ -2,7 +2,7 @@
 
 # Libraries
 add_library(config config.cc)
-target_link_libraries(config PUBLIC Boost::program_options)
+target_link_libraries(config PUBLIC arch Boost::program_options)
 
 add_library(log log.cc)
 target_link_libraries(log PUBLIC arch config)

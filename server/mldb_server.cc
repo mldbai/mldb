@@ -41,6 +41,7 @@
 #include "mldb/builtin/shared_library_plugin.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/vector_utils.h"
+#include "mldb/utils/starts_with.h"
 
 using namespace std;
 
@@ -474,7 +475,7 @@ scanPlugins(const std::string & dir_)
 
     std::string dir = dir_;
 
-    auto foundPlugin = [&] (const std::string & dir,
+    auto foundPlugin = [&] (const Utf8String & dir,
                             std::istream & stream)
         {
             try {
@@ -482,7 +483,7 @@ scanPlugins(const std::string & dir_)
                 if (manifest.config.type == "sharedLibrary") {
                     auto shlibConfig = manifest.config.params.convert<SharedLibraryConfig>();
                     // strip off the file:// prefix
-                    shlibConfig.address = string(dir, 7);
+                    shlibConfig.address = must_remove_prefix(dir, "file://").rawString();
                     shlibConfig.allowInsecureLoading = true;
 
                     manifest.config.params = shlibConfig;
@@ -521,24 +522,22 @@ scanPlugins(const std::string & dir_)
         foundPlugin(dir, stream);
     }
     else {
-        auto onSubdir = [&] (const std::string & dirName,
+        auto onSubdir = [&] (const Utf8String & dirName,
                              int depth)
             {
                 return true;
             };
 
-        auto onFile = [&] (const std::string & uri,
+        auto onFile = [&] (const Utf8String & uri,
                            const FsObjectInfo & info,
                            const OpenUriObject & open,
                            int depth)
             {
-                if (endsWith(uri, "/mldb_plugin.json")) {
-                    //filter_istream stream(open({}),
-                    //                          uri, {});
+                Utf8String dir = uri;
+                if (remove_if_ends_with(dir, "/mldb_plugin.json")) {
                     filter_istream stream(uri);
-                    foundPlugin(string(uri, 0, uri.length() - 16), stream);
-                    return true;
-                }
+                    foundPlugin(dir, stream);
+                }  
                 return true;
             };
 

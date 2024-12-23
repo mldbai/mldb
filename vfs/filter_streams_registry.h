@@ -34,7 +34,7 @@ typedef std::function<void (const std::exception_ptr & excPtr)> OnUriHandlerExce
 
 typedef std::function<UriHandler
                       (const std::string & scheme,
-                       const std::string & resource,
+                       const Utf8String & resource,
                        std::ios_base::openmode mode,
                        const std::map<std::string, std::string> & options,
                        const OnUriHandlerException & onException)>
@@ -43,10 +43,10 @@ UriHandlerFactory;
 void registerUriHandler(const std::string & scheme,
                         const UriHandlerFactory & handler);
 
-std::string & getMemStreamString(const std::string & name);
-void setMemStreamString(const std::string & name,
+std::string & getMemStreamString(const Utf8String & name);
+void setMemStreamString(const Utf8String & name,
                         const std::string & contents);
-void deleteMemStreamString(const std::string & name);
+void deleteMemStreamString(const Utf8String & name);
 void deleteAllMemStreamStrings();
 
 } // namesapce MLDB

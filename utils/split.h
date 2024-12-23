@@ -10,6 +10,7 @@
 
 #include <utility>
 #include <vector>
+#include <algorithm>
 //#include <iostream> // for debugging
 #include "mldb/utils/array_limits.h"
 
@@ -56,7 +57,7 @@ void split(std::vector<ResultString> & result, String&& str, Match&& match, bool
     //    cerr << "type of iterator is " << typeid(arr_begin(str)).name() << endl;
     //}
 
-    auto ibegin = arr_begin(str), iend = arr_end(str), it = ibegin;
+    auto ibegin = arr_begin(std::forward<String>(str)), iend = arr_end(std::forward<String>(str)), it = ibegin;
     for (; it != iend; /* no inc */) {
         //check_in_range(it, iend);
         //if constexpr (debug) { cerr << "at character \'" << *it << "\' at distance " << std::distance(arr_begin(str), it) << endl; }
@@ -80,6 +81,42 @@ void split(std::vector<ResultString> & result, String&& str, Match&& match, bool
     }
     if (ibegin == iend && include_empty_at_end)
         result.emplace_back();
+}
+
+// Returns before match, after match, was match found
+template<typename String, typename Match>
+std::tuple<String, String, bool>
+split_on_first(const String & str, Match&& match)
+{
+    auto ibegin = arr_begin(str), iend = arr_end(str);
+    auto mbegin = arr_begin(std::forward<Match>(match)), mend = arr_end(std::forward<Match>(match));
+
+    auto found = std::search(ibegin, iend, mbegin, mend);
+    if (found == iend)
+        return { str, String(), false };
+    String before(ibegin, found);
+    auto mlen = arr_size(std::forward<Match>(match));
+    std::advance(found, mlen);
+    String after(found, iend);
+    return { std::move(before), std::move(after), true };
+}
+
+// Returns before match, after match, was match found
+template<typename String, typename Match>
+std::tuple<String, String, bool>
+split_on_last(const String & str, Match&& match)
+{
+    auto ibegin = arr_begin(str), iend = arr_end(str);
+    auto mbegin = arr_begin(std::forward<Match>(match)), mend = arr_end(std::forward<Match>(match));
+
+    auto found = std::find_end(ibegin, iend, mbegin, mend);
+    if (found == iend)
+        return { str, String(), false };
+    String before(ibegin, found);
+    auto mlen = arr_size(std::forward<Match>(match));
+    std::advance(found, mlen);
+    String after(found, iend);
+    return { std::move(before), std::move(after), true };
 }
 
 } // namespace MLDB

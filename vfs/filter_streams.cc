@@ -31,6 +31,7 @@
 #include "fs_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/lexical_cast.h"
+#include "mldb/utils/split.h"
 
 
 using namespace std;
@@ -40,18 +41,14 @@ namespace MLDB {
 const UriHandlerFactory &
 getUriHandler(const std::string & scheme);
 
-std::pair<std::string, std::string>
-getScheme(const std::string & uri)
+std::pair<std::string, Utf8String>
+getScheme(const Utf8String & uri)
 {
-    string::size_type pos = uri.find("://");
-    if (pos == string::npos) {
-        return make_pair("file", uri);
-    }
+    auto [scheme, resource, found] = split_on_first(uri, "://");
+    if (!found)
+        return make_pair("file", std::move(scheme));
 
-    string scheme(uri, 0, pos);
-    string resource(uri, pos + 3);
-
-    return make_pair(scheme, resource);
+    return make_pair(scheme.stealAsciiString(), resource);
 }
 
 UriHandler::
@@ -266,7 +263,7 @@ filter_ostream(filter_ostream && other) noexcept
 }
 
 filter_ostream::
-filter_ostream(const std::string & file, std::ios_base::openmode mode,
+filter_ostream(const Utf8String & file, std::ios_base::openmode mode,
                const std::string & compression, int level)
     : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
@@ -299,7 +296,7 @@ filter_ostream(int fd,
 }
 
 filter_ostream::
-filter_ostream(const std::string & uri,
+filter_ostream(const Utf8String & uri,
                const std::map<std::string, std::string> & options)
     : ostream(std::cout.rdbuf()), deferredFailure(false)
 {
@@ -347,7 +344,7 @@ namespace {
 
 void addCompression(streambuf & buf,
                     boost::iostreams::filtering_ostream & stream,
-                    const std::string & resource,
+                    const Utf8String & resource,
                     const std::string & compression,
                     int compressionLevel)
 {
@@ -378,7 +375,7 @@ void addCompression(streambuf & buf,
 
 void addCompression(streambuf & buf,
                     boost::iostreams::filtering_ostream & stream,
-                    const std::string & resource,
+                    const Utf8String & resource,
                     const std::map<std::string, std::string> & options)
 {
     string compression;
@@ -481,7 +478,7 @@ std::ios_base::openmode getMode(const std::map<std::string, std::string> & optio
 
 void
 filter_ostream::
-open(const std::string & uri, std::ios_base::openmode mode,
+open(const Utf8String & uri, std::ios_base::openmode mode,
      const std::string & compression, int compressionLevel)
 {
     //cerr << "uri = " << uri << " compression = " << compression << endl;
@@ -499,13 +496,12 @@ open(const Url & uri, std::ios_base::openmode mode,
 
 void
 filter_ostream::
-open(const std::string & uri,
+open(const Utf8String & uri,
      const std::map<std::string, std::string> & options)
 {
     using namespace boost::iostreams;
 
-    string scheme, resource;
-    std::tie(scheme, resource) = getScheme(uri);
+    auto [scheme, resource] = getScheme(uri);
 
     std::ios_base::openmode mode = getMode(options);
     if (!mode)
@@ -537,7 +533,7 @@ void
 filter_ostream::
 openFromStreambuf(std::streambuf * buf,
                   std::shared_ptr<void> bufOwnership,
-                  const std::string & resource,
+                  const Utf8String & resource,
                   const std::string & compression,
                   int compressionLevel)
 {
@@ -550,7 +546,7 @@ void
 filter_ostream::
 openFromStreambuf(std::streambuf * buf,
                   std::shared_ptr<void> bufOwnership,
-                  const std::string & resource,
+                  const Utf8String & resource,
                   const std::map<std::string, std::string> & options)
 {
 
@@ -585,7 +581,7 @@ openFromStreambuf(std::streambuf * buf,
 void
 filter_ostream::
 openFromHandler(const UriHandler & handler,
-                const std::string & resource,
+                const Utf8String & resource,
                 const std::map<std::string, std::string> & options)
 {
     openFromStreambuf(handler.buf, handler.bufOwnership, resource, options);
@@ -673,7 +669,7 @@ filter_istream::filter_istream()
 }
 
 filter_istream::
-filter_istream(const std::string & file, std::ios_base::openmode mode,
+filter_istream(const Utf8String & file, std::ios_base::openmode mode,
                const std::string & compression)
     : istream(std::cin.rdbuf()),
       deferredFailure(false)
@@ -692,7 +688,7 @@ filter_istream(const Url & file, std::ios_base::openmode mode,
 
 
 filter_istream::
-filter_istream(const std::string & uri,
+filter_istream(const Utf8String & uri,
                const std::map<std::string, std::string> & options)
     : istream(std::cin.rdbuf()),
       deferredFailure(false)
@@ -723,7 +719,7 @@ filter_istream(filter_istream && other) noexcept
 
 filter_istream::
 filter_istream(const UriHandler & handler,
-               const std::string & resource,
+               const Utf8String & resource,
                const std::map<std::string, std::string> & options)
     : istream(std::cin.rdbuf()), deferredFailure(false)
 {
@@ -762,14 +758,13 @@ operator = (filter_istream && other)
 
 void
 filter_istream::
-open(const std::string & uri,
+open(const Utf8String & uri,
      std::ios_base::openmode mode,
      const std::string & compression)
 {
     exceptions(ios::badbit);
 
-    string scheme, resource;
-    std::tie(scheme, resource) = getScheme(uri);
+    auto [scheme, resource] = getScheme(uri);
 
     const auto & handlerFactory = getUriHandler(scheme);
     auto onException = [&](const exception_ptr & excPtr) {
@@ -797,13 +792,12 @@ open(const Url & uri,
 
 void
 filter_istream::
-open(const std::string & uri,
+open(const Utf8String & uri,
      const std::map<std::string, std::string> & options)
 {
     exceptions(ios::badbit);
 
-    string scheme, resource;
-    std::tie(scheme, resource) = getScheme(uri);
+    auto [scheme, resource] = getScheme(uri);
 
     const auto & handlerFactory = getUriHandler(scheme);
     auto onException = [&](const exception_ptr & excPtr) {
@@ -827,7 +821,7 @@ open(const Url & uri,
 void
 filter_istream::
 openFromHandler(const UriHandler & handler,
-                const std::string & resource,
+                const Utf8String & resource,
                 const std::map<std::string, std::string> & options)
 {
     string compression;
@@ -848,7 +842,7 @@ void
 filter_istream::
 openFromStreambuf(std::streambuf * buf,
                   std::shared_ptr<void> bufOwnership,
-                  const std::string & resource,
+                  const Utf8String & resource,
                   const std::string & compression)
 {
     // TODO: exception safety for buf
@@ -1032,7 +1026,7 @@ getUriHandler(const std::string & scheme)
 struct RegisterFileHandler {
     static UriHandler
     getFileHandler(const std::string & scheme,
-                   std::string resource,
+                   Utf8String resource,
                    std::ios_base::openmode mode,
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
@@ -1057,7 +1051,7 @@ struct RegisterFileHandler {
             // on empty files despite the mapped option
             if (!options.count("mapped") || !info.size) {
                 shared_ptr<std::filebuf> buf(new std::filebuf);
-                buf->open(resource, ios_base::openmode(mode));
+                buf->open(resource.rawString(), ios_base::openmode(mode));
 
                 if (!buf->is_open())
                     throw MLDB::Exception("couldn't open file %s: %s",
@@ -1067,7 +1061,7 @@ struct RegisterFileHandler {
             } 
             else {
                 try {
-                    mapped_file_source source(resource);
+                    mapped_file_source source(resource.rawString());
                     shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
                 
                     UriHandlerOptions options;
@@ -1085,7 +1079,7 @@ struct RegisterFileHandler {
                 return UriHandler(cout.rdbuf(), nullptr);
 
             shared_ptr<std::filebuf> buf(new std::filebuf);
-            buf->open(resource, ios_base::openmode(mode));
+            buf->open(resource.rawString(), ios_base::openmode(mode));
 
             if (!buf->is_open())
                 throw MLDB::Exception("couldn't open file %s: %s",
@@ -1110,12 +1104,12 @@ struct RegisterFileHandler {
 namespace {
 
 mutex memStringsLock;
-map<string, string> memStrings;
+map<Utf8String, string> memStrings;
 
 } // "mem" scheme
 
 string &
-getMemStreamString(const string & name)
+getMemStreamString(const Utf8String & name)
 {
     unique_lock<mutex> guard(memStringsLock);
 
@@ -1123,7 +1117,7 @@ getMemStreamString(const string & name)
 }
 
 void
-setMemStreamString(const std::string & name,
+setMemStreamString(const Utf8String & name,
                    const std::string & contents)
 {
     unique_lock<mutex> guard(memStringsLock);
@@ -1132,7 +1126,7 @@ setMemStreamString(const std::string & name,
 }
 
 void
-deleteMemStreamString(const std::string & name)
+deleteMemStreamString(const Utf8String & name)
 {
     unique_lock<mutex> guard(memStringsLock);
 
@@ -1267,7 +1261,7 @@ struct MemStreamingOut : public MemStreamingInOut {
 struct RegisterMemHandler {
     static UriHandler
     getMemHandler(const string & scheme,
-                  string resource,
+                  Utf8String resource,
                   ios_base::openmode mode,
                   const map<string, string> & options,
                   const OnUriHandlerException & onException)

@@ -131,7 +131,7 @@ File_Read_Buffer::File_Read_Buffer()
 {
 }
 
-File_Read_Buffer::File_Read_Buffer(const std::string & filename)
+File_Read_Buffer::File_Read_Buffer(const Utf8String & filename)
 {
     open(filename);
 }
@@ -142,7 +142,7 @@ File_Read_Buffer::File_Read_Buffer(int fd)
 }
 
 File_Read_Buffer::File_Read_Buffer(const char * start, size_t length,
-                                   const std::string & filename,
+                                   const Utf8String & filename,
                                    std::function<void ()> onDone)
 {
     open(start, length, filename, onDone);
@@ -153,7 +153,7 @@ File_Read_Buffer::File_Read_Buffer(const File_Read_Buffer & other)
 {
 }
 
-void File_Read_Buffer::open(const std::string & filename)
+void File_Read_Buffer::open(const Utf8String & filename)
 {
     int fd = ::open(filename.c_str(), O_RDONLY);
 
@@ -178,7 +178,7 @@ void File_Read_Buffer::open(int fd)
 }
 
 void File_Read_Buffer::open(const char * start, size_t length,
-                            const std::string & filename,
+                            const Utf8String & filename,
                             std::function<void ()> onDone)
 {
     region.reset(new Mem_Region(start, length, onDone));

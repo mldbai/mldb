@@ -11,6 +11,7 @@
 
 #include "mldb/arch/exception.h"
 #include "mldb/compiler/compiler.h"
+#include "mldb/types/string.h"
 #include <cmath>
 #include <string>
 #include <iostream>
@@ -33,7 +34,7 @@ struct ParseContext {
 
     struct Exception: MLDB::Exception {
         Exception(const char * what,
-                  std::string filename,
+                  Utf8String filename,
                   int row,
                   int col) noexcept
             : MLDB::Exception(what),
@@ -43,8 +44,8 @@ struct ParseContext {
         {
         }
          
-        Exception(const std::string & what,
-                  std::string filename,
+        Exception(const Utf8String & what,
+                  Utf8String filename,
                   int row,
                   int col) noexcept
             : MLDB::Exception(what),
@@ -58,7 +59,7 @@ struct ParseContext {
         {
         }
 
-        std::string filename;
+        Utf8String  filename;
         int row;
         int col;
     };
@@ -68,20 +69,20 @@ struct ParseContext {
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
-    explicit ParseContext(const std::string & filename);
+    explicit ParseContext(const Utf8String & filename);
     
     /** Initialize from a memory region. */
-    ParseContext(const std::string & filename, const char * start,
+    ParseContext(const Utf8String & filename, const char * start,
                   const char * finish, unsigned line = 1, unsigned col = 1);
 
-    ParseContext(const std::string & filename, const char * start,
+    ParseContext(const Utf8String & filename, const char * start,
                   size_t length, unsigned line = 1, unsigned col = 1);
 
     /** Default chunk size. */
     enum { DEFAULT_CHUNK_SIZE = 65500 };
 
     /** Initialize from an istream. */
-    ParseContext(const std::string & filename, std::istream & stream,
+    ParseContext(const Utf8String & filename, std::istream & stream,
                   unsigned line = 1, unsigned col = 1,
                   size_t chunk_size = DEFAULT_CHUNK_SIZE);
 
@@ -89,7 +90,7 @@ struct ParseContext {
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
-    void init(const std::string & filename);
+    void init(const Utf8String & filename);
 
     /** Set the chunk size for the buffers.  Mostly used for testing
         purposes.  Note that this is only useful when initialized from
@@ -464,9 +465,9 @@ struct ParseContext {
     }
 
     /** Return a message giving filename:line:col */
-    std::string where() const;
+    Utf8String where() const;
     
-    void exception(const std::string & message) const MLDB_NORETURN;
+    void exception(const Utf8String & message) const MLDB_NORETURN;
 
     void exception(const char * message) const MLDB_NORETURN;
 
@@ -764,7 +765,7 @@ private:
     std::list<Buffer> buffers_;
     std::list<Buffer>::iterator current_;
 
-    std::string filename_;    ///< For reporting errors only
+    Utf8String filename_;    ///< For reporting errors only
 
     const char * cur_;        ///< Current position (points inside buffer)
     const char * ebuf_;       ///< Position for the end of the buffer

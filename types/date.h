@@ -74,6 +74,12 @@ struct Date {
     explicit Date(JS::JSValue & value);
     explicit Date(const Json::Value & value);
 
+    template<typename Clock>
+    Date(const std::chrono::time_point<Clock> & tp)
+        : secondsSinceEpoch_(std::chrono::duration<double>(tp.time_since_epoch()).count())
+    {
+    }
+
     static Date fromSecondsSinceEpoch(double numSeconds)
     {
         Date result;
@@ -94,6 +100,15 @@ struct Date {
         Date result;
         result.secondsSinceEpoch_ = (double(ts.tv_sec)
                                      + double(ts.tv_usec) / 1000000);
+        return result;
+    }
+
+    template<typename Clock>
+    static Date
+    fromChrono(const std::chrono::time_point<Clock> & tp)
+    {
+        Date result;
+        result.secondsSinceEpoch_ = std::chrono::duration<double>(tp.time_since_epoch()).count();
         return result;
     }
 

@@ -554,10 +554,10 @@ struct ImportTextProcedureWorkInstance
                   MldbEngine * engine,
                   const std::function<bool (const Json::Value &)> & onProgress)
     {
-        string filename = config.dataFileUrl.toDecodedString();
+        auto filename = config.dataFileUrl.toDecodedString();
 
         // Ask for a memory mappable stream if possible
-        filter_istream stream(config.dataFileUrl, { { "mapped", "true" } });
+        filter_istream stream(filename, { { "mapped", "true" } });
 
         // Get the file timestamp out
         ts = stream.info().lastModified;
@@ -668,7 +668,7 @@ struct ImportTextProcedureWorkInstance
 
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
-                    stream.open(config.dataFileUrl, { { "mapped", "true" } });
+                    stream.open(filename, { { "mapped", "true" } });
                     auto nfields = fields.size();
                     for (ssize_t i = 0; i < nfields; ++i) {
                         inputColumnNames.emplace_back(i);

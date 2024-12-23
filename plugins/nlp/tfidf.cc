@@ -12,6 +12,7 @@
 #include "mldb/core/mldb_engine.h"
 #include "mldb/core/dataset.h"
 #include "mldb/utils/distribution.h"
+#include "mldb/types/string.h"
 #include "mldb/base/scope.h"
 #include "mldb/base/parallel.h"
 #include "mldb/utils/pair_utils.h"
@@ -26,8 +27,10 @@
 #include "mldb/builtin/sql_config_validator.h"
 #include "mldb/utils/log.h"
 #include "mldb/types/db/persistent.h"
+#include "mldb/types/string.h"
 
 using namespace std;
+using namespace MLDB;
 
 namespace {
 void
@@ -77,7 +80,7 @@ reconstitute(MLDB::DB::Store_Reader & store,
 }
 
 void
-save(const std::string & filename,
+save(const Utf8String & filename,
      uint64_t corpusSize,
      const std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {
@@ -87,7 +90,7 @@ save(const std::string & filename,
 }
 
 void
-load(const std::string & filename,
+load(const Utf8String & filename,
      uint64_t & corpusSize,
      std::unordered_map<MLDB::Utf8String, uint64_t> & dfs)
 {

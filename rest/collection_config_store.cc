@@ -63,13 +63,11 @@ keys() const
 {
     vector<Utf8String> result;
 
-    auto onFile = [&] (const std::string & uri_,
+    auto onFile = [&] (const Utf8String & uri,
                        const FsObjectInfo & info,
                        const OpenUriObject & open,
                        int depth)
         {
-            Utf8String uri(uri_);
-
             if (!uri.startsWith(baseUri)) {
                 cerr << "uri = " << uri << endl;
                 cerr << "baseUri = " << baseUri << endl;

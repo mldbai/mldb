@@ -87,5 +87,11 @@ getCredential(const std::string & resourceType,
                         + resource);
 }
 
+Credential
+getCredential(const std::string & resourceType,
+              const Utf8String & resource)
+{
+    return getCredential(resourceType, resource.extractAscii());
+}
 
 } // namespace MLDB

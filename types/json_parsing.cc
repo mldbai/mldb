@@ -961,14 +961,14 @@ StreamingJsonParsingContext(ParseContext & context)
 }
     
 StreamingJsonParsingContext::
-StreamingJsonParsingContext(const std::string & filename)
+StreamingJsonParsingContext(const Utf8String & filename)
     : context(nullptr)
 {
     init(filename);
 }
     
 StreamingJsonParsingContext::
-StreamingJsonParsingContext(const std::string & filename, std::istream & stream,
+StreamingJsonParsingContext(const Utf8String & filename, std::istream & stream,
                             unsigned line, unsigned col,
                             size_t chunk_size)
     : context(nullptr)
@@ -977,7 +977,7 @@ StreamingJsonParsingContext(const std::string & filename, std::istream & stream,
 }
 
 StreamingJsonParsingContext::
-StreamingJsonParsingContext(const std::string & filename, const char * start,
+StreamingJsonParsingContext(const Utf8String & filename, const char * start,
                             const char * finish, unsigned line, unsigned col)
     : context(nullptr)
 {
@@ -985,7 +985,7 @@ StreamingJsonParsingContext(const std::string & filename, const char * start,
 }
     
 StreamingJsonParsingContext::
-StreamingJsonParsingContext(const std::string & filename, const char * start,
+StreamingJsonParsingContext(const Utf8String & filename, const char * start,
                             size_t length, unsigned line, unsigned col)
     : context(nullptr)
 {
@@ -1007,7 +1007,7 @@ init(ParseContext & context)
 
 void
 StreamingJsonParsingContext::
-init(const std::string & filename)
+init(const Utf8String & filename)
 {
     ownedContext.reset(new ParseContext(filename));
     context = ownedContext.get();
@@ -1015,7 +1015,7 @@ init(const std::string & filename)
     
 void
 StreamingJsonParsingContext::
-init(const std::string & filename, const char * start,
+init(const Utf8String & filename, const char * start,
      const char * finish, unsigned line, unsigned col)
 {
     ownedContext.reset(new ParseContext(filename, start, finish, line, col));
@@ -1024,7 +1024,7 @@ init(const std::string & filename, const char * start,
 
 void
 StreamingJsonParsingContext::
-init(const std::string & filename, const char * start,
+init(const Utf8String & filename, const char * start,
      size_t length, unsigned line, unsigned col)
 {
     ownedContext.reset(new ParseContext(filename, start, length, line, col));
@@ -1033,7 +1033,7 @@ init(const std::string & filename, const char * start,
 
 void
 StreamingJsonParsingContext::
-init(const std::string & filename, std::istream & stream,
+init(const Utf8String & filename, std::istream & stream,
      unsigned line, unsigned col,
      size_t chunk_size)
 {
@@ -1304,7 +1304,7 @@ exception(const std::string & message) const
     context->exception("at " + printPath() + ": " + message);
 }
 
-std::string
+Utf8String
 StreamingJsonParsingContext::
 getContext() const
 {
@@ -1605,7 +1605,7 @@ exception(const std::string & message) const
                           + trim(top->toString()));
 }
     
-std::string
+Utf8String
 StructuredJsonParsingContext::
 getContext() const
 {

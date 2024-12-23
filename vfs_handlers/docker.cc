@@ -16,6 +16,7 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/utils/string_functions.h"
+#include "mldb/utils/split.h"
 #include <unordered_set>
 #include "archive.h"
 
@@ -30,25 +31,24 @@ namespace MLDB {
     <scheme>://(<registry>)/<owner>/<repo>(:<tag>)?<layer|all>/path/to/file.ext
 */
 struct DockerUriComponents {
-    DockerUriComponents(const std::string & uri)
+    DockerUriComponents(const Utf8String & uri)
     {
-        auto pos = uri.find("://");
-
-        if (pos == string::npos)
+        auto [scheme, resource, found] = split_on_first(uri, "://");
+        if (!found)
             throw AnnotatedException(400, "URI doesn't include a scheme",
                                       "uri", uri);
         
-        scheme = string(uri, 0, pos);
-
-        vector<string> components = MLDB::split(string(uri, pos + 3), '/');
+        vector<Utf8String> components;
+        MLDB::split(components, resource, '/');
 
         cerr << "components = " << jsonEncodeStr(components) << endl;
 
         registry = components.at(0);
         owner = components.at(1);
-        string repoTag = components.at(2);
+        Utf8String repoTag = components.at(2);
 
-        std::vector<std::string> rt = MLDB::split(repoTag, ':');
+        std::vector<Utf8String> rt;
+        MLDB::split(rt, repoTag, ':');
 
         tag = "latest";
 
@@ -67,25 +67,25 @@ struct DockerUriComponents {
     }
 
     std::string scheme;
-    std::string registry;
-    std::string owner;
-    std::string repo;
-    std::string tag;
-    std::string object;
+    Utf8String registry;
+    Utf8String owner;
+    Utf8String repo;
+    Utf8String tag;
+    Utf8String object;
 
-    std::string registryUri() const
+    Utf8String registryUri() const
     {
         return "https://" + registry;
     }
 
-    std::string repoPath() const
+    Utf8String repoPath() const
     {
         return "/v1/repositories/" + owner + "/" + repo;
     }
 
-    std::string repoUri() const
+    Utf8String repoUri() const
     {
-        std::string result = scheme + "://" + registry + "/" + owner + "/" + repo;
+        Utf8String result = scheme + "://" + registry + "/" + owner + "/" + repo;
         if (!tag.empty())
             result += ":" + tag;
         return result;
@@ -175,9 +175,9 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
     {
         DockerUriComponents c(prefix.toString());
 
-        HttpRestProxy proxy(c.registryUri());
+        HttpRestProxy proxy(c.registryUri().extractAscii());
     
-        std::string repoPath = c.repoPath();
+        std::string repoPath = c.repoPath().stealAsciiString();
 
         //proxy.debug = true;
 
@@ -187,7 +187,7 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
 
         proxy.setCookieFromResponse(resp);
 
-        auto resp2 = proxy.get(repoPath + "/tags/" + c.tag);
+        auto resp2 = proxy.get((repoPath + "/tags/" + c.tag).uriEncode());
     
         cerr << resp2 << endl;
 
@@ -214,9 +214,9 @@ struct DockerLayersUrlFsHandler: UrlFsHandler {
             info->size = md["Size"].asUInt();
             info->lastModified = jsonDecode<Date>(md["created"]);
 
-            string uri = prefix.toString() + "/layer" + MLDB::format("%03d", layerNum);
+            Utf8String uri = prefix.toString() + "/layer" + MLDB::format("%03d", layerNum);
             string setCookie = resp4.getHeader("set-cookie");
-            string directUri = "https://" + c.registry + "/v1/images/" + image + "/layer";
+            Utf8String directUri = "https://" + c.registry + "/v1/images/" + image + "/layer";
             info->objectMetadata["directUri"] = directUri;
             info->objectMetadata["cookie"] = setCookie;
 
@@ -279,7 +279,7 @@ struct DockerUrlFsHandler: UrlFsHandler {
 
         FsObjectInfo result;
 
-        OnUriObject onObject = [&] (const std::string & dockerMemberUri,
+        OnUriObject onObject = [&] (const Utf8String & dockerMemberUri,
                                     const FsObjectInfo & info,
                                     const OpenUriObject & open,
                                     int depth)
@@ -289,6 +289,7 @@ struct DockerUrlFsHandler: UrlFsHandler {
                     return false;
                 }
                 return true;
+                
             };
 
         this->forEach(Url(dockerUri), onObject, {},
@@ -326,11 +327,11 @@ struct DockerUrlFsHandler: UrlFsHandler {
                          const std::string & delimiter,
                          const std::string & startAt) const
     {
-        std::unordered_set<std::string> doneFiles;
-        std::unordered_set<std::string> whiteouts;
+        std::unordered_set<Utf8String> doneFiles;
+        std::unordered_set<Utf8String> whiteouts;
 
         // 1.  Open the layers
-        auto onLayer = [&] (const std::string & uri,
+        auto onLayer = [&] (const Utf8String & uri,
                             const FsObjectInfo & info,
                             const OpenUriObject & open,
                             int depth) -> bool
@@ -338,26 +339,14 @@ struct DockerUrlFsHandler: UrlFsHandler {
                 // Open the archive
                 UriHandler handler = open({});
 
-                auto onObject2 = [&] (const std::string & uri,
+                auto onObject2 = [&] (const Utf8String & uri,
                                       const FsObjectInfo & info,
                                       const OpenUriObject & open,
                                       int depth)
                 {
-                    if (uri.find(".wh.") != string::npos) {
-                        // Docker records whited out files (deleted in a
-                        // later layer) with a ".wh.<filename>" entry.
-
-                        auto pos = uri.find(".wh.");
-                        string before(uri, 0, pos);
-                        string after(uri, pos + 4);
-
-                        string all = before + after;
-
-                        //cerr << "got whiteout file " << uri << " for "
-                        //     << all << endl;
-                        
-                        whiteouts.insert(all);
-                        
+                    auto [before, after, found] = split_on_first(uri, ".wh.");
+                    if (found) {
+                        whiteouts.insert(before + after);
                         return true;
                     }
                 
@@ -374,9 +363,9 @@ struct DockerUrlFsHandler: UrlFsHandler {
                     }
 
                     // Look up each path component to see if it's blacklisted
-                    for (auto pos = uri.find('/');  pos != string::npos;
-                         pos = uri.find('/', pos + 1)) {
-                        string component(uri, 0, pos);
+                    for (auto pos = uri.find('/');  pos != uri.end();
+                         pos = uri.find('/', ++pos)) {
+                        Utf8String component(uri.begin(), pos);
 
                         //cerr << "component = " << component << endl;
 
@@ -415,8 +404,8 @@ struct DockerUrlFsHandler: UrlFsHandler {
 struct RegisterDockerHandler {
 
     static UriHandler
-    getDockerHandler(const std::string & scheme,
-                     const std::string & resource,
+    getDockerHandler(const Utf8String & scheme,
+                     const Utf8String & resource,
                      std::ios_base::openmode mode,
                      const std::map<std::string, std::string> & options,
                      const OnUriHandlerException & onException)
@@ -425,18 +414,18 @@ struct RegisterDockerHandler {
             throw MLDB::Exception("Cannot write to docker containers, only read");
         }
 
-        string uriToFind = scheme + "://" + resource;
+        Utf8String uriToFind = scheme + "://" + resource;
 
         DockerUriComponents c(uriToFind);
 
         // 1.  Open the docker repo
         static DockerUrlFsHandler handler;
 
-        std::string repoUri = c.repoUri();
+        auto repoUri = c.repoUri();
 
         UriHandler result;
         
-        OnUriObject onObject = [&] (const std::string & uri,
+        OnUriObject onObject = [&] (const Utf8String & uri,
                                     const FsObjectInfo & info,
                                     const OpenUriObject & open,
                                     int depth)
