@@ -127,9 +127,9 @@ hexEncodeDigest(const std::string & digest)
 std::string
 AwsApi::
 getStringToSignV2Multi(const std::string & verb,
-                       const std::string & bucket,
-                       const std::string & resource,
-                       const std::string & subResource,
+                       const Utf8String & bucket,
+                       const Utf8String & resource,
+                       const Utf8String & subResource,
                        const std::string & contentType,
                        const std::string & contentMd5,
                        const std::string & date,
@@ -183,9 +183,9 @@ CanonicalizedAmzHeaders Process
 std::string
 AwsApi::
 getStringToSignV2(const std::string & verb,
-                  const std::string & bucket,
-                  const std::string & resource,
-                  const std::string & subResource,
+                  const Utf8String & bucket,
+                  const Utf8String & resource,
+                  const Utf8String & subResource,
                   const std::string & contentType,
                   const std::string & contentMd5,
                   const std::string & date,
@@ -206,10 +206,10 @@ getStringToSignV2(const std::string & verb,
     //cerr << "bucket = " << bucket << " resource = " << resource << endl;
 
     std::string canonResource
-        = (bucket == "" ? "" : "/" + bucket)
-        + resource
+        = (bucket == "" ? "" : "/" + uriEncode(bucket))
+        + uriEncode(resource)
         + (subResource.empty() ? "" : "?")
-        + subResource;
+        + uriEncode(subResource);
 
     std::string stringToSign
         = verb + "\n"
@@ -249,22 +249,30 @@ std::string
 AwsApi::
 uriEncode(const Utf8String & str)
 {
-    return uriEncode(str.rawString());
+    std::string result;
+    for (unsigned c: str) {
+
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+            result += c;
+        else result += MLDB::format("%%%02X", c);
+    }
+
+    return result;
 }
 
 std::string
 AwsApi::
-escapeResource(const std::string & resource)
+escapeResource(const Utf8String & resource)
 {
-    if (resource.size() == 0) {
+    if (resource.empty()) {
         throw MLDB::Exception("empty resource name");
     }
 
-    if (resource[0] != '/') {
+    if (!resource.startsWith("/")) {
         throw MLDB::Exception("resource name must start with a '/'");
     }
 
-    return "/" + uriEncode(resource.substr(1));
+    return "/" + uriEncode(Utf8String(std::next(resource.begin()), resource.end()));
 }
 
 std::string

@@ -263,7 +263,7 @@ stats(std::ostream & stream) const
 
 void
 BehaviorDomain::
-save(const std::string & filename,
+save(const Utf8String & filename,
      ssize_t maxSubjectBehaviors)
 {
     cerr << "writing to " << filename << endl;

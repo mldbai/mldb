@@ -37,6 +37,7 @@
 #include "mldb/utils/sink.h"
 #include "mldb/utils/runner.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/utils/starts_with.h"
 
 #include <future>
 
@@ -387,9 +388,22 @@ getStdInSink()
     return *stdInSink_;
 }
 
+#if 0
 void
 Runner::
-run(const vector<string> & command,
+run(const vector<std::string> & command,
+    const OnTerminate & onTerminate,
+    const shared_ptr<InputSink> & stdOutSink,
+    const shared_ptr<InputSink> & stdErrSink)
+{
+    std::vector<Utf8String> utf8Command(command.begin(), command.end());
+    run(utf8Command, onTerminate, stdOutSink, stdErrSink);
+}
+#endif
+
+void
+Runner::
+run(const vector<Utf8String> & command,
     const OnTerminate & onTerminate,
     const shared_ptr<InputSink> & stdOutSink,
     const shared_ptr<InputSink> & stdErrSink)
@@ -436,7 +450,18 @@ run(const vector<string> & command,
 
 RunResult
 Runner::
-runSync(const vector<string> & command,
+runSync(const vector<std::string> & command,
+        const shared_ptr<InputSink> & stdOutSink,
+        const shared_ptr<InputSink> & stdErrSink,
+        const string & stdInData)
+{
+    std::vector<Utf8String> utf8Command(command.begin(), command.end());
+    return runSync(utf8Command, stdOutSink, stdErrSink, stdInData);
+}
+
+RunResult
+Runner::
+runSync(const vector<Utf8String> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
         const string & stdInData)
@@ -474,7 +499,7 @@ runSync(const vector<string> & command,
 
 void
 Runner::
-doRunImpl(const vector<string> & command,
+doRunImpl(const vector<Utf8String> & command,
           const OnTerminate & onTerminate,
           const shared_ptr<InputSink> & stdOutSink,
           const shared_ptr<InputSink> & stdErrSink)
@@ -657,8 +682,7 @@ waitTermination() const
 
 double
 Runner::
-duration()
-    const
+duration() const
 {
     Date end = Date::now();
     if (!running_) {
@@ -670,20 +694,12 @@ duration()
 
 /* RUNNER::TASK */
 
-Runner::Task::
-Task()
-    : wrapperPid(-1),
-      stdInFd(-1),
-      stdOutFd(-1),
-      stdErrFd(-1),
-      statusFd(-1),
-      statusState(ProcessState::UNKNOWN)
-{}
-
 void
 Runner::Task::
-runWrapper(const vector<string> & command, ProcessFds & fds)
+runWrapper(const vector<Utf8String> & command, ProcessFds & fds)
 {
+    //std::ofstream debug("runner-debug.txt");
+
     // Find runner_helper path
     string runnerHelper = findRunnerHelper();
 
@@ -714,19 +730,64 @@ runWrapper(const vector<string> & command, ProcessFds & fds)
     }
     argv[idx++] = nullptr;
 
-    std::vector<char *> env;
+    std::vector<const char *> env;
 
-    char * const * p = environ;
+    // Extract all of the language environment variables
+    // We sanitize them to ensure that they are UTF-8
+    // Otherwise it may be possible to trick the command into
+    // misinterpreting its arguments.
 
-    while (*p) {
+    std::string env_lang;
+    std::string env_language;
+    std::vector<std::string> lc_vars;
+
+    for (char * const * p = environ; *p; ++p) {
+        //debug << "processing env var " << *p << endl;
+        if (MLDB::starts_with(*p, "LANG=")) {
+            env_lang = must_remove_prefix(string(*p), "LANG=");
+        }
+        else if (MLDB::starts_with(*p, "LANGUAGE=")) {
+            env_language = must_remove_prefix(string(*p), "LANGUAGE=");
+        }
+        else if (MLDB::starts_with(*p, "LC_")) {
+            lc_vars.push_back(*p);
+        }
+    }
+
+    if (!env_language.empty()) {
+        env_language = "LANGUAGE=" + env_language;
+        env.push_back(env_language.c_str());
+    }
+
+    auto is_utf8 = [] (const std::string & lang) -> bool { return ends_with(to_lower(lang), ".utf-8"); };
+
+    if (is_utf8(env_lang)) {
+        env_lang = "LANG=" + env_lang;
+        env.push_back(env_lang.c_str());
+    }
+    else {
+        env.push_back("LANG=C.UTF-8");
+    }
+
+    for (char * const * p = environ; *p; ++p) {
+        if (MLDB::starts_with(*p, "LANG=") || MLDB::starts_with(*p, "LANGUAGE=") || MLDB::starts_with(*p, "LC_")) {
+            continue;
+        }
+
         env.push_back(*p);
-        ++p;
     }
 
     env.push_back(nullptr);
 
-    char * const * envp = &env[0];
+    char * const * envp = (char * const *)&env[0];
 
+    //for (auto p: env) {
+    //    if (!p)
+    //        break;
+    //    debug << "env: " << p << endl;
+    //}
+
+    //debug << "execve" << endl;
     int res = execve(argv[0], argv, envp);
     if (res == -1) {
         throw MLDB::Exception(errno, "launching runner helper");
@@ -992,5 +1053,20 @@ execute(const vector<string> & command,
 
     return runner.runSync(command, stdOutSink, stdErrSink, stdInData);
 }
+
+RunResult
+execute(const vector<Utf8String> & command,
+        const shared_ptr<InputSink> & stdOutSink,
+        const shared_ptr<InputSink> & stdErrSink,
+        const string & stdInData,
+        bool closeStdin)
+{
+    Runner runner;
+
+    runner.closeStdin = closeStdin;
+
+    return runner.runSync(command, stdOutSink, stdErrSink, stdInData);
+}
+
 
 } // namespace MLDB

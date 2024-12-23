@@ -1,6 +1,6 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
-HTTP_TESTING_EXTRA_LIBS:=arch types value_description io_base
+HTTP_TESTING_EXTRA_LIBS:=base arch types value_description io_base
 
 $(eval $(call test,http_header_test,http $(HTTP_TESTING_EXTRA_LIBS),boost manual))
 $(eval $(call test,http_parsers_test,http $(HTTP_TESTING_EXTRA_LIBS),boost valgrind))

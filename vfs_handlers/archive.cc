@@ -178,7 +178,7 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
 
         FsObjectInfo result;
 
-        OnUriObject onObject = [&] (const std::string & archiveMemberUri,
+        OnUriObject onObject = [&] (const Utf8String & archiveMemberUri,
                                     const FsObjectInfo & info,
                                     const OpenUriObject & open,
                                     int depth)
@@ -231,7 +231,7 @@ struct ArchiveUrlFsHandler: UrlFsHandler {
 
         filter_istream archiveStream(archiveSource.rawString());
 
-        auto onObject2 = [&] (const std::string & object,
+        auto onObject2 = [&] (const Utf8String & object,
                               const FsObjectInfo & info,
                               const OpenUriObject & open,
                               int depth)
@@ -251,7 +251,7 @@ struct RegisterArchiveHandler {
 
     static UriHandler
     getArchiveHandler(const std::string & scheme,
-                      const std::string & resource,
+                      const Utf8String & resource,
                       std::ios_base::openmode mode,
                       const std::map<std::string, std::string> & options,
                       const OnUriHandlerException & onException)
@@ -293,7 +293,7 @@ struct RegisterArchiveHandler {
 
         UriHandler result;
 
-        OnUriObject onObject = [&] (const std::string & archiveMemberUri,
+        OnUriObject onObject = [&] (const Utf8String & archiveMemberUri,
                                     const FsObjectInfo & info,
                                     const OpenUriObject & open,
                                     int depth)

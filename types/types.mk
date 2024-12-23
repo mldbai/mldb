@@ -13,7 +13,6 @@ JSONCPP_SOURCES := \
 
 
 LIBVALUE_DESCRIPTION_SOURCES := \
-	string.cc \
 	value_description.cc \
 	basic_value_descriptions.cc \
 	libc_value_descriptions.cc \
@@ -23,6 +22,7 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	dtoa_impl.cc \
 	meta_value_description.cc \
 	distribution_description.cc \
+#	string.cc \
 
 LIBVALUE_DESCRIPTION_LINK := \
 	arch base icui18n icuuc icudata

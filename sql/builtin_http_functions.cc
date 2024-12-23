@@ -58,7 +58,7 @@ BoundFunction extract_domain(const std::vector<BoundSqlExpression> & args)
 
                 Url url(val.getAtom().toUtf8String());
 
-                string return_host = url.host();
+                std::string return_host = url.host().stealRawString();
                 if(options.removeSubdomain && !url.hostIsIpAddress()) {
                     size_t last_dot = return_host.rfind('.');
                     size_t second_last_dot = return_host.rfind('.', last_dot-1);
@@ -66,7 +66,7 @@ BoundFunction extract_domain(const std::vector<BoundSqlExpression> & args)
                         return_host = return_host.substr(second_last_dot+1);
                 }
 
-                ExpressionValue result(std::move(return_host),
+                ExpressionValue result(Utf8String(std::move(return_host)),
                                        args[0].getEffectiveTimestamp());
 
                 return result;

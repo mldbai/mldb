@@ -74,7 +74,7 @@ struct HttpStreamingDownloadSource {
         httpArbitraryTooSlowAbort: Will abort if the connection speed is below
                                    10K/sec for 5 secs.
     */
-    HttpStreamingDownloadSource(const std::string & urlStr,
+    HttpStreamingDownloadSource(const Utf8String & urlStr,
                                 const std::map<std::string, std::string> & options,
                                 const OnUriHandlerException & onException)
     {
@@ -106,9 +106,9 @@ struct HttpStreamingDownloadSource {
     { };
 
     struct Impl {
-        Impl(const std::string & urlStr,
+        Impl(const Utf8String & urlStr,
              const std::map<std::string, std::string> & options)
-            : proxy(urlStr), urlStr(urlStr), shutdown(false), dataQueue(100),
+            : proxy(urlStr.extractAscii()), urlStr(urlStr), shutdown(false), dataQueue(100),
               eof(false), currentDone(0), headerSet(false),
               httpAbortOnSlowConnection(false)
         {
@@ -134,7 +134,7 @@ struct HttpStreamingDownloadSource {
         }
 
         HttpRestProxy proxy;
-        std::string urlStr;
+        Utf8String urlStr;
 
         atomic<bool> shutdown;
         exception_ptr lastExc;
@@ -360,7 +360,7 @@ struct HttpStreamingDownloadSource {
 };
 
 std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo>
-makeHttpStreamingDownload(const std::string & uri,
+makeHttpStreamingDownload(const Utf8String & uri,
                           const std::map<std::string, std::string> & options,
                           const OnUriHandlerException & onException)
 {
@@ -406,7 +406,7 @@ struct HttpUrlFsHandler: UrlFsHandler {
                     return true;
                 };
         
-            resp = proxy.perform("HEAD", url.toDecodedString(),
+            resp = proxy.perform("HEAD", url.toEncodedAsciiString(),
                                  HttpRestProxy::Content(),
                                  {}, {}, 1.0, false, nullptr, onHeader,
                                  true /* follow redirects */);
@@ -491,17 +491,11 @@ struct HttpUrlFsHandler: UrlFsHandler {
 struct RegisterHttpHandler {
     static UriHandler
     getHttpHandler(const std::string & scheme,
-                   const std::string & resource,
+                   const Utf8String & resource,
                    std::ios_base::openmode mode,
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
-        string::size_type pos = resource.find('/');
-        if (pos == string::npos)
-            throw MLDB::Exception("unable to find http bucket name in resource "
-                                + resource);
-        string bucket(resource, 0, pos);
-
         if (mode == ios::in) {
             std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info
                 = makeHttpStreamingDownload(scheme+"://"+resource, options,

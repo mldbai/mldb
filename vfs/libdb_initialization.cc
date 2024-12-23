@@ -33,18 +33,18 @@ struct AtInit {
         defaultOpenOutputStream = oldOpenOutputStream;
     }
 
-    static std::istream * open_input(const std::string & filename)
+    static std::istream * open_input(const Utf8String & filename)
     {
         return new filter_istream(filename);
     }
     
-    static std::ostream * open_output(const std::string & filename)
+    static std::ostream * open_output(const Utf8String & filename)
     {
         return new filter_ostream(filename);
     }
     
-    std::function<std::istream * (const std::string &)> oldOpenInputStream;
-    std::function<std::ostream * (const std::string &)> oldOpenOutputStream;
+    std::function<std::istream * (const Utf8String &)> oldOpenInputStream;
+    std::function<std::ostream * (const Utf8String &)> oldOpenOutputStream;
 
 } atInit;
 

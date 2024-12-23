@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 #include <stdint.h>
+#include "mldb/types/string.h"
 
 namespace MLDB {
 
@@ -27,18 +28,18 @@ namespace MLDB {
 class File_Read_Buffer {
 public:
     File_Read_Buffer();
-    File_Read_Buffer(const std::string & filename);
+    File_Read_Buffer(const Utf8String & filename);
     File_Read_Buffer(int fd);
     File_Read_Buffer(const File_Read_Buffer & other);
     File_Read_Buffer(const char * start, size_t length,
-                     const std::string & fileName = "anonymous memory",
+                     const Utf8String & fileName = "anonymous memory",
                      std::function<void ()> onDone = nullptr);
 
-    void open(const std::string & filename);
+    void open(const Utf8String & filename);
     void open(int fd);
 
     void open(const char * start, size_t length,
-              const std::string & filename = "anonymous memory",
+              const Utf8String & filename = "anonymous memory",
               std::function<void ()> onDone = nullptr);
     
     void close();
@@ -47,7 +48,7 @@ public:
     const char * end() const { return region->start + region->size; }
     size_t size() const { return region->size; }
 
-    std::string filename() const { return filename_; }
+    Utf8String filename() const { return filename_; }
 
     /* Only access this if you know what you are doing... */
     class Region {
@@ -57,7 +58,7 @@ public:
         size_t size;
     };
 
-    std::string filename_;
+    Utf8String filename_;
     std::shared_ptr<Region> region;
 
     class MMap_Region;

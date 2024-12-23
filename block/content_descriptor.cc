@@ -143,11 +143,11 @@ getUrlString() const
     return getUrl().toDecodedString();
 }
 
-std::string
+std::u8string
 ContentDescriptor::
 getUrlStringUtf8() const
 {
-    return getUrl().toDecodedString();
+    return std::u8string{getUrl().toDecodedU8String()};
 }
 
 static ContentHashesDescription contentHashesDescription;
@@ -543,7 +543,7 @@ getStream(const std::map<Utf8String, Any> & options) const
                            std::shared_ptr<FsObjectInfo>(vals, &vals->info) /* info */,
                            uriOptions);
         
-        filter_istream stream(handler, descriptor.getUrlStringUtf8(), options2);
+        filter_istream stream(handler, descriptor.getUrlString(), options2);
         return stream;
     }
     else {

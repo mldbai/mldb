@@ -35,29 +35,18 @@ class BehaviorSvd;
 /****************************************************************************/
 
 struct RemoteCacheStats {
-    RemoteCacheStats()
-        : cacheBytesRead(0),
-          cacheFilesRead(0),
-          cacheBytesUnsaved(0),
-          cacheFilesUnsaved(0),
-          remoteBytesRead(0),
-          remoteBytesReadDecompressed(0),
-          remoteFilesRead(0)
-    {
-    }
+    std::atomic<uint64_t> cacheBytesRead = 0;           // number of bytes read from the cache
+    std::atomic<int> cacheFilesRead = 0;                // number of files read from the cache
 
-    std::atomic<uint64_t> cacheBytesRead;           // number of bytes read from the cache
-    std::atomic<int> cacheFilesRead;                // number of files read from the cache
+    std::atomic<uint64_t> cacheBytesUnsaved = 0;        // number of bytes that could not be
+                                                        // saved to the cache
+    std::atomic<int> cacheFilesUnsaved = 0;             // number of files that could not be
+                                                        // saved to the cache
 
-    std::atomic<uint64_t> cacheBytesUnsaved;        // number of bytes that could not be
-                                                    // saved to the cache
-    std::atomic<int> cacheFilesUnsaved;             // number of files that could not be
-                                                    // saved to the cache
-
-    std::atomic<uint64_t> remoteBytesRead;              // number of bytes read from remote, before decompression
-    std::atomic<uint64_t> remoteBytesReadDecompressed;  // number of bytes read from remote, after
-                                                    // decompression
-    std::atomic<int> remoteFilesRead;                   // number of files read from remote
+    std::atomic<uint64_t> remoteBytesRead = 0;              // number of bytes read from remote, before decompression
+    std::atomic<uint64_t> remoteBytesReadDecompressed = 0;  // number of bytes read from remote, after
+                                                            // decompression
+    std::atomic<int> remoteFilesRead = 0;                   // number of files read from remote
 };
 
 
@@ -78,23 +67,23 @@ struct BehaviorManager {
     };
 
     std::shared_ptr<BehaviorDomain>
-    get(const std::vector<std::string> & inputFiles,
+    get(const std::vector<Utf8String> & inputFiles,
         bool preIndex = true,
         CacheAction cacheAction = CACHE_CONFIG,
         bool skipBadFiles = false,
         std::function<bool (Json::Value)> onProgress = nullptr);
 
     virtual std::shared_ptr<BehaviorDomain>
-    get(const std::string & inputFile,
+    get(const Utf8String & inputFile,
         CacheAction cacheAction = CACHE_CONFIG,
         std::function<bool (Json::Value)> onProgress = nullptr);
 
     virtual std::shared_ptr<BehaviorDomain>
-    getRemote(const std::string & inputFile,
+    getRemote(const Utf8String & inputFile,
           std::function<bool (Json::Value)> onProgress);
 
     virtual std::shared_ptr<BehaviorDomain>
-    getFile(const std::string & inputFile,
+    getFile(const Utf8String & inputFile,
             std::function<bool (Json::Value)> onProgress);
 
     /* When using a cache, ensure that the specified files are present or
@@ -102,7 +91,7 @@ struct BehaviorManager {
      * get(), the loading of one file by another process will not block this
      * process from downloading the other files it requires in the
      * meantime. */
-    void preloadRemoteCache(const std::set<std::string> & filenames) const;
+    void preloadRemoteCache(const std::set<Utf8String> & filenames) const;
 
     /*
      * Returns the appropriate behavior domain from json specs
@@ -144,22 +133,22 @@ struct BehaviorManager {
     { return splitSpec<std::string>(spec); }
 
     void save(BehaviorDomain & behs,
-              const std::string & filename) const;
+              const Utf8String & filename) const;
     
     void saveSvd(const BehaviorSvd & file,
-                 const std::string & filename);
+                 const Utf8String & filename);
 
     std::shared_ptr<BehaviorSvd>
-    getSvd(const std::string & filename);
+    getSvd(const Utf8String & filename);
 
     /** Set a directory in which files downloaded from Remote will be cached.
         If these are there and paged in on a subsequent call they will be
         used in preference to going back to Remote.
     */
-    void setRemoteCacheDir(const std::string & dir);
+    void setRemoteCacheDir(const Utf8String & dir);
 
     /** Compatibility shim for old name. */
-    void setS3CacheDir(const std::string & dir)
+    void setS3CacheDir(const Utf8String & dir)
     {
         setRemoteCacheDir(dir);
     }
@@ -167,21 +156,20 @@ struct BehaviorManager {
 
     /** Retrieve statistics about the cache usage covering the lifetime of the
      * current instance of the BehaviorManager. */
-    const RemoteCacheStats & getCacheStats()
-        const
+    const RemoteCacheStats & getCacheStats() const
     {
         return cacheStats_;
     }
 
     struct RemoteCacheEntry {
-        std::string name;
-        Date accessTime;
+        Utf8String name;
+        Date modificationTime;
         int64_t size;
     };
     /** Load stats for all regular files found under the cache directory */
     std::vector<RemoteCacheEntry> getRemoteCacheEntries() const;
 
-    std::string remoteCacheDir;
+    Utf8String remoteCacheDir;
 
     /** If this is true, files that are loaded will be cached in memory
         so that multiple calls to get() the same file will return the
@@ -196,7 +184,7 @@ struct BehaviorManager {
     std::list<std::pair<MLDB::File_Read_Buffer, std::string> > writebackQueue;
     std::unique_ptr<std::thread> writebackThread;
 
-    std::map<std::string, std::shared_ptr<BehaviorDomain> > cache;
+    std::map<Utf8String, std::shared_ptr<BehaviorDomain> > cache;
 
     /* Test whether the cache directory exists, check that the total disk
        space is large enough to hold the file and perform the cleanup if
@@ -209,16 +197,16 @@ private:
     std::vector<RemoteCacheEntry> getRemoteRecoverableEntries(uint64_t objectSize) const;
     bool recoverRemoteCacheDiskSpace(uint64_t objectSize) const;
 
-    std::string readFile(const std::string & filename,
+    std::string readFile(const Utf8String & filename,
                          std::function<bool (uint64_t)> onProgress) const;
 
     /* Performs the download of the given file from a remote URI into the given
        "cacheFile". Returns "false" when an error has occurred or when
        "onProgress" has itself returned "false", and "true" otherwise. */
-    bool cacheRemoteFile(const std::string & filename,
+    bool cacheRemoteFile(const Utf8String & filename,
                      uint64_t fileSize,
                      std::function<bool (uint64_t)> onProgress,
-                     const std::string & cacheFile) const;
+                     const Utf8String & cacheFile) const;
 
     RemoteCacheStats cacheStats_;
 };

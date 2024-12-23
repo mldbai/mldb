@@ -18,6 +18,7 @@
 #include <functional>
 #include <string>
 #include <vector>
+#include "mldb/types/string.h"
 
 namespace MLDB {
 
@@ -72,7 +73,7 @@ struct Compressor {
     /** Convert a filename to a compression scheme.  Returns the empty
         string if it isn't found.
     */
-    static std::string filenameToCompression(const std::string & filename);
+    static std::string filenameToCompression(const Utf8String & filename);
 
     /** Create a compressor with the given scheme.  Returns nullptr if
         the given compression scheme isn't found.

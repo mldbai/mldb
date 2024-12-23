@@ -375,7 +375,7 @@ reconstitute(MLDB::DB::Store_Reader & store)
 
 void
 EstimationMaximisation::
-save(const std::string & filename) const
+save(const Utf8String & filename) const
 {
     filter_ostream stream(filename);
     DB::Store_Writer store(stream);
@@ -384,7 +384,7 @@ save(const std::string & filename) const
 
 void
 EstimationMaximisation::
-load(const std::string & filename)
+load(const Utf8String & filename)
 {
     filter_istream stream(filename);
     DB::Store_Reader store(stream);

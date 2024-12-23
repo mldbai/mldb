@@ -75,6 +75,12 @@ Exception(int errnum, const std::string & msg, const char * function)
     ensure_null_termintated_c_str(message);
 }
 
+Exception::
+Exception(int errnum, const char * msg, const char * function)
+    : Exception(errnum, std::string(msg), function)
+{
+}
+
 Exception::~Exception() throw()
 {
 }

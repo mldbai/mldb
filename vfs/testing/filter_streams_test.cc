@@ -476,7 +476,7 @@ struct RegisterExcHandlers {
 
     static UriHandler
     getExcOnReadHandler(const std::string & scheme,
-                        const std::string & resource,
+                        const Utf8String & resource,
                         std::ios_base::openmode mode,
                         const std::map<std::string, std::string> & options,
                         const OnUriHandlerException & onException)
@@ -486,7 +486,7 @@ struct RegisterExcHandlers {
 
     static UriHandler
     getExcOnWriteHandler(const std::string & scheme,
-                         const std::string & resource,
+                         const Utf8String & resource,
                          std::ios_base::openmode mode,
                          const std::map<std::string, std::string> & options,
                          const OnUriHandlerException & onException)
@@ -496,7 +496,7 @@ struct RegisterExcHandlers {
 
     static UriHandler
     getExcOnCloseHandler(const std::string & scheme,
-                         const std::string & resource,
+                         const Utf8String & resource,
                          std::ios_base::openmode mode,
                          const std::map<std::string, std::string> & options,
                          const OnUriHandlerException & onException)

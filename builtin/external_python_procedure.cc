@@ -17,6 +17,8 @@
 #include "mldb/compiler/filesystem.h"
 #include "mldb/types/any_impl.h"
 #include "mldb/ext/jsoncpp/json.h"
+#include "mldb/utils/split.h"
+#include "mldb/utils/array_limits.h"
 
 using namespace std;
 
@@ -101,9 +103,10 @@ run(const ProcedureRunConfig & run,
     }
 #endif
 
-    string cmd = python_executable + " " + pluginRes->getElementLocation(MAIN);
-    RunResult runRes = execute(MLDB::split(cmd, ' '), stdout_sink,
-                                stderr_sink, newProcConf.stdInData);
+    Utf8String cmd = python_executable + " " + pluginRes->getElementLocation(MAIN);
+    std::vector<Utf8String> cmdVecUtf8;
+    MLDB::split(cmdVecUtf8, cmd, ' ');
+    RunResult runRes = execute(cmdVecUtf8, stdout_sink, stderr_sink, newProcConf.stdInData);
 
     cout << runRes.state << endl;
     cout << runRes.returnCode << endl;

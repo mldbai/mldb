@@ -16,12 +16,18 @@
 
 namespace MLDB {
 
+class Utf8String; // All methods that implement this are defined in the types
+                  // library, as the exceptions are used by all libraries.
+
 class Exception : public std::exception {
 public:
     Exception(const std::string & msg);
+    Exception(const Utf8String & msg);
     Exception(const char * msg, ...);
     Exception(const char * msg, va_list ap);
     Exception(int errnum, const std::string & msg, const char * function = 0);
+    Exception(int errnum, const Utf8String & msg, const char * function = 0);
+    Exception(int errnum, const char * msg, const char * function = 0);
     virtual ~Exception() throw();
     
     virtual const char * what() const throw();
@@ -49,6 +55,7 @@ std::string getExceptionString();
 
 struct AssertionFailure: public Exception {
     AssertionFailure(const std::string & msg);
+    AssertionFailure(const Utf8String & msg);
     AssertionFailure(const char * msg, ...);
     AssertionFailure(const char * assertion,
                       const char * function,

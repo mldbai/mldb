@@ -8,52 +8,51 @@
 
 #pragma once
 
-#define TOLERATE_URL_BAD_ENCODING 0
 #include <string>
 #include <memory>
 #include "value_description_fwd.h"
 #include "string.h"
 
-class GURL;
-
 namespace MLDB {
 
 struct Url {
     Url();
-    explicit Url(const std::string & s);
+    explicit Url(std::string s);
     explicit Url(const char * s);
-    explicit Url(const Utf8String & s);
+    explicit Url(Utf8String s);
     explicit Url(const Utf32String & s);
     ~Url();
 
-    void init(std::string s);
+    void init(Utf8String s);
 
     Utf8String toUtf8String() const;
-    std::string toString() const;  // should be Utf8 by default
+    Utf8String toString() const;  // should be Utf8 by default
     Utf8String toDecodedUtf8String() const;
-    std::string toDecodedString() const;
+    Utf8String toDecodedString() const;
+    std::u8string toDecodedU8String() const;
+    std::string toEncodedAsciiString() const; // does percent encoding; for use in HTTP headers
 
     const char * c_str() const;
 
     bool valid() const;
     bool empty() const;
 
-    std::string canonical() const;
+    const Utf8String & original() const { return original_; }
+
+    Utf8String canonical() const;
     std::string scheme() const;
-    std::string username() const;
-    std::string password() const;
-    std::string host() const;
+    Utf8String username() const;
+    Utf8String password() const;
+    std::string asciiHost() const;
+    Utf8String host() const;
     bool hostIsIpAddress() const;
     bool domainMatches(const std::string & str) const;
     int port() const;
-    std::string path() const;
-    std::string query() const;
-
-    uint64_t urlHash();
-    uint64_t hostHash();
-
-    std::shared_ptr<GURL> url;
-    std::string original;
+    Utf8String path() const;
+    std::string asciiPath() const;
+    Utf8String query() const;
+    std::string asciiQuery() const;
+    Utf8String fragment() const;
 
     static Utf8String decodeUri(Utf8String str);
 
@@ -61,6 +60,12 @@ struct Url {
     static Utf8String encodeUri(const Utf8String & str);
     static std::string encodeUri(const std::string & str);
     static std::string encodeUri(const char * str);
+
+private:
+    class State;
+
+    std::shared_ptr<State> state_;
+    Utf8String original_;
 };
 
 inline std::ostream & operator << (std::ostream & stream, const Url & url)

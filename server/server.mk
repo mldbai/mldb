@@ -24,6 +24,7 @@ LIBMLDB_LINK:= \
 	mldb_core \
 	mldb_engine \
 	arch \
+	base \
 	types \
 	utils \
 	sql_expression \
@@ -59,6 +60,7 @@ LIBMLDB_PLATFORM_PYTHON_LINK:= \
 	$(PYTHON_LIBRARY) \
 	 types \
 	 arch \
+	 base \
 	 value_description \
 	 mldb_python_plugin \
 	 io_base \

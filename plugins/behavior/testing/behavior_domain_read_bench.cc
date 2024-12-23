@@ -109,7 +109,7 @@ int
 main(int argc, char ** argv)
 {
     string s3CacheDir("/mnt/s3cache");
-    vector<string> inputFiles;
+    vector<std::string> inputFiles;
     int upperLimit(0);
 
     po::options_description all_opt;
@@ -143,7 +143,8 @@ main(int argc, char ** argv)
         behManager.setS3CacheDir(s3CacheDir);
     }
 
-    auto beh = behManager.get(inputFiles);
+    std::vector<Utf8String> u8InputFiles(inputFiles.begin(), inputFiles.end());
+    auto beh = behManager.get(u8InputFiles);
     beh->stats();
 
     Benchmarks bms;

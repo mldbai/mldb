@@ -43,7 +43,7 @@ namespace MLDB {
 // jsonDecode implementation for any type which:
 // 1) has a default description;
 template<typename T>
-T jsonDecodeFile(const std::string & filename, T * = 0)
+T jsonDecodeFile(const Utf8String & filename, T * = 0)
 {
     T result;
 

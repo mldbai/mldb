@@ -100,7 +100,7 @@ struct UriHandler {
 class filter_ostream : public std::ostream {
 public:
     filter_ostream();
-    filter_ostream(const std::string & uri,
+    filter_ostream(const Utf8String & uri,
                    std::ios_base::openmode mode = std::ios_base::out,
                    const std::string & compression = "",
                    int compressionLevel = -1);
@@ -116,7 +116,7 @@ public:
     filter_ostream(int fd,
                    const std::map<std::string, std::string> & options);
 
-    filter_ostream(const std::string & uri,
+    filter_ostream(const Utf8String & uri,
                    const std::map<std::string, std::string> & options);
     filter_ostream(const Url & uri,
                    const std::map<std::string, std::string> & options);
@@ -127,7 +127,7 @@ public:
 
     ~filter_ostream();
 
-    void open(const std::string & uri,
+    void open(const Utf8String & uri,
               std::ios_base::openmode mode = std::ios_base::out,
               const std::string & compression = "",
               int level = -1);
@@ -144,12 +144,12 @@ public:
 
     void openFromStreambuf(std::streambuf * buf,
                            std::shared_ptr<void> bufOwnership,
-                           const std::string & resource = "",
+                           const Utf8String & resource = "",
                            const std::string & compression = "",
                            int compressionLevel = -1);
                      
     void openFromHandler(const UriHandler & handler,
-                         const std::string & resource,
+                         const Utf8String & resource,
                          const std::map<std::string, std::string> & options);
       
     /** Open with the given options.  Option keys are interpreted by plugins,
@@ -159,7 +159,7 @@ public:
         compression = string (gz, bz2, xz, ...)
         resource = string to be used in error messages
     */
-    void open(const std::string & uri,
+    void open(const Utf8String & uri,
               const std::map<std::string, std::string> & options);
     void open(const Url & uri,
               const std::map<std::string, std::string> & options);
@@ -169,7 +169,7 @@ public:
 
     void openFromStreambuf(std::streambuf * buf,
                            std::shared_ptr<void> bufOwnership,
-                           const std::string & resource,
+                           const Utf8String & resource,
                            const std::map<std::string, std::string> & options);
     
     void close();
@@ -198,7 +198,7 @@ private:
 class filter_istream : public std::istream {
 public:
     filter_istream();
-    filter_istream(const std::string & uri,
+    filter_istream(const Utf8String & uri,
                    std::ios_base::openmode mode = std::ios_base::in,
                    const std::string & compression = "");
     filter_istream(const Url & uri,
@@ -218,7 +218,7 @@ public:
           connexion is too slow. Refer to http_rest_proxy.cc for the
           specification of slow. (the parameter name is abortOnSlowConnection)
     */
-    filter_istream(const std::string & uri,
+    filter_istream(const Utf8String & uri,
                    const std::map<std::string, std::string> & options);
     filter_istream(const Url & uri,
                    const std::map<std::string, std::string> & options);
@@ -228,12 +228,12 @@ public:
     filter_istream & operator = (filter_istream && other);
 
     filter_istream(const UriHandler & handler,
-                   const std::string & resource,
+                   const Utf8String & resource,
                    const std::map<std::string, std::string> & options);
 
     ~filter_istream();
 
-    void open(const std::string & uri,
+    void open(const Utf8String & uri,
               std::ios_base::openmode mode = std::ios_base::in,
               const std::string & compression = "");
     void open(const Url & uri,
@@ -243,18 +243,18 @@ public:
     /** Open.  See the documentation from the constructor with similar
         arguments.
     */
-    void open(const std::string & uri,
+    void open(const Utf8String & uri,
               const std::map<std::string, std::string> & options);
     void open(const Url & uri,
               const std::map<std::string, std::string> & options);
 
     void openFromStreambuf(std::streambuf * buf,
                            std::shared_ptr<void> bufOwnership,
-                           const std::string & resource = "",
+                           const Utf8String & resource = "",
                            const std::string & compression = "");
 
     void openFromHandler(const UriHandler & handler,
-                         const std::string & resource,
+                         const Utf8String & resource,
                          const std::map<std::string, std::string> & options);
     
     void close();
@@ -326,7 +326,7 @@ private:
     std::shared_ptr<void> sink;            ///< Ownership of streambuf
     std::atomic<bool> deferredFailure;
     std::exception_ptr deferredExcPtr;
-    std::string resource;
+    Utf8String resource;
     std::shared_ptr<FsObjectInfo> info_;
 };
 

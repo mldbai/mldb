@@ -775,10 +775,10 @@ public:
         return impl->output_encoding();
     }
 
-    void load(const std::string & filename);
-    void load(const std::string & filename,
+    void load(const Utf8String & filename);
+    void load(const Utf8String & filename,
               std::shared_ptr<const Feature_Space> fs);
-    void save(const std::string & filename, bool write_fs = true) const;
+    void save(const Utf8String & filename, bool write_fs = true) const;
 
     std::shared_ptr<Classifier_Impl> impl;
 };

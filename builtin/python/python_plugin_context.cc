@@ -793,17 +793,17 @@ Json::Value
 MldbPythonContext::
 ls(const std::string & dir)
 {
-    std::vector<std::string> dirs;
-    std::map<std::string, FsObjectInfo> objects;
+    std::vector<Utf8String> dirs;
+    std::map<Utf8String, FsObjectInfo> objects;
 
-    auto onSubdir = [&] (const std::string & dirName,
+    auto onSubdir = [&] (const Utf8String & dirName,
                          int depth)
         {
             dirs.push_back(dirName);
             return false;
         };
 
-    auto onObject = [&] (const std::string & uri,
+    auto onObject = [&] (const Utf8String & uri,
                          const FsObjectInfo & info,
                          const OpenUriObject & open,
                          int depth)

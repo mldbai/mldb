@@ -38,7 +38,7 @@ namespace DB {
 /// Function used to open a stream.  Initially tied to creating an ofstream;
 /// this can be replaced with more functional streams like filter_stream.
 /// (done automatically when the vfs library is linked).
-extern std::function<std::istream * (const std::string &)> defaultOpenInputStream;
+extern std::function<std::istream * (const Utf8String &)> defaultOpenInputStream;
 
 
 /*****************************************************************************/
@@ -51,12 +51,12 @@ struct Binary_Input {
 public:
     Binary_Input();
     Binary_Input(const File_Read_Buffer & buf);
-    Binary_Input(const std::string & filename);
+    Binary_Input(const Utf8String & filename);
     Binary_Input(std::istream & stream);
     Binary_Input(const char * c, size_t len);
 
     void open(const File_Read_Buffer & buf);
-    void open(const std::string & filename);
+    void open(const Utf8String & filename);
     void open(std::istream & stream);
     void open(const char * c, size_t len);
 
@@ -123,7 +123,7 @@ class portable_bin_iarchive
 public:
     portable_bin_iarchive();
     portable_bin_iarchive(const File_Read_Buffer & buf);
-    portable_bin_iarchive(const std::string & filename);
+    portable_bin_iarchive(const Utf8String & filename);
     portable_bin_iarchive(std::istream & stream);
     portable_bin_iarchive(const char * c, size_t sz);
 
