@@ -17,6 +17,7 @@ MLDB_AUTO_LIBS:= \
 	mldb_core \
 	mldb_engine \
 	rest \
+	base \
 	arch \
 	types \
 	utils \
@@ -44,7 +45,7 @@ $(eval $(call include_sub_makes,cookbook mldb_sample_plugin))
 
 $(eval $(call library,mldb_test_function,test_function.cc,mldb mldb_builtin_plugins $(MLDB_PLUGIN_AUTO_LIBS)))
 
-$(eval $(call test,run_json_test_suite,types vfs value_description arch,normal))
+$(eval $(call test,run_json_test_suite,types vfs value_description arch base,normal))
 
 $(eval $(call mldb_unit_test,MLDBFB-336-sample_test.py,,manual))
 
@@ -55,8 +56,8 @@ $(eval $(call test,MLDB-642_script_procedure_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) 
 $(eval $(call test,svd_utils_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
 
 $(eval $(call test,mldb_reddit_test,mldb $(MLDB_PLUGIN_AUTO_LIBS) service_peer $(SERVICE_PEER_INDIRECT_DEPS),boost))
-$(eval $(call test,cell_value_test,arch types value_description sql_expression,boost))
-$(eval $(call test,expression_value_test,arch types value_description sql_expression,boost))
+$(eval $(call test,cell_value_test,arch base types value_description sql_expression,boost))
+$(eval $(call test,expression_value_test,arch base types value_description sql_expression,boost))
 
 # NOTE: sql_expression_test should NOT depend on the MLDB library.  If you
 # are tempted to add it, you have coupled them together and broken
@@ -346,11 +347,11 @@ $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
 $(eval $(call include_sub_make,mldb_py_runner))
 
-$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter mldb_python_plugin types arch mldb value_description))
+$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter mldb_python_plugin types arch base mldb value_description))
 
 $(eval $(call python_test,python_converters_test,py_conv_test_module,$(MANUAL_IF_SANITIZERS)))
 
-$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter types mldb_engine mldb_python_plugin value_description arch sql_types http))
+$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter types mldb_engine mldb_python_plugin value_description arch base sql_types http))
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module,$(MANUAL_IF_SANITIZERS)))
 
@@ -478,7 +479,7 @@ $(eval $(call mldb_unit_test,where-without-dataset.py))
 $(eval $(call mldb_unit_test,MLDB-2142-prefix-suffix.py))
 $(eval $(call mldb_unit_test,MLDB-1979-structure-embedding.py,tensorflow))
 
-$(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers arch value_description types base utils vfs http,boost $(MANUAL_IF_NO_S3)))
+$(eval $(call test,MLDBFB-239-s3-test,aws vfs_handlers arch base value_description types base utils vfs http,boost $(MANUAL_IF_NO_S3)))
 $(eval $(call mldb_unit_test,MLDB-1755-column-execution-memory-use.js))
 $(eval $(call mldb_unit_test,stddev_builtin_fct_test.py))
 $(eval $(call mldb_unit_test,MLDB-1810-new-executor-rowpath.js))
@@ -521,7 +522,7 @@ $(eval $(call mldb_unit_test,MLDB-2077_merge_single_ds.py))
 $(eval $(call mldb_unit_test,MLDB-1935-const-optim.py))
 $(eval $(call mldb_unit_test,MLDB-2097_exif.py))
 $(eval $(call mldb_unit_test,MLDBFB-724_classifier_exp_segfault_test.py))
-$(eval $(call test,http_streambuf_test,vfs $(STD_FILESYSTEM_LIBNAME) boost_system runner io_base mldb arch value_description service_peer $(SERVICE_PEER_INDIRECT_DEPS) exception_hook,boost virtualenv))
+$(eval $(call test,http_streambuf_test,vfs $(STD_FILESYSTEM_LIBNAME) boost_system runner io_base mldb arch base value_description service_peer $(SERVICE_PEER_INDIRECT_DEPS) exception_hook,boost virtualenv))
 $(eval $(call mldb_unit_test,MLDB-2108-split-string.py))
 $(eval $(call mldb_unit_test,MLDB-2100_fetcher_timeout_test.py))
 $(eval $(call mldb_unit_test,MLDB-2110-merge-and-subselect-progress.py))

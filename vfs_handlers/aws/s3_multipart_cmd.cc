@@ -50,8 +50,7 @@ int main(int argc, char* argv[])
     cerr << "s3KeyId " << s3KeyId << endl;
     cerr<<  "s3Key " << s3Key << endl;
     MLDB::S3Api s3(s3KeyId, s3Key);
-    string bucket,object;
-    std::tie(bucket,object) = S3Api::parseUri(outputFile);
+    auto [bucket, object] = S3Api::parseUri(outputFile);
     cerr << "Bucket : " << bucket << " object " << object << endl;
     if (s3KeyId != "")
         registerS3Bucket(bucket, s3KeyId, s3Key);

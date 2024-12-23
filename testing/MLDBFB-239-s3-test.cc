@@ -63,13 +63,13 @@ BOOST_AUTO_TEST_CASE( test_s3_attributes )
         stream << "HELLO" << endl;
     }
     
-    string publicName = S3Api::getPublicUri(filename, "http");
+    Utf8String publicName = S3Api::getPublicUri(filename, "http");
 
     cerr << "public name = " << publicName << endl;
 
     // Get it via HTTP and check that it's OK
     HttpRestProxy proxy;
-    auto resp = proxy.get(publicName);
+    auto resp = proxy.get(publicName.extractAscii());
 
     cerr << "resp = " << resp << endl;
 
@@ -308,25 +308,28 @@ BOOST_AUTO_TEST_CASE( test_s3_foreach_object )
     {
         int urlCounter(0), dirUrlCounter(0);
 
-        auto onObject = [&] (const string & cbPrefix,
-                             const string & cbObjectName,
+        auto onObject = [&] (const Utf8String & cbPrefix,
+                             const Utf8String & cbObjectName,
                              const S3Api::ObjectInfo & info,
                              int depth) {
-            string url("s3://" + bucket
+            Utf8String url
+                       = "s3://" + bucket
                        + "/" + cbPrefix
                        + "|" + cbObjectName
-                       + "|" + to_string(depth));
+                       + "|" + to_string(depth);
             BOOST_CHECK_EQUAL(url, objectUrls[urlCounter]);
             urlCounter++;
             return true;
         };
-        auto onSubdir = [&] (const std::string & cbPrefix,
-                             const std::string & cbDirName,
+        auto onSubdir = [&] (const Utf8String & cbPrefix,
+                             const Utf8String & cbDirName,
                              int depth) {
-            string url("s3://" + bucket
+            Utf8String url
+                       = "s3://" + bucket
                        + "/" + cbPrefix
                        + "|" + cbDirName
-                       + "|" + to_string(depth));
+                       + "|" + to_string(depth);
+
             // cerr << "dir url: " + url + "\n";
             BOOST_CHECK_EQUAL(url, dirUrls[dirUrlCounter]);
             dirUrlCounter++;
@@ -341,20 +344,21 @@ BOOST_AUTO_TEST_CASE( test_s3_foreach_object )
     {
         int urlCounter(0), dirUrlCounter(0);
 
-        auto onObject = [&] (const string & cbUrl,
+        auto onObject = [&] (const Utf8String & cbUrl,
                              const S3Api::ObjectInfo & info,
                              int depth) {
             BOOST_CHECK_EQUAL(cbUrl, cleanupUrls[urlCounter]);
             urlCounter++;
             return true;
         };
-        auto onSubdir = [&] (const std::string & cbPrefix,
-                             const std::string & cbDirName,
+        auto onSubdir = [&] (const Utf8String & cbPrefix,
+                             const Utf8String & cbDirName,
                              int depth) {
-            string url("s3://" + bucket
+            Utf8String url
+                = "s3://" + bucket
                        + "/" + cbPrefix
                        + "|" + cbDirName
-                       + "|" + to_string(depth));
+                       + "|" + to_string(depth);
             BOOST_CHECK_EQUAL(url, dirUrls[dirUrlCounter]);
             dirUrlCounter++;
             // cerr << "onSubdir: cbPrefix: " + cbPrefix;

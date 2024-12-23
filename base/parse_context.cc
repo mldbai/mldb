@@ -39,7 +39,7 @@ ParseContext()
 }
 
 ParseContext::
-ParseContext(const std::string & filename, const char * start,
+ParseContext(const Utf8String & filename, const char * start,
               const char * end, unsigned line, unsigned col)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       filename_(filename), cur_(start), ebuf_(end),
@@ -50,7 +50,7 @@ ParseContext(const std::string & filename, const char * start,
 }
 
 ParseContext::
-ParseContext(const std::string & filename, const char * start,
+ParseContext(const Utf8String & filename, const char * start,
               size_t length, unsigned line, unsigned col)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       filename_(filename), cur_(start), ebuf_(start + length),
@@ -63,7 +63,7 @@ ParseContext(const std::string & filename, const char * start,
 }
 
 ParseContext::
-ParseContext(const std::string & filename)
+ParseContext(const Utf8String & filename)
     : stream_(0), chunk_size_(0), first_token_(0), last_token_(0),
       cur_(0), ebuf_(0),
       line_(0), col_(0), ofs_(0)
@@ -72,7 +72,7 @@ ParseContext(const std::string & filename)
 }
 
 ParseContext::
-ParseContext(const std::string & filename, std::istream & stream,
+ParseContext(const Utf8String & filename, std::istream & stream,
               unsigned line, unsigned col, size_t chunk_size)
     : stream_(&stream), chunk_size_(chunk_size), first_token_(0), last_token_(0),
       filename_(filename), cur_(0), ebuf_(0),
@@ -93,7 +93,7 @@ ParseContext::
 
 void
 ParseContext::
-init(const std::string & filename)
+init(const Utf8String & filename)
 {
     stream_ = 0;
     chunk_size_ = DEFAULT_CHUNK_SIZE;
@@ -419,7 +419,7 @@ expect_double(double min, double max, const char * error, bool lenient)
     return val;
 }
 
-std::string
+Utf8String
 ParseContext::
 where() const
 {
@@ -436,7 +436,7 @@ where() const
         
         return filename_ + ":" + to_string(line_) + ":"
             + to_string(col_) + " ('"
-            + leading + ">>>" + *cur_ + "<<<" + trailing + "')";
+            + leading + ">>>" + to_string(*cur_) + "<<<" + trailing + "')";
     }
     return filename_ + ":" + to_string(line_) + ":"
         + to_string(col_);
@@ -444,7 +444,7 @@ where() const
 
 void
 ParseContext::
-exception(const std::string & message) const
+exception(const Utf8String & message) const
 {
     throw Exception(where() + ": " + message, filename_, line_, col_);
 }

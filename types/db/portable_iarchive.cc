@@ -13,6 +13,7 @@
 #include <iostream>
 #include <algorithm>
 #include <fstream>
+#include "mldb/types/string.h"
 
 
 using namespace std;
@@ -21,12 +22,14 @@ using namespace std;
 namespace MLDB {
 namespace DB {
 
-static std::istream * open_fstream_read(const std::string & filename)
+static std::istream * open_fstream_read(const Utf8String & filename)
 {
     return new std::ifstream(filename.c_str());
 }
 
-std::function<std::istream * (const std::string &)> defaultOpenInputStream
+// Allow this to be overridden once the vfs library is loaded so we can
+// load from things other than files.
+std::function<std::istream * (const Utf8String &)> defaultOpenInputStream
     = open_fstream_read;
 
 
@@ -49,7 +52,7 @@ struct Binary_Input::Buffer_Source
     {
     }
 
-    Buffer_Source(const std::string & filename)
+    Buffer_Source(const Utf8String & filename)
     {
         File_Read_Buffer buf(filename);
         region = buf.region;
@@ -203,7 +206,7 @@ Binary_Input::Binary_Input(const File_Read_Buffer & buf)
     open(buf);
 }
 
-Binary_Input::Binary_Input(const std::string & filename)
+Binary_Input::Binary_Input(const Utf8String & filename)
     : offset_(0), pos_(0), end_(0)
 {
     open(filename);
@@ -229,13 +232,12 @@ void Binary_Input::open(const File_Read_Buffer & buf)
     source->more(*this, 0);
 }
 
-bool endsWith(const std::string & str, const std::string & val)
+static bool endsWith(const Utf8String & str, const Utf8String & val)
 {
-    return val.size() <= str.size()
-        && str.rfind(val) == str.size() - val.size();
+    return str.endsWith(val);
 }
 
-void Binary_Input::open(const std::string & filename)
+void Binary_Input::open(const Utf8String & filename)
 {
     if (endsWith(filename, ".gz")
         || endsWith(filename, ".bz2")
@@ -301,7 +303,7 @@ portable_bin_iarchive::portable_bin_iarchive(const File_Read_Buffer & buf)
 {
 }
 
-portable_bin_iarchive::portable_bin_iarchive(const std::string & filename)
+portable_bin_iarchive::portable_bin_iarchive(const Utf8String & filename)
     : Binary_Input(filename)
 {
 }

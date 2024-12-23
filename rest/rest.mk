@@ -42,10 +42,10 @@ LIBSERVICE_PEER_SOURCES := \
 	peer_info.cc \
 	event_service.cc
 
-REST_INDIRECT_DEPS := http value_description cityhash io_base vfs db any googleurl types
-LINK_INDIRECT_DEPS := value_description arch gc types any
-REST_ENTITY_INDIRECT_DEPS := value_description types arch watch rest vfs
-SERVICE_PEER_INDIRECT_DEPS := arch value_description types watch log http io_base any utils logging link $(LINK_INDIRECT_DEPS) rest_entity $(REST_ENTITY_INDIRECT_DEPS)
+REST_INDIRECT_DEPS := http value_description cityhash io_base vfs db any googleurl types base
+LINK_INDIRECT_DEPS := value_description arch base gc types any
+REST_ENTITY_INDIRECT_DEPS := value_description types arch base watch rest vfs
+SERVICE_PEER_INDIRECT_DEPS := arch base value_description watch log http io_base any utils logging link $(LINK_INDIRECT_DEPS) rest_entity $(REST_ENTITY_INDIRECT_DEPS)
 
 $(eval $(call library,rest,$(LIBREST_SOURCES),arch types utils log $(REST_INDIRECT_DEPS)))
 $(eval $(call library,link,$(LIBLINK_SOURCES),watch $(LINK_INDIRECT_DEPS)))

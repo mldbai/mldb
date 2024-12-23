@@ -54,9 +54,9 @@ struct AwsApi {
     */
     static std::string
     getStringToSignV2Multi(const std::string & verb,
-                           const std::string & bucket,
-                           const std::string & resource,
-                           const std::string & subResource,
+                           const Utf8String & bucket,
+                           const Utf8String & resource,
+                           const Utf8String & subResource,
                            const std::string & contentType,
                            const std::string & contentMd5,
                            const std::string & date,
@@ -70,9 +70,9 @@ struct AwsApi {
     */
     static std::string
     getStringToSignV2(const std::string & verb,
-                      const std::string & bucket,
-                      const std::string & resource,
-                      const std::string & subResource,
+                      const Utf8String & bucket,
+                      const Utf8String & resource,
+                      const Utf8String & subResource,
                       const std::string & contentType,
                       const std::string & contentMd5,
                       const std::string & date,
@@ -91,7 +91,7 @@ struct AwsApi {
     static std::string uriEncode(const Utf8String & str);
 
     /** Helper for url-escaping of resource names */
-    static std::string escapeResource(const std::string & resource);
+    static std::string escapeResource(const Utf8String & resource);
 
     /** See http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html */
     static std::string signingKeyV4(const std::string & accessKey,

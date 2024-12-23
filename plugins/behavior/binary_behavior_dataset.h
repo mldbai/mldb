@@ -100,7 +100,7 @@ struct MutableBinaryBehaviorDataset: public BinaryBehaviorDataset {
 
     virtual void commit();
 
-    std::string address;
+    Utf8String address;
 };
 
 } // namespace MLDB

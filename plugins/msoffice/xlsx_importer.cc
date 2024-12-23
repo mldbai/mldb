@@ -690,7 +690,7 @@ struct XlsxImporter: public Procedure {
 
         workbook.timestamp = Date::positiveInfinity();
 
-        auto onFile = [&] (const std::string & prefix,
+        auto onFile = [&] (const Utf8String & prefix,
                            const FsObjectInfo & info,
                            const OpenUriObject & open,
                            int depth)
@@ -700,10 +700,11 @@ struct XlsxImporter: public Procedure {
                 DEBUG_MSG(logger) << "got file " << prefix;
 
                 auto fragPos = prefix.rfind('#');
-                if (fragPos == string::npos)
+                if (fragPos == prefix.end())
                     throw AnnotatedException(500, "Couldn't find in filename");
 
-                string internalFilename(prefix, fragPos + 1);
+                ++fragPos;
+                Utf8String internalFilename(fragPos, prefix.end());
 
                 DEBUG_MSG(logger) << "got internal filename " << internalFilename;
 

@@ -55,7 +55,7 @@ using namespace MLDB;
 
 namespace {
 
-string
+Utf8String
 getErrorString(int errNum)
 {
     char buffer[128]; /* error messages are < 80 chars most of the time */
@@ -80,7 +80,7 @@ getErrorString(int errNum)
 /* This function returns a cache filename for the corresponding remote entry. It
  * takes its etag, strips the double-quotes from it and appends the ".beh"
  * suffix. */
-string
+Utf8String
 getRemoteCacheName(const FsObjectInfo & info)
 {
     string etag = info.etag;
@@ -97,7 +97,7 @@ getRemoteCacheName(const FsObjectInfo & info)
  * when the "noatime" flag is set as parameter for mounting the underlying
  * file system. */
 void
-touchATime(const string & filename)
+touchATime(const Utf8String & filename)
 {
     /* compute the new atime */
     struct timeval newATime;
@@ -146,7 +146,7 @@ BehaviorManager::
 
 std::shared_ptr<BehaviorDomain>
 BehaviorManager::
-get(const std::vector<std::string> & inputFiles,
+get(const std::vector<Utf8String> & inputFiles,
     bool preIndex,
     CacheAction cacheAction,
     bool skipBadFiles,
@@ -163,7 +163,7 @@ get(const std::vector<std::string> & inputFiles,
 
         auto loadFile = [&] (int i)
             {
-                string filename = inputFiles[i];
+                Utf8String filename = inputFiles[i];
                 try {
                     toMerge[i] = get(filename, cacheAction);
                 } catch (const std::exception & exc) {
@@ -200,7 +200,7 @@ get(const std::vector<std::string> & inputFiles,
 
 std::shared_ptr<BehaviorDomain>
 BehaviorManager::
-get(const std::string & filename, CacheAction cacheAction,
+get(const Utf8String & filename, CacheAction cacheAction,
     std::function<bool (Json::Value)> onProgress)
 {
     {
@@ -299,10 +299,10 @@ bool touch(const char * start, size_t size,
     if (progress)
         return progress(size);
 
-    else return true;
+    return true;
 }
 
-bool touchWithProgress(const std::string & filename,
+bool touchWithProgress(const Utf8String & filename,
                        const MLDB::File_Read_Buffer & file,
                        const std::function<bool (Json::Value)> & onProgress)
 {
@@ -332,7 +332,7 @@ bool touchWithProgress(const std::string & filename,
 
 void
 BehaviorManager::
-preloadRemoteCache(const set<string> & filenames)
+preloadRemoteCache(const std::set<Utf8String> & filenames)
     const
 {
     cerr << "WARNING: BehaviorManager::preloadRemoteCache is a no-op for now\n";
@@ -406,7 +406,7 @@ preloadRemoteCache(const set<string> & filenames)
 /* load entire file contents in a std::string, using an filter_istream */
 string
 BehaviorManager::
-readFile(const string & filename,
+readFile(const Utf8String & filename,
          std::function<bool (uint64_t)> onProgress)
     const
 {
@@ -483,7 +483,7 @@ getRemoteCacheEntries()
     ExcAssert(!remoteCacheDir.empty());
     vector<RemoteCacheEntry> cacheFiles;
 
-    auto onFileFound = [&] (const std::string & uri,
+    auto onFileFound = [&] (const Utf8String & uri,
                             const FsObjectInfo & info,
                             const OpenUriObject & open,
                             int depth) -> bool
@@ -504,16 +504,15 @@ getRemoteCacheEntries()
 
 vector<BehaviorManager::RemoteCacheEntry>
 BehaviorManager::
-getRemoteRecoverableEntries(uint64_t objectSize)
-    const
+getRemoteRecoverableEntries(uint64_t objectSize) const
 {
     vector<RemoteCacheEntry> recoverableEntries;
 
-    /* retrieve and sort the entries by access time in descending order */
+    /* retrieve and sort the entries by modification time in descending order */
     vector<RemoteCacheEntry> entries = getRemoteCacheEntries();
     auto sortByDate = [&] (const RemoteCacheEntry & left,
                            const RemoteCacheEntry & right) -> int {
-        return ((right.accessTime > left.accessTime)
+        return ((right.modificationTime > left.modificationTime)
                 ? 1 : 0);
     };
     sort(entries.begin(), entries.end(), sortByDate);
@@ -584,17 +583,16 @@ recoverRemoteCacheDiskSpace(uint64_t objectSize)
  */
 bool
 BehaviorManager::
-cacheRemoteFile(const string & filename, uint64_t fileSize,
+cacheRemoteFile(const Utf8String & filename, uint64_t fileSize,
             std::function<bool (uint64_t)> onProgress,
-            const string & cacheFile)
-    const
+            const Utf8String & cacheFile) const
 {
     constexpr size_t BUFFER_SIZE = 1024*1024;
     char buffer[BUFFER_SIZE];
     uint64_t totalRead = 0;
 
-    ExcAssert(remoteCacheDir.size() > 0);
-    ExcAssert(remoteCacheDir.size() < (1024*1024 - 14));
+    ExcAssert(!remoteCacheDir.empty());
+    ExcAssert(remoteCacheDir.length() < (1024*1024 - 14));
 
     ::snprintf(buffer, BUFFER_SIZE, "%s/remote-download-XXXXXX", remoteCacheDir.c_str());
     int fd = mkstemp(buffer);
@@ -683,22 +681,22 @@ cacheRemoteFile(const string & filename, uint64_t fileSize,
 
 std::shared_ptr<BehaviorDomain>
 BehaviorManager::
-getRemote(const std::string & filename,
+getRemote(const Utf8String & filename,
       std::function<bool (Json::Value)> onProgress)
 {
     ExcAssert(!filename.empty());
 
     auto objectInfo = getUriObjectInfo(filename);
-    string remoteObjectName = getUriPath(filename);
-    string cacheFile;
+    Utf8String remoteObjectName = getUriPath(filename);
+    Utf8String cacheFile;
 
     bool useCache = (remoteCacheDir != "" && fs::exists(remoteCacheDir));
     bool cacheFileExists = false;
 
     if (useCache && fs::exists(remoteCacheDir)) {
-        string fileCacheDir = remoteCacheDir + "/" + remoteObjectName;
+        Utf8String fileCacheDir = remoteCacheDir + "/" + remoteObjectName;
 
-        string basename = getRemoteCacheName(objectInfo);
+        Utf8String basename = getRemoteCacheName(objectInfo);
         cacheFile = remoteCacheDir + "/" + basename; //fileCacheDir + "/" + basename;
 
         cacheFileExists = fs::exists(cacheFile);
@@ -796,12 +794,12 @@ getRemote(const std::string & filename,
 
 std::shared_ptr<BehaviorDomain>
 BehaviorManager::
-getFile(const std::string & filename,
+getFile(const Utf8String & filename,
         std::function<bool (Json::Value)> onProgress)
 {
     ExcAssert(!filename.empty());
 
-    if (MLDB::endsWith(filename, ".gz") || MLDB::endsWith(filename, ".lz4")) {
+    if (ends_with(filename, ".gz") || ends_with(filename, ".lz4") || ends_with(filename, ".bz2") || ends_with(filename, ".xz") || ends_with(filename, ".zst")) {
         auto contents = std::make_shared<string>();
 
         bool cancelled = false;
@@ -844,7 +842,7 @@ getFile(const std::string & filename,
 void
 BehaviorManager::
 save(BehaviorDomain & behs,
-     const std::string & filename)
+     const Utf8String & filename)
     const
 {
     if (filename == "") return;
@@ -856,7 +854,7 @@ save(BehaviorDomain & behs,
 void
 BehaviorManager::
 saveSvd(const BehaviorSvd & svd,
-        const std::string & filename)
+        const Utf8String & filename)
 {
     filter_ostream stream(filename);
     DB::Store_Writer store(stream);
@@ -865,7 +863,7 @@ saveSvd(const BehaviorSvd & svd,
 
 std::shared_ptr<BehaviorSvd>
 BehaviorManager::
-getSvd(const std::string & filename)
+getSvd(const Utf8String & filename)
 {
     filter_istream stream(filename);
     DB::Store_Reader store(stream);
@@ -876,7 +874,7 @@ getSvd(const std::string & filename)
 
 void
 BehaviorManager::
-setRemoteCacheDir(const std::string & dir)
+setRemoteCacheDir(const Utf8String & dir)
 {
     remoteCacheDir = dir;
 }

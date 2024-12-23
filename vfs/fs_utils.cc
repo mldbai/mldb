@@ -23,6 +23,8 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/scope.h"
 #include "mldb/vfs/filter_streams_registry.h"
+#include "mldb/utils/split.h"
+#include "mldb/utils/starts_with.h"
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -93,47 +95,53 @@ void setGlobalAcceptUrisWithoutScheme(bool accept)
 }
 
 /* ensures that local filenames are represented as urls */
-Url makeUrl(const string & urlStr)
+Url makeUrl(const Utf8String & urlStr)
 {
     if (urlStr.empty())
         throw MLDB::Exception("can't makeUrl on empty url");
 
-    /* scheme is specified */
-    if (urlStr.find("://") != string::npos) {
+    auto [scheme, rest, found] = split_on_first(urlStr, "://");
+    if (found)
         return Url(urlStr);
-    }
-    else if (!acceptUrisWithoutScheme) {
+
+    if (!acceptUrisWithoutScheme)
         throw MLDB::Exception("Cannot accept URI without scheme (if you want a file, add file://): " + urlStr);
-    }
+    return Url("file://" + urlStr);
+
     /* absolute local filenames */
-    else if (urlStr[0] == '/') {
+    if (urlStr.startsWith("/")) {
         return Url("file://" + urlStr);
     }
     /* relative filenames */
     else {
-        char cCurDir[65536]; // http://insanecoding.blogspot.ca/2007/11/pathmax-simply-isnt.html
-        string filename(getcwd(cCurDir, sizeof(cCurDir)));
-        filename += "/" + urlStr;
-
-        return Url("file://" + filename);
+        return Url(Utf8String("file://" + fs::current_path().u8string()) + "/" + urlStr);
     }
 }
 
 // Return the scheme for the URI
-std::string getUriScheme(const std::string & uri)
+std::string getUriScheme(const Utf8String & uri)
 {
     return makeUrl(uri).scheme();
 }
 
 // Return the path (everything after the scheme) for the URI
-std::string getUriPath(const std::string & uri)
+std::string getUriPath(const Utf8String & uri)
 {
-    return makeUrl(uri).path();
+    return makeUrl(uri).asciiPath();
 }
 
-static FsObjectInfo extractInfo(const struct stat & stats)
+static FsObjectInfo extractInfo(const fs::path & path, const fs::file_status & stats_)
 {
     FsObjectInfo objectInfo;
+
+#if MLDB_INTEL_ISA
+#else
+#  define stat64 stat
+#endif
+    struct stat64 stats;
+    int res = ::stat64(path.c_str(), &stats);
+    if (res == -1)
+        throw MLDB::Exception(errno, "stat64");
 
     objectInfo.exists = true;
 #if __APPLE__
@@ -148,16 +156,16 @@ static FsObjectInfo extractInfo(const struct stat & stats)
     return objectInfo;
 }
 
-static FsObjectInfo extractInfo(const std::string & path, const fs::directory_entry & entry)
+static FsObjectInfo extractInfo(const Utf8String & path_, const fs::directory_entry & entry)
 {
-    ExcAssert(path.find("file://") == 0);
+    Utf8String path = must_remove_prefix(path_, "file://");
 
 #if MLDB_INTEL_ISA
 #else
 #  define stat64 stat
 #endif
     struct stat64 stats;
-    int res = ::stat64(path.c_str() + 7, &stats);
+    int res = ::stat64(path.c_str(), &stats);
     if (res == -1)
         throw MLDB::Exception(errno, "stat64");
 
@@ -182,41 +190,36 @@ struct LocalUrlFsHandler : public UrlFsHandler {
 
     virtual FsObjectInfo getInfo(const Url & url) const
     {
-        struct stat stats;
-        string path = url.path();
-
-        // cerr << "fs info on path: " + path + "\n";
-        int res = ::stat(path.c_str(), &stats);
-        if (res == -1) {
-            if (errno == ENOENT) {
+        fs::path path = url.path().rawString();
+        std::error_code ec;
+        auto status = fs::status(path, ec);
+        if (ec) {
+            if (ec == std::errc::no_such_file_or_directory)
                 return FsObjectInfo();
-            }
-            throw MLDB::Exception(errno, "stat");
+            throw MLDB::Exception(ec.message());
         }
 
         // TODO: owner ID (uid) and name (uname)
 
-        return extractInfo(stats);
+        return extractInfo(path, status);
     }
 
     virtual FsObjectInfo tryGetInfo(const Url & url) const
     {
-        struct stat stats;
-        string path = url.path();
-
-        // cerr << "fs info on path: " + path + "\n";
-        int res = ::stat(path.c_str(), &stats);
-        if (res == -1) {
+        fs::path path = url.path().rawString();
+        std::error_code ec;
+        auto status = fs::status(path, ec);
+        if (ec) {
             return FsObjectInfo();
         }
 
-        return extractInfo(stats);
+        return extractInfo(path, status);
     }
     
     virtual void makeDirectory(const Url & url) const
     {
         std::error_code ec;
-        string path = url.path();
+        string path = url.path().rawString();
 
         // Ignore return code; it tells us about the work done, not
         // the postcondition.  We check for success in the error
@@ -229,11 +232,12 @@ struct LocalUrlFsHandler : public UrlFsHandler {
 
     virtual bool erase(const Url & url, bool throwException) const
     {
-        string path = url.path();
-        int res = ::unlink(path.c_str());
-        if (res == -1) {
+        std::error_code ec;
+        string path = url.path().rawString();
+        fs::remove(path, ec);
+        if (ec) {
             if (throwException) {
-                throw MLDB::Exception(errno, "unlink");
+                throw MLDB::Exception(ec.message());
             }
             else return false;
         }
@@ -251,11 +255,13 @@ struct LocalUrlFsHandler : public UrlFsHandler {
         if (delimiter != "/")
             throw MLDB::Exception("not implemented: delimiters other than '/' "
                                 "for local files");
-        
-        for (auto it = fs::recursive_directory_iterator(prefix.path()), end = fs::recursive_directory_iterator();
+
+        auto path = prefix.path();
+
+        for (auto it = fs::recursive_directory_iterator(path.rawString()), end = fs::recursive_directory_iterator();
              it != end;  ++it) {
             const auto & entry = *it;
-            Utf8String filename = "file://" + entry.path();
+            Utf8String filename = "file://" + entry.path().string();
 
             if (entry.is_regular_file()) {
 
@@ -358,63 +364,59 @@ void registerUrlFsHandler(const std::string & scheme,
 }
 
 FsObjectInfo
-tryGetUriObjectInfo(const std::string & url)
+tryGetUriObjectInfo(const Utf8String & url)
 {
     Url realUrl = makeUrl(url);
     return findFsHandler(realUrl.scheme())->tryGetInfo(realUrl);
 }
 
 FsObjectInfo
-getUriObjectInfo(const std::string & url)
+getUriObjectInfo(const Utf8String & url)
 {
     Url realUrl = makeUrl(url);
     return findFsHandler(realUrl.scheme())->getInfo(realUrl);
 }
  
 size_t
-getUriSize(const std::string & url)
+getUriSize(const Utf8String & url)
 {
     Url realUrl = makeUrl(url);
     return findFsHandler(realUrl.scheme())->getSize(realUrl);
 }
 
 std::string
-getUriEtag(const std::string & url)
+getUriEtag(const Utf8String & url)
 {
     Url realUrl = makeUrl(url);
     return findFsHandler(realUrl.scheme())->getEtag(realUrl);
 }
 
 void
-makeUriDirectory(const std::string & url)
+makeUriDirectory(const Utf8String & url)
 {
-    string dirUrl(url);
-    size_t slashIdx = dirUrl.rfind('/');
-    if (slashIdx == string::npos) {
+    auto [dirPart, filePart, found] = split_on_last(url, "/");
+    if (!found) {
         throw MLDB::Exception("makeUriDirectory cannot work on filenames: instead of " + url + " you should probably write file://" + url);
     }
-    dirUrl.resize(slashIdx);
 
-    // cerr << "url: " + url + "/dirUrl: " + dirUrl + "\n";
-
-    Url realUrl = makeUrl(dirUrl);
+    Url realUrl = makeUrl(dirPart);
     findFsHandler(realUrl.scheme())->makeDirectory(realUrl);
 }
 
 bool
-eraseUriObject(const std::string & url, bool throwException)
+eraseUriObject(const Utf8String & url, bool throwException)
 {
     Url realUrl = makeUrl(url);
     return findFsHandler(realUrl.scheme())->erase(realUrl, throwException);
 }
 
 bool
-tryEraseUriObject(const std::string & uri)
+tryEraseUriObject(const Utf8String & uri)
 {
     return eraseUriObject(uri, false);
 }
 
-bool forEachUriObject(const std::string & urlPrefix,
+bool forEachUriObject(const Utf8String & urlPrefix,
                       const OnUriObject & onObject,
                       const OnUriSubdir & onSubdir,
                       const std::string & delimiter,
@@ -452,7 +454,7 @@ dirName(const std::string & filename)
 /****************************************************************************/
 
 void
-checkWritability(const std::string & url, const std::string & parameterName)
+checkWritability(const Utf8String & url, const std::string & parameterName)
 {
     // try to create output folder and write open a writer to make sure 
     // we have permissions before

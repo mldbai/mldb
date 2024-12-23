@@ -117,7 +117,7 @@ struct SqliteSparseDataset::Itl
     : public MatrixView, public ColumnIndex {
 
     struct Database: public sqlite3pp::database {
-        Database(const std::string & filename, const Utf8String & id)
+        Database(const Utf8String & filename, const Utf8String & id)
             : sqlite3pp::database(filename.empty() ? ("file::" + id + "?mode=memory&cache=shared").rawData() : filename.c_str())
         {
         }
@@ -140,7 +140,7 @@ struct SqliteSparseDataset::Itl
             const ConnectionPool * owner;
         };
 
-        std::string filename;
+        Utf8String filename;
         Utf8String id;
 
         // Protects our connection pool

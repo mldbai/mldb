@@ -995,7 +995,7 @@ operator >> (DB::Store_Reader & store, Classifier & classifier)
     return store;
 }
 
-void Classifier::load(const std::string & filename)
+void Classifier::load(const Utf8String & filename)
 {
     MLDB::filter_istream stream(filename);
     Store_Reader store(stream);
@@ -1003,14 +1003,14 @@ void Classifier::load(const std::string & filename)
 }
 
 void Classifier::
-load(const std::string & filename, std::shared_ptr<const Feature_Space> fs)
+load(const Utf8String & filename, std::shared_ptr<const Feature_Space> fs)
 {
     MLDB::filter_istream stream(filename);
     Store_Reader store(filename);
     reconstitute(store, fs);
 }
 
-void Classifier::save(const std::string & filename, bool write_fs) const
+void Classifier::save(const Utf8String & filename, bool write_fs) const
 {
     Store_Writer store(filename);
     serialize(store, write_fs);

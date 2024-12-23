@@ -11,6 +11,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/arch/exception.h"
+#include "mldb/base/exc_assert.h"
 #include <sstream>
 #include <set>
 #include <glob.h>
@@ -28,9 +29,9 @@ size_t reserializationErrors = 0;
 
 // These are invalid tests (they say they should be supported but include byte
 // order marks which don't have to be supported according to JSON).
-std::set<std::string> skippedTests = { "y_string_utf16.json" };
+std::set<Utf8String> skippedTests = { "y_string_utf16.json" };
 
-void testFile(const std::string & filename)
+void testFile(const Utf8String & filename)
 {
     std::ostringstream str;
     filter_istream stream(filename);
@@ -38,12 +39,15 @@ void testFile(const std::string & filename)
     str << stream.rdbuf();
 
     auto pos = filename.rfind('/');
-    string rest(filename, pos + 1);
+    ExcAssert(pos != filename.end());
+    ++pos;
+    Utf8String rest(pos, filename.end());
+    ExcAssert(!rest.empty());
 
     if (skippedTests.count(rest))
         return;
 
-    char test = rest.at(0);
+    char test = *rest.begin();
     cerr << "test " << rest << endl;
 
     Json::Value val, other;
@@ -108,7 +112,7 @@ void testFile(const std::string & filename)
 
 int main(int argc, char ** argv)
 {
-    auto onFile = [&] (const std::string & uri,
+    auto onFile = [&] (const Utf8String & uri,
                        const FsObjectInfo & info,
                        const OpenUriObject & open,
                        int depth)

@@ -11,6 +11,7 @@
 #include "mldb/utils/ostream_vector.h"
 #include "mldb/utils/replace_all.h"
 #include "mldb/types/string.h"
+#include "mldb/arch/exception.h"
 
 using namespace std;
 using namespace MLDB;
@@ -205,6 +206,10 @@ bool test_starts_with(const Str1 & str1, const Str2 & str2)
 {
     bool res = starts_with(str1, str2);
 #if BOOST_ALGORITHM_STRING_INCLUDED
+    if (res != boost::starts_with(str1, str2)) {
+        std::cerr << "starts_with(" << str1 << ", " << str2 << ") MLDB = " << res
+                  << " != " << boost::starts_with(str1, str2) << " boost" << std::endl;
+    }
     CHECK(res == boost::starts_with(str1, str2));
 #endif
     return res;
@@ -234,6 +239,10 @@ TEST_CASE("starts_with")
         CHECK(!test_starts_with("abc", "ac"));
         CHECK(!test_starts_with("abc", "abcde"));
         CHECK(test_starts_with("abc", ""));
+        CHECK(     starts_with("abc", 'a'));
+        CHECK(!    starts_with("abc", 'c'));
+        CHECK(     starts_with('a', 'a'));
+        CHECK(!    starts_with('c', 'a'));
     }
 
     SECTION("utf8")
@@ -250,6 +259,48 @@ TEST_CASE("starts_with")
         CHECK(test_starts_with(Utf8String("abc"), ""));
     }
 
+    SECTION("utf8 non-ascii")
+    {
+        CHECK( test_starts_with(Utf8String("aéc"), Utf8String("a")));
+        CHECK( test_starts_with(Utf8String("aéc"), Utf8String("aé")));
+        CHECK( test_starts_with(Utf8String("aéc"), Utf8String("aéc")));
+        CHECK(!test_starts_with(Utf8String("aéc"), Utf8String("aécd")));
+        CHECK(!test_starts_with(Utf8String("aéc"), Utf8String("é")));
+        CHECK(!test_starts_with(Utf8String("aéc"), Utf8String("éc")));
+        CHECK(!test_starts_with(Utf8String("aéc"), Utf8String("c")));
+        CHECK(!test_starts_with(Utf8String("aéc"), Utf8String("ac")));
+        CHECK(!test_starts_with(Utf8String("aéc"), Utf8String("aécdé")));
+        CHECK( test_starts_with(Utf8String("aéc"), Utf8String("")));
+    }
+
+    SECTION("starts_with with different types")
+    {
+        CHECK(test_starts_with("abc", Utf8String("a")));
+        CHECK(test_starts_with(Utf8String("abc"), "a"));
+        CHECK(test_starts_with(Utf8String("abc"), Utf8String("a")));
+    }
+
+    SECTION("must_remove_prefix")
+    {
+        CHECK(must_remove_prefix<std::string>("abc", "a") == "bc");
+        CHECK(must_remove_prefix<std::string>("abc", "ab") == "c");
+        CHECK(must_remove_prefix<std::string>("abc", "abc") == "");
+        CHECK(must_remove_prefix<std::string>("abc", "") == "abc");
+
+        MLDB_TRACE_EXCEPTIONS(false);
+        CHECK_THROWS(must_remove_prefix<std::string>("abc", "abcd"));
+    }
+
+    SECTION("must_remove_prefix UTF-8")
+    {
+        CHECK(must_remove_prefix(Utf8String("aéc"), "a") == Utf8String("éc"));
+        CHECK(must_remove_prefix(Utf8String("aéc"), Utf8String("aé")) == Utf8String("c"));
+        CHECK(must_remove_prefix(Utf8String("aéc"), Utf8String("aéc")) == Utf8String(""));
+        CHECK(must_remove_prefix(Utf8String("aéc"), "") == Utf8String("aéc"));
+
+        MLDB_TRACE_EXCEPTIONS(false);
+        CHECK_THROWS(must_remove_prefix(Utf8String("aéc"), Utf8String("aécd")));
+    }
 }
 
 TEST_CASE("test_ends_with")
@@ -280,6 +331,49 @@ TEST_CASE("test_ends_with")
         CHECK(!test_ends_with(Utf8String("abc"), "ac"));
         CHECK(!test_ends_with(Utf8String("abc"), "abcde"));
         CHECK(test_ends_with(Utf8String("abc"), ""));
+    }
+
+    SECTION("utf8 non-ascii")
+    {
+        CHECK( test_ends_with(Utf8String("aéc"), Utf8String("c")));
+        CHECK( test_ends_with(Utf8String("aéc"), Utf8String("éc")));
+        CHECK( test_ends_with(Utf8String("aéc"), Utf8String("aéc")));
+        CHECK(!test_ends_with(Utf8String("aéc"), Utf8String("écd")));
+        CHECK(!test_ends_with(Utf8String("aéc"), Utf8String("é")));
+        CHECK(!test_ends_with(Utf8String("aéc"), Utf8String("aé")));
+        CHECK(!test_ends_with(Utf8String("aéc"), Utf8String("a")));
+        CHECK(!test_ends_with(Utf8String("aéc"), Utf8String("ac")));
+        CHECK(!test_ends_with(Utf8String("aéc"), Utf8String("aécdé")));
+        CHECK( test_ends_with(Utf8String("aéc"), Utf8String("")));
+    }
+
+    SECTION("ends_with with different types")
+    {
+        CHECK(test_ends_with("abc", Utf8String("c")));
+        CHECK(test_ends_with(Utf8String("abc"), "c"));
+        CHECK(test_ends_with(Utf8String("abc"), Utf8String("c")));
+    }
+
+    SECTION("must_remove_suffix")
+    {
+        CHECK(must_remove_suffix<std::string>("abc", "c") == "ab");
+        CHECK(must_remove_suffix<std::string>("abc", "bc") == "a");
+        CHECK(must_remove_suffix<std::string>("abc", "abc") == "");
+        CHECK(must_remove_suffix<std::string>("abc", "") == "abc");
+
+        MLDB_TRACE_EXCEPTIONS(false);
+        CHECK_THROWS(must_remove_suffix<std::string>("abc", "abcd"));
+    }
+
+    SECTION("must_remove_suffix utf-8")
+    {
+        CHECK(must_remove_suffix(Utf8String("aéc"), "c") == Utf8String("aé"));
+        CHECK(must_remove_suffix(Utf8String("aéc"), Utf8String("éc")) == Utf8String("a"));
+        CHECK(must_remove_suffix(Utf8String("aéc"), Utf8String("aéc")) == Utf8String(""));
+        CHECK(must_remove_suffix(Utf8String("aéc"), "") == Utf8String("aéc"));
+
+        MLDB_TRACE_EXCEPTIONS(false);
+        CHECK_THROWS(must_remove_suffix(Utf8String("aéc"), "écd"));
     }
 }
 
@@ -360,6 +454,5 @@ TEST_CASE("replace_all_copy")
         CHECK(test_replace_all_copy<Utf8String>(u"a❤️b❤️", Utf8String("❤️"), Utf8String("xyz")) == "axyzbxyz");
         CHECK(test_replace_all_copy<Utf8String>(u"a❤️b❤️", Utf8String("a"), Utf8String("❤️")) == "❤️❤️b❤️");
     }
-
 }
 

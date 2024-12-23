@@ -229,13 +229,13 @@ LoadedPluginResource(ScriptLanguage lang, ScriptType type,
     // gist or git
     else if(url.scheme() == "gist" || url.scheme() == "git") {
         pluginLocation = GIT;
-        string urlToClone = "https:" + url.path();
+        auto urlToClone = "https:" + url.path();
 
-        string commitHash;
-        size_t hashLocation = urlToClone.find('#');
-        if(hashLocation != -1) {
-            commitHash = urlToClone.substr(hashLocation + 1);
-            urlToClone = urlToClone.substr(0, hashLocation);
+        Utf8String commitHash;
+        auto hashLocationIt = urlToClone.find('#');
+        if(hashLocationIt != urlToClone.end()) {
+            commitHash = Utf8String(hashLocationIt + 1, urlToClone.end());
+            urlToClone = Utf8String(urlToClone.begin(), hashLocationIt);
         }
 
         cerr << MLDB::format("Cloning GIST %s -> %s at %s", urlToClone, plugin_working_dir.string(), commitHash) << endl;
@@ -330,7 +330,8 @@ LoadedPluginResource::
     cleanup();
 }
 
-void LoadedPluginResource::
+void
+LoadedPluginResource::
 cleanup()
 {
     int tries = 0;
@@ -344,13 +345,15 @@ cleanup()
     }
 }
 
-string LoadedPluginResource::
+Utf8String
+LoadedPluginResource::
 getFilenameForErrorMessages() const
 {
     return url.toString();
 }
 
-string LoadedPluginResource::
+Utf8String
+LoadedPluginResource::
 getElementFilename(PackageElement elem) const
 {
     switch(elem) {
@@ -361,7 +364,8 @@ getElementFilename(PackageElement elem) const
     throw MLDB::Exception("Unsupported elem!");
 }
 
-string LoadedPluginResource::
+Utf8String
+LoadedPluginResource::
 getElementLocation(PackageElement elem) const
 {
     if(pluginLocation == SOURCE)
@@ -384,24 +388,26 @@ getElementLocation(PackageElement elem) const
             fs::path(getElementFilename(elem) + "." + extension)).string();
 }
 
-bool LoadedPluginResource::
+bool
+LoadedPluginResource::
 packageElementExists(PackageElement elem) const
 {
     if(pluginLocation == SOURCE) {
         return !(source.getElement(elem).empty());
     }
 
-    string entrypoint = getElementLocation(elem);
-    return fs::exists(entrypoint);
+    auto entrypoint = getElementLocation(elem);
+    return fs::exists(entrypoint.rawString());
 }
 
-Utf8String LoadedPluginResource::
+Utf8String
+LoadedPluginResource::
 getScript(PackageElement elem) const
 {
     if(pluginLocation == SOURCE)
         return source.getElement(elem);
 
-    string filePath = getElementLocation(elem);
+    auto filePath = getElementLocation(elem);
     cerr << "loading from: " << filePath << endl;
     filter_istream stream(filePath);
     std::ostringstream out;
@@ -410,7 +416,8 @@ getScript(PackageElement elem) const
     return Utf8String(out.str());
 }
 
-Utf8String LoadedPluginResource::
+Utf8String
+LoadedPluginResource::
 getScriptUri(PackageElement elem) const
 {
     //if(pluginLocation == SOURCE)
@@ -429,9 +436,9 @@ getScriptUri(PackageElement elem) const
         throw MLDB::Exception("unknown plugin language");
     }
 
-    std::string urlStr = url.toString();
+    auto urlStr = url.toString();
 
-    if (urlStr.rfind("." + extension) == urlStr.size() - 1 - extension.size())
+    if (urlStr.endsWith("." + extension))
         return urlStr;
     
     return urlStr + "/" + getElementFilename(elem) + "." + extension;

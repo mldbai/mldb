@@ -12,6 +12,7 @@
 #include "portable_oarchive.h"
 #include "nested_archive.h"
 #include <fstream>
+#include "mldb/types/string.h"
 
 using namespace std;
 
@@ -19,12 +20,12 @@ using namespace std;
 namespace MLDB {
 namespace DB {
 
-static std::ostream * open_fstream_write(const std::string & filename)
+static std::ostream * open_fstream_write(const Utf8String & filename)
 {
     return new std::ofstream(filename.c_str());
 }
 
-std::function<std::ostream * (const std::string )> defaultOpenOutputStream
+std::function<std::ostream * (const Utf8String &)> defaultOpenOutputStream
     = open_fstream_write;
 
 
@@ -38,7 +39,7 @@ portable_bin_oarchive::portable_bin_oarchive()
 {
 }
 
-portable_bin_oarchive::portable_bin_oarchive(const std::string & filename)
+portable_bin_oarchive::portable_bin_oarchive(const Utf8String & filename)
     : stream(defaultOpenOutputStream(filename)), owned_stream(stream),
       offset_(0)
 {
@@ -49,7 +50,7 @@ portable_bin_oarchive::portable_bin_oarchive(std::ostream & stream)
 {
 }
 
-void portable_bin_oarchive::open(const std::string & filename)
+void portable_bin_oarchive::open(const Utf8String & filename)
 {
     stream = defaultOpenOutputStream(filename);
     owned_stream.reset(stream);

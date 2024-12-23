@@ -1,5 +1,7 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+#define TOLERATE_URL_BAD_ENCODING 0
+
 #include "url.h"
 
 #include "mldb/ext/googleurl/src/gurl.h"
@@ -27,74 +29,80 @@ struct Init {
 
 }
 
+class Url::State: public GURL {
+    using GURL::GURL;
+};
+
 Url::
 Url()
-    : url(new GURL())
+    : state_(new State())
 {
 }
 
 Url::
-Url(const std::string & s_)
-    : original(s_)
+Url(std::string s)
+    : original_(std::move(s))
 {
-    init(original);
+    init(original_);
 }
 
 Url::
-Url(const char * s_)
-    : original(s_)
+Url(const char * s)
+    : original_(s)
 {
-    init(original);
+    init(original_);
 }
 
 Url::
-Url(const Utf8String & s_)
-    : original(s_.rawString())
+Url(Utf8String s)
+    : original_(std::move(s))
 {
-    init(original);
+    init(original_);
 }
 
 Url::
 Url(const Utf32String & s_)
-        : original(s_.utf8String())
+        : original_(s_.utf8String())
 {
-    init(original);
+    init(original_);
 }
 
 void
-Url::init(std::string s)
+Url::init(Utf8String us)
 {
     // URLs like file://filename.txt which reference a file in the CWD come out
-    // as file://filename.txt/ because GURL requires everything to have a path.
+    // as file://filename.txt/ because State requires everything to have a path.
     // We fix it by inserting "./" into the path.  Still is an unhandled corner
     // case for where the filename itself has a slash in it, but I'm not sure
     // that can be addressed via a URL anyway since there's no way to escape
     // separators.
 
-    if (s.find("file://") == 0
-        && s.find('/', 7) == string::npos) {
+    std::string s = us.stealRawString();
+
+    if (std::strncmp(s.c_str(), "file://", 7) == 0 
+        && s.find('/', 7) == std::string::npos) {
         // file URI with no path, just a filename
         // insert a ./ path
         s.insert(7, "./");
     }
 
     if (s == "") {
-        url.reset(new GURL(s));
+        state_.reset(new State(""));
         return;
     }
 
-    if (s.find("://") == string::npos) {
+    if (s.find("://") == std::string::npos) {
         throw MLDB::Exception("Attempt to create a URL without a scheme: if you mean http:// or file:// then add it explicitly: " + s);
         //s = "http://" + s;
     }
-    url.reset(new GURL(encodeUri(s)));
+    state_.reset(new State(encodeUri(Utf8String(std::move(s), false /* check */).rawString())));
 
-    if (url->possibly_invalid_spec().empty()) {
+    if (state_->possibly_invalid_spec().empty()) {
         //cerr << "bad parse 1" << endl;
-        url.reset(new GURL("http://" + s));
-        if (url->possibly_invalid_spec().empty()) {
+        state_.reset(new State("http://" + s));
+        if (state_->possibly_invalid_spec().empty()) {
             //cerr << "bad parse 2" << endl;
-            url.reset(new GURL("http://" + s + "/"));
+            state_.reset(new State("http://" + s + "/"));
         }
     }
 }
@@ -104,13 +112,13 @@ Url::
 {
 }
 
-std::string
+Utf8String
 Url::
 toString() const
 {
     if (valid())
         return canonical();
-    return original;
+    return original_;
 }
 
 Utf8String
@@ -119,17 +127,17 @@ toUtf8String() const
 {
     if (valid())
         return Utf8String(canonical());
-    return Utf8String(original);
+    return Utf8String(original_);
 }
 
-string
+Utf8String
 Url::
 toDecodedString() const
 {
     if (valid()) {
         return decodeUri(canonical()).rawString();
     }
-    return original;
+    return original_;
 }
 
 Utf8String
@@ -139,7 +147,30 @@ toDecodedUtf8String() const
     if (valid()) {
         return decodeUri(canonical());
     }
-    return original;
+    return original_;
+}
+
+std::u8string
+Url::
+toDecodedU8String() const
+{
+    auto decoded = toDecodedUtf8String();
+    return std::u8string((const char8_t *)decoded.rawData(), decoded.rawLength());
+}
+
+std::string
+Url::
+toEncodedAsciiString() const
+{
+    std::string result;
+    for (unsigned c: toDecodedUtf8String()) {
+
+        if (isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~')
+            result += c;
+        else result += MLDB::format("%%%02X", (uint32_t)c);
+    }
+
+    return result;
 }
 
 const char *
@@ -147,135 +178,115 @@ Url::
 c_str() const
 {
     if (valid())
-        return url->spec().c_str();
-    return original.c_str();
+        return state_->spec().c_str();
+    return original_.rawData();
 }
 
 bool
 Url::
 valid() const
 {
-    return url->is_valid();
+    return state_->is_valid();
 }
 
 bool
 Url::
 empty() const
 {
-    return url->is_empty();
+    return state_->is_empty();
 }
 
-std::string
+Utf8String
 Url::
 canonical() const
 {
     if (!valid()) return "";
-    return url->spec();
+    return state_->spec();
 }
 
 std::string
 Url::
 scheme() const
 {
-    return url->scheme();
+    return state_->scheme();
 }
 
-std::string
+Utf8String
 Url::
 username() const
 {
-    return url->username();
+    return state_->username();
 }
 
-std::string
+Utf8String
 Url::
 password() const
 {
-    return url->password();
+    return state_->password();
 }
 
-std::string
+Utf8String
 Url::
 host() const
 {
-    return url->host();
+    return state_->host();
 }
 
 bool
 Url::
 hostIsIpAddress() const
 {
-    return url->HostIsIPAddress();
+    return state_->HostIsIPAddress();
 }
 
 bool
 Url::
 domainMatches(const std::string & str) const
 {
-    return url->DomainIs(str.c_str(), str.length());
+    return state_->DomainIs(str.c_str(), str.length());
 }
 
 int
 Url::
 port() const
 {
-    return url->IntPort();
+    return state_->EffectiveIntPort();
 }
 
-std::string
+Utf8String
 Url::
 path() const
 {
-    if (url->scheme() == "file") {
-        return string(original, 7);  // truncate "file://"
-        if (url->path() != "/")
-            return url->host() + url->path();
-        else return url->host();
+    if (state_->scheme() == "file") {
+        return Utf8String(string(original_.rawString(), 7), false /* check value UTF-8 */);  // truncate "file://"
+        if (state_->path() != "/")
+            return state_->host() + state_->path();
+        else return state_->host();
     }
-    else return url->path();
+    else return state_->path();
 }
 
 std::string
 Url::
+asciiPath() const
+{
+    // TODO: url encode the non-ascii characters
+    return path().extractAscii();
+}
+
+Utf8String
+Url::
 query() const
 {
-    return url->query();
+    return state_->query();
 }
 
-uint64_t
+Utf8String
 Url::
-urlHash()
+fragment() const
 {
-    throw MLDB::Exception("urlHash");
+    return state_->ref();
 }
-
-uint64_t
-Url::
-hostHash()
-{
-    throw MLDB::Exception("hostHash");
-}
-
-#if 0
-void
-Url::
-serialize(MLDB::DB::Store_Writer & store) const
-{
-    unsigned char version = 0;
-    store << version << original;
-}
-
-void
-Url::
-reconstitute(MLDB::DB::Store_Reader & store)
-{
-    unsigned char version;
-    store >> version;
-    if (version != 0)
-        store >> original;
-    *this = Url(original);
-}
-#endif
 
 /**
  * Decodes uri encoded with Percent-encoding. It is meant to act like
@@ -493,10 +504,10 @@ parseJsonTyped(Url * val,
 void
 UrlDescription::
 printJsonTyped(const Url * val,
-                            JsonPrintingContext & context) const
+               JsonPrintingContext & context) const
 {
     // Write it back exactly the same way it came in
-    context.writeStringUtf8(Utf8String(val->original));
+    context.writeStringUtf8(val->original());
 }
 
 bool

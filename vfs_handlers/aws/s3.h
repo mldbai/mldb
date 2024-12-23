@@ -114,9 +114,9 @@ struct S3Api : public AwsApi {
         bool useRange() const;
 
         std::string verb;
-        std::string bucket;
-        std::string resource;
-        std::string subResource;
+        Utf8String bucket;
+        Utf8String resource;
+        Utf8String subResource;
         std::string date;
 
         std::string contentType;
@@ -183,7 +183,7 @@ struct S3Api : public AwsApi {
     struct SignedRequest {
         RequestParams params;
         std::string auth;
-        std::string resource;
+        Utf8String resource;
         double bandwidthToServiceMbps;
     };
 
@@ -206,11 +206,14 @@ struct S3Api : public AwsApi {
     /** Escape a resource used by S3; this in particular leaves a slash
         in place. */
     static std::string s3EscapeResource(const std::string & resource);
+    static std::string s3EscapeResource(const Utf8String & resource);
+    static std::string s3EscapeBucket(const std::string & bucket);
+    static std::string s3EscapeBucket(const Utf8String & bucket);
 
     /** Perform a HEAD request from end to end. */
-    Response head(const std::string & bucket,
-                  const std::string & resource,
-                  const std::string & subResource = "",
+    Response head(const Utf8String & bucket,
+                  const Utf8String & resource,
+                  const Utf8String & subResource = "",
                   const RestParams & headers = RestParams(),
                   const RestParams & queryParams = RestParams()) const;
     Response headEscaped(const std::string & bucket,
@@ -220,10 +223,10 @@ struct S3Api : public AwsApi {
                          const RestParams & queryParams = RestParams()) const;
 
     /** Perform a GET request from end to end. */
-    Response get(const std::string & bucket,
-                 const std::string & resource,
+    Response get(const Utf8String & bucket,
+                 const Utf8String & resource,
                  const Range & downloadRange,
-                 const std::string & subResource = "",
+                 const Utf8String & subResource = "",
                  const RestParams & headers = RestParams(),
                  const RestParams & queryParams = RestParams()) const;
     Response getEscaped(const std::string & bucket,
@@ -233,10 +236,10 @@ struct S3Api : public AwsApi {
                         const RestParams & headers = RestParams(),
                         const RestParams & queryParams = RestParams()) const;
     void getAsync(const OnResponse & onResponse,
-                  const std::string & bucket,
-                  const std::string & resource,
+                  const Utf8String & bucket,
+                  const Utf8String & resource,
                   const Range & downloadRange,
-                  const std::string & subResource = "",
+                  const Utf8String & subResource = "",
                   const RestParams & headers = RestParams(),
                   const RestParams & queryParams = RestParams()) const;
     void getEscapedAsync(const OnResponse & onResponse,
@@ -248,9 +251,9 @@ struct S3Api : public AwsApi {
                          const RestParams & queryParams = RestParams()) const;
 
     /** Perform a POST request from end to end. */
-    Response post(const std::string & bucket,
-                  const std::string & resource,
-                  const std::string & subResource = "",
+    Response post(const Utf8String & bucket,
+                  const Utf8String & resource,
+                  const Utf8String & subResource = "",
                   const RestParams & headers = RestParams(),
                   const RestParams & queryParams = RestParams(),
                   const HttpRequestContent & content
@@ -264,9 +267,9 @@ struct S3Api : public AwsApi {
                          = HttpRequestContent()) const;
 
     /** Perform a PUT request from end to end including data. */
-    Response put(const std::string & bucket,
-                 const std::string & resource,
-                 const std::string & subResource = "",
+    Response put(const Utf8String & bucket,
+                 const Utf8String & resource,
+                 const Utf8String & subResource = "",
                  const RestParams & headers = RestParams(),
                  const RestParams & queryParams = RestParams(),
                  const HttpRequestContent & content
@@ -279,9 +282,9 @@ struct S3Api : public AwsApi {
                         const HttpRequestContent & content
                         = HttpRequestContent()) const;
     void putAsync(const OnResponse & onResponse,
-                  const std::string & bucket,
-                  const std::string & resource,
-                  const std::string & subResource = "",
+                  const Utf8String & bucket,
+                  const Utf8String & resource,
+                  const Utf8String & subResource = "",
                   const RestParams & headers = RestParams(),
                   const RestParams & queryParams = RestParams(),
                   const HttpRequestContent & content
@@ -296,9 +299,9 @@ struct S3Api : public AwsApi {
                          = HttpRequestContent()) const;
 
     /** Perform a DELETE request from end to end including data. */
-    Response erase(const std::string & bucket,
-                   const std::string & resource,
-                   const std::string & subResource = "",
+    Response erase(const Utf8String & bucket,
+                   const Utf8String & resource,
+                   const Utf8String & subResource = "",
                    const RestParams & headers = RestParams(),
                    const RestParams & queryParams = RestParams()) const;
     Response eraseEscaped(const std::string & bucket,
@@ -325,29 +328,29 @@ struct S3Api : public AwsApi {
         std::string key;
     };
 
-    typedef std::function<bool (const std::string & prefix,
-                                const std::string & objectName,
+    typedef std::function<bool (const Utf8String & prefix,
+                                const Utf8String & objectName,
                                 const ObjectInfo & info,
                                 int depth)>
         OnObject;
 
-    typedef std::function<bool (const std::string & prefix,
-                                const std::string & dirName,
+    typedef std::function<bool (const Utf8String & prefix,
+                                const Utf8String & dirName,
                                 int depth)>
         OnSubdir;
 
     /** For each file matching the given prefix in the given bucket, call
         the callback.
     */
-    void forEachObject(const std::string & bucket,
-                       const std::string & prefix = "",
+    void forEachObject(const Utf8String & bucket,
+                       const Utf8String & prefix = "",
                        const OnObject & onObject = OnObject(),
                        const OnSubdir & onSubdir = OnSubdir(),
                        const std::string & delimiter = "/",
                        int depth = 1,
                        const std::string & startAt = "") const;
 
-    typedef std::function<bool (const std::string & uri,
+    typedef std::function<bool (const Utf8String & uri,
                                 const ObjectInfo & info,
                                 int depth)>
         OnObjectUri;
@@ -355,7 +358,7 @@ struct S3Api : public AwsApi {
     /** For each file matching the given prefix in the given bucket, call
         the callback.
     */
-    void forEachObject(const std::string & uriPrefix,
+    void forEachObject(const Utf8String & uriPrefix,
                        const OnObjectUri & onObject,
                        const OnSubdir & onSubdir = OnSubdir(),
                        const std::string & delimiter = "/",
@@ -368,25 +371,25 @@ struct S3Api : public AwsApi {
     static const std::string NO_SUBDIRS;
 
     /** Does the object exist? */
-    ObjectInfo tryGetObjectInfo(const std::string & bucket,
-                                const std::string & object,
+    ObjectInfo tryGetObjectInfo(const Utf8String & bucket,
+                                const Utf8String & object,
                                 S3ObjectInfoTypes infos = SHORT_INFO) const;
-    ObjectInfo tryGetObjectInfo(const std::string & uri,
+    ObjectInfo tryGetObjectInfo(const Utf8String & uri,
                                 S3ObjectInfoTypes infos = SHORT_INFO) const;
 
 
     /** Return the ObjectInfo about the object.  Throws an exception if it
         doesn't exist.
     */
-    ObjectInfo getObjectInfo(const std::string & bucket,
-                             const std::string & object,
+    ObjectInfo getObjectInfo(const Utf8String & bucket,
+                             const Utf8String & object,
                              S3ObjectInfoTypes infos = SHORT_INFO) const;
-    ObjectInfo getObjectInfo(const std::string & uri,
+    ObjectInfo getObjectInfo(const Utf8String & uri,
                              S3ObjectInfoTypes infos = SHORT_INFO) const;
 
     /** Erase the given object.  Throws an exception if it fails. */
-    void eraseObject(const std::string & bucket,
-                     const std::string & object);
+    void eraseObject(const Utf8String & bucket,
+                     const Utf8String & object);
 
     /** Erase the given object.  Throws an exception if it fails. */
     void eraseObject(const std::string & uri);
@@ -394,8 +397,8 @@ struct S3Api : public AwsApi {
     /** Erase the given object.  Returns true if an object was erased or false
         otherwise.
     */
-    bool tryEraseObject(const std::string & bucket,
-                        const std::string & object);
+    bool tryEraseObject(const Utf8String & bucket,
+                        const Utf8String & object);
     
     /** Erase the given object.  Returns true if an object was erased or false
         otherwise.
@@ -403,11 +406,11 @@ struct S3Api : public AwsApi {
     bool tryEraseObject(const std::string & uri);
 
     /** Return the public URI that should be used to access a public object. */
-    static std::string getPublicUri(const std::string & uri,
+    static Utf8String getPublicUri(const Utf8String & uri,
                                     const std::string & protocol);
 
-    static std::string getPublicUri(const std::string & bucket,
-                                    const std::string & object,
+    static Utf8String getPublicUri(const Utf8String & bucket,
+                                    const Utf8String & object,
                                     const std::string & protocol);
 
     typedef std::function<bool (std::string bucket)> OnBucket;
@@ -418,8 +421,8 @@ struct S3Api : public AwsApi {
     bool forEachBucket(const OnBucket & bucket) const;
 
     /** Turn a s3:// uri string into a bucket name and object. */
-    static std::pair<std::string, std::string>
-    parseUri(const std::string & uri);
+    static std::pair<Utf8String, Utf8String>
+    parseUri(const Utf8String & uri);
 
     struct MultiPartUploadPart {
         MultiPartUploadPart();
@@ -447,18 +450,18 @@ struct S3Api : public AwsApi {
 
     /** Obtain a multipart upload, either in progress or a new one. */
     MultiPartUpload
-    obtainMultiPartUpload(const std::string & bucket,
-                          const std::string & resource,
+    obtainMultiPartUpload(const Utf8String & bucket,
+                          const Utf8String & resource,
                           const ObjectMetadata & metadata,
                           UploadRequirements requirements) const;
 
     std::pair<bool,std::string>
-    isMultiPartUploadInProgress(const std::string & bucket,
-                                const std::string & resource) const;
+    isMultiPartUploadInProgress(const Utf8String & bucket,
+                                const Utf8String & resource) const;
 
     std::string
-    finishMultiPartUpload(const std::string & bucket,
-                          const std::string & resource,
+    finishMultiPartUpload(const Utf8String & bucket,
+                          const Utf8String & resource,
                           const std::string & uploadId,
                           const std::vector<std::string> & etags) const;
 
@@ -466,14 +469,14 @@ struct S3Api : public AwsApi {
     void setDefaultBandwidthToServiceMbps(double mpbs);
 
 private:
-    ObjectInfo tryGetObjectInfoShort(const std::string & bucket,
-                                     const std::string & object) const;
-    ObjectInfo tryGetObjectInfoFull(const std::string & bucket,
-                                    const std::string & object) const;
-    ObjectInfo getObjectInfoShort(const std::string & bucket,
-                                  const std::string & object) const;
-    ObjectInfo getObjectInfoFull(const std::string & bucket,
-                                 const std::string & object) const;
+    ObjectInfo tryGetObjectInfoShort(const Utf8String & bucket,
+                                     const Utf8String & object) const;
+    ObjectInfo tryGetObjectInfoFull(const Utf8String & bucket,
+                                    const Utf8String & object) const;
+    ObjectInfo getObjectInfoShort(const Utf8String & bucket,
+                                  const Utf8String & object) const;
+    ObjectInfo getObjectInfoFull(const Utf8String & bucket,
+                                 const Utf8String & object) const;
 
     /// Static variable to hold the default redundancy to be used
     static Redundancy defaultRedundancy;
@@ -484,7 +487,7 @@ private:
     you can open it directly from s3.
 */
 
-void registerS3Bucket(const std::string & bucketName,
+void registerS3Bucket(const Utf8String & bucketName,
                       const std::string & accessKeyId,
                       const std::string & accessKey,
                       double bandwidthToServiceMbps = S3Api::defaultBandwidthToServiceMbps,
@@ -508,6 +511,6 @@ void registerS3Buckets(const std::string & accessKeyId,
     ~/.cloud_credentials, or S3_KEY_ID, S3_KEY and S3_BUCKETS environment
     variables.
 */
-std::shared_ptr<S3Api> getS3ApiForUri(const std::string & uri);
+std::shared_ptr<S3Api> getS3ApiForUri(const Utf8String & uri);
 
 } // namespace MLDB

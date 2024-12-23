@@ -13,4 +13,5 @@ $(eval $(call test,reader_test,$(TYPES_TESTING_EXTRA_LIBS),boost))
 $(eval $(call test,json_parsing_test,$(TYPES_TESTING_EXTRA_LIBS),boost))
 $(eval $(call test,any_test,any $(TYPES_TESTING_EXTRA_LIBS),boost))
 $(eval $(call test,decode_uri_test,$(TYPES_TESTING_EXTRA_LIBS),boost))
+$(eval $(call test,url_test,$(TYPES_TESTING_EXTRA_LIBS),catch2))
 

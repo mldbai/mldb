@@ -142,7 +142,7 @@ struct TsneItl {
         return result;
     }
 
-    void save(const std::string & filename) const
+    void save(const Utf8String & filename) const
     {
         filter_ostream stream(filename);
         MLDB::DB::Store_Writer store(stream);

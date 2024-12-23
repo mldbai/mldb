@@ -38,7 +38,7 @@ class Nested_Writer;
 /// Function used to open a stream.  Initially tied to creating an ofstream;
 /// this can be replaced with more functional streams like filter_stream.
 /// (done automatically when the vfs library is linked).
-extern std::function<std::ostream * (const std::string )> defaultOpenOutputStream;
+extern std::function<std::ostream * (const Utf8String &)> defaultOpenOutputStream;
 
 
 /*****************************************************************************/
@@ -48,13 +48,13 @@ extern std::function<std::ostream * (const std::string )> defaultOpenOutputStrea
 class portable_bin_oarchive {
 public:
     portable_bin_oarchive();
-    portable_bin_oarchive(const std::string & filename);
+    portable_bin_oarchive(const Utf8String & filename);
     portable_bin_oarchive(std::ostream & stream);
 
     portable_bin_oarchive(const portable_bin_oarchive &) = delete;
     void operator = (const portable_bin_oarchive &) = delete;
 
-    void open(const std::string & filename);
+    void open(const Utf8String & filename);
     void open(std::ostream & stream);
 
     void save(const Nested_Writer & writer);

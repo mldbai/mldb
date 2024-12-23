@@ -24,6 +24,7 @@
 #include "mldb/io/epoll_loop.h"
 #include "runner_common.h"
 #include "mldb/utils/sink.h"
+#include "mldb/types/string.h"
 
 
 namespace MLDB {
@@ -116,7 +117,7 @@ struct Runner : public EpollLoop {
 
     /** Run a program asynchronously, requiring to be attached to a
      * MessageLoop. */
-    void run(const std::vector<std::string> & command,
+    void run(const std::vector<Utf8String> & command,
              const OnTerminate & onTerminate,
              const std::shared_ptr<InputSink> & stdOutSink = nullptr,
              const std::shared_ptr<InputSink> & stdErrSink = nullptr);
@@ -144,6 +145,11 @@ struct Runner : public EpollLoop {
     /** Run a program synchronously. This method does not need any preliminary
      * registration to a MessageLoop. */
     RunResult runSync(const std::vector<std::string> & command,
+                      const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                      const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                      const std::string & stdInData = "");
+
+    RunResult runSync(const std::vector<Utf8String> & command,
                       const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                       const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                       const std::string & stdInData = "");
@@ -205,7 +211,7 @@ struct Runner : public EpollLoop {
     double duration() const;
 
 private:
-    void runImpl(const std::vector<std::string> & command,
+    void runImpl(const std::vector<Utf8String> & command,
                  const OnTerminate & onTerminate = nullptr,
                  const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                  const std::shared_ptr<InputSink> & stdErrSink = nullptr);
@@ -214,18 +220,16 @@ private:
         message loop thread so that it knows the parent thread will not
         go away and cause issues with death signals of the child process.
     */
-    void doRunImpl(const std::vector<std::string> & command,
+    void doRunImpl(const std::vector<Utf8String> & command,
                    const OnTerminate & onTerminate = nullptr,
                    const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                    const std::shared_ptr<InputSink> & stdErrSink = nullptr);
 
     struct Task {
-        Task();
-
         void setupInSink();
         void flushInSink();
         void flushStdInBuffer();
-        void runWrapper(const std::vector<std::string> & command,
+        void runWrapper(const std::vector<Utf8String> & command,
                         ProcessFds & fds);
         std::string findRunnerHelper();
 
@@ -237,12 +241,12 @@ private:
 
         pid_t wrapperPid;
 
-        int stdInFd;
-        int stdOutFd;
-        int stdErrFd;
-        int statusFd;
+        int stdInFd = -1;
+        int stdOutFd = -1;
+        int stdErrFd = -1;
+        int statusFd = -1;
 
-        ProcessState statusState;
+        ProcessState statusState = ProcessState::UNKNOWN;
     };
 
     void prepareChild();
@@ -287,12 +291,14 @@ private:
     Runner object and using it to run a single command.
 */
 
+#if 0
 /** Execute a command synchronously. */
 RunResult execute(const std::vector<std::string> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
+#endif
 
 /** Execute a command synchronously. */
 RunResult execute(const std::vector<Utf8String> & command,

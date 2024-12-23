@@ -26,6 +26,8 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/credentials/credential_provider.h"
+#include "mldb/utils/starts_with.h"
+#include "mldb/utils/split.h"
 #include <thread>
 #include <unordered_map>
 #include <errno.h>
@@ -36,6 +38,28 @@ using namespace std;
 
 namespace MLDB {
 
+namespace {
+
+// libssh2 doesn't know about the encoding of what is on the other end,
+// which is a potential security risk if the other encoding isn't
+// utf-8. To avoid this, we refuse to do anything that's not ASCII in
+// things that are passed to libssh2 for now.
+
+const char * ssh2CharPointer(const std::string & str)
+{
+    for (size_t i = 0;  i < str.size();  ++i) {
+        if (str[i] & 0x80 || str[0] < 32)
+            throw MLDB::Exception("non-ASCII character in path name");
+    }
+    return str.c_str();
+}
+
+const char * ssh2CharPointer(const Utf8String & str)
+{
+    return ssh2CharPointer(str.rawString());
+}
+
+} // file scope
 
 /*****************************************************************************/
 /* SOCKET CONNECTION                                                         */
@@ -55,7 +79,7 @@ SocketConnection::
 
 void
 SocketConnection::
-connect(const std::string & hostname,
+connect(const Utf8String & hostname,
         const std::string & port)
 {
     struct addrinfo hints;
@@ -135,7 +159,7 @@ SshConnection::
 
 void
 SshConnection::
-connect(const std::string & hostname,
+connect(const Utf8String & hostname,
         const std::string & port)
 {
     SocketConnection::connect(hostname, port);
@@ -173,13 +197,13 @@ connect(const std::string & hostname,
 
 void
 SshConnection::
-passwordAuth(const std::string & username,
-                  const std::string & password)
+passwordAuth(const Utf8String & username,
+             const Utf8String & password)
 {
     /* We could authenticate via password */ 
     if (libssh2_userauth_password(session,
-                                  username.c_str(),
-                                  password.c_str())) {
+                                  ssh2CharPointer(username),
+                                  ssh2CharPointer(password))) {
 
         throw MLDB::Exception("password authentication failed: " + lastError());
     }
@@ -187,14 +211,14 @@ passwordAuth(const std::string & username,
 
 void
 SshConnection::
-publicKeyAuth(const std::string & username,
-              const std::string & publicKeyFile,
-              const std::string & privateKeyFile)
+publicKeyAuth(const Utf8String & username,
+              const Utf8String & publicKeyFile,
+              const Utf8String & privateKeyFile)
 {
 /* Or by public key */ 
-    if (libssh2_userauth_publickey_fromfile(session, username.c_str(),
-                                            publicKeyFile.c_str(),
-                                            privateKeyFile.c_str(),
+    if (libssh2_userauth_publickey_fromfile(session, ssh2CharPointer(username),
+                                            ssh2CharPointer(publicKeyFile),
+                                            ssh2CharPointer(privateKeyFile),
                                             "")) {
         throw MLDB::Exception("public key authentication failed: " + lastError());
     }
@@ -208,7 +232,7 @@ setBlocking()
     libssh2_session_set_blocking(session, 1);
 }
 
-std::string
+Utf8String
 SshConnection::
 lastError() const
 {
@@ -244,7 +268,7 @@ close()
 /*****************************************************************************/
 
 SftpConnection::Directory::
-Directory(const std::string & path,
+Directory(const Utf8String & path,
           LIBSSH2_SFTP_HANDLE * handle,
           const SftpConnection * owner)
     : path(path), handle(handle), owner(owner)
@@ -340,7 +364,7 @@ forEachFile(const OnFile & onFile) const
 /*****************************************************************************/
 
 SftpConnection::File::
-File(const std::string & path,
+File(const Utf8String & path,
      LIBSSH2_SFTP_HANDLE * handle,
      SftpConnection * owner)
     : path(path), handle(handle), owner(owner)
@@ -432,9 +456,9 @@ SftpConnection::
 
 void
 SftpConnection::
-connectPasswordAuth(const std::string & hostname,
-                    const std::string & username,
-                    const std::string & password,
+connectPasswordAuth(const Utf8String & hostname,
+                    const Utf8String & username,
+                    const Utf8String & password,
                     const std::string & port)
 {
     SshConnection::connect(hostname, port);
@@ -451,11 +475,11 @@ connectPasswordAuth(const std::string & hostname,
 
 void
 SftpConnection::
-connectPublicKeyAuth(const std::string & hostname,
-                              const std::string & username,
-                              const std::string & publicKeyFile,
-                              const std::string & privateKeyFile,
-                              const std::string & port)
+connectPublicKeyAuth(const Utf8String & hostname,
+                     const Utf8String & username,
+                     const Utf8String & publicKeyFile,
+                     const Utf8String & privateKeyFile,
+                     const std::string & port)
 {
     SshConnection::connect(hostname, port);
     SshConnection::publicKeyAuth(username, publicKeyFile, privateKeyFile);
@@ -471,10 +495,10 @@ connectPublicKeyAuth(const std::string & hostname,
 
 SftpConnection::Directory
 SftpConnection::
-getDirectory(const std::string & path) const
+getDirectory(const Utf8String & path) const
 {
     LIBSSH2_SFTP_HANDLE * handle
-        = libssh2_sftp_opendir(sftp_session, path.c_str());
+        = libssh2_sftp_opendir(sftp_session, ssh2CharPointer(path));
         
     if (!handle) {
         throw MLDB::Exception("couldn't open path: " + lastError());
@@ -485,10 +509,10 @@ getDirectory(const std::string & path) const
 
 SftpConnection::File
 SftpConnection::
-openFile(const std::string & path)
+openFile(const Utf8String & path)
 {
     LIBSSH2_SFTP_HANDLE * handle
-        = libssh2_sftp_open_ex(sftp_session, path.c_str(),
+        = libssh2_sftp_open_ex(sftp_session, ssh2CharPointer(path),
                                path.length(), LIBSSH2_FXF_READ, 0,
                                LIBSSH2_SFTP_OPENFILE);
         
@@ -501,11 +525,11 @@ openFile(const std::string & path)
 
 bool
 SftpConnection::
-getAttributes(const std::string & path, Attributes & attrs)
+getAttributes(const Utf8String & path, Attributes & attrs)
     const
 {
     int res = libssh2_sftp_stat_ex(sftp_session,
-                                   path.c_str(), path.length(), LIBSSH2_SFTP_STAT,
+                                   ssh2CharPointer(path), path.length(), LIBSSH2_SFTP_STAT,
                                    &attrs);
     return (res != -1);
 }
@@ -526,11 +550,11 @@ void
 SftpConnection::
 uploadFile(const char * start,
            size_t size,
-           const std::string & path)
+           const Utf8String & path)
 {
     /* Request a file via SFTP */ 
     LIBSSH2_SFTP_HANDLE * handle =
-        libssh2_sftp_open(sftp_session, path.c_str(),
+        libssh2_sftp_open(sftp_session, ssh2CharPointer(path),
                           LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC,
                           LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
                           LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
@@ -605,7 +629,7 @@ isAlive() const
 struct SftpStreamingDownloadSource {
 
     SftpStreamingDownloadSource(const SftpConnection * owner,
-                                std::string path)
+                                Utf8String path)
     {
         impl.reset(new Impl());
         impl->owner = owner;
@@ -632,7 +656,7 @@ struct SftpStreamingDownloadSource {
         }
 
         const SftpConnection * owner;
-        std::string path;
+        Utf8String path;
         size_t offset;
         LIBSSH2_SFTP_HANDLE * handle;
 
@@ -641,7 +665,7 @@ struct SftpStreamingDownloadSource {
         void start()
         {
             handle
-                = libssh2_sftp_open_ex(owner->sftp_session, path.c_str(),
+                = libssh2_sftp_open_ex(owner->sftp_session, ssh2CharPointer(path),
                                        path.length(), LIBSSH2_FXF_READ, 0,
                                        LIBSSH2_SFTP_OPENFILE);
             
@@ -698,7 +722,7 @@ struct SftpStreamingDownloadSource {
 struct SftpStreamingUploadSource {
 
     SftpStreamingUploadSource(const SftpConnection * owner,
-                              const std::string & path,
+                              const Utf8String & path,
                               const OnUriHandlerException & excCallback)
     {
         impl.reset(new Impl());
@@ -729,7 +753,7 @@ struct SftpStreamingUploadSource {
 
         const SftpConnection * owner;
         LIBSSH2_SFTP_HANDLE * handle;
-        std::string path;
+        Utf8String path;
         OnUriHandlerException onException;
         
         size_t offset;
@@ -742,7 +766,7 @@ struct SftpStreamingUploadSource {
         {
             /* Request a file via SFTP */ 
             handle =
-                libssh2_sftp_open(owner->sftp_session, path.c_str(),
+                libssh2_sftp_open(owner->sftp_session, ssh2CharPointer(path),
                                   LIBSSH2_FXF_WRITE|LIBSSH2_FXF_CREAT|LIBSSH2_FXF_TRUNC,
                                   LIBSSH2_SFTP_S_IRUSR|LIBSSH2_SFTP_S_IWUSR|
                                   LIBSSH2_SFTP_S_IRGRP|LIBSSH2_SFTP_S_IROTH);
@@ -844,7 +868,7 @@ struct SftpStreamingUploadSource {
 
 filter_ostream
 SftpConnection::
-streamingUpload(const std::string & path) const
+streamingUpload(const Utf8String & path) const
 {
     filter_ostream result;
     auto onException = [&](const exception_ptr & excPtr) { result.notifyException(); };
@@ -856,7 +880,7 @@ streamingUpload(const std::string & path) const
 
 std::unique_ptr<std::streambuf>
 SftpConnection::
-streamingUploadStreambuf(const std::string & path,
+streamingUploadStreambuf(const Utf8String & path,
                          const OnUriHandlerException & onException) const
 {
     std::unique_ptr<std::streambuf> result;
@@ -868,7 +892,7 @@ streamingUploadStreambuf(const std::string & path,
 
 filter_istream
 SftpConnection::
-streamingDownload(const std::string & path) const
+streamingDownload(const Utf8String & path) const
 {
     filter_istream result;
     std::shared_ptr<std::streambuf> buf(streamingDownloadStreambuf(path).release());
@@ -879,7 +903,7 @@ streamingDownload(const std::string & path) const
 
 std::unique_ptr<std::streambuf>
 SftpConnection::
-streamingDownloadStreambuf(const std::string & path) const
+streamingDownloadStreambuf(const Utf8String & path) const
 {
     std::unique_ptr<std::streambuf> result;
     result.reset(new boost::iostreams::stream_buffer<SftpStreamingDownloadSource>
@@ -890,14 +914,14 @@ streamingDownloadStreambuf(const std::string & path) const
 
 int
 SftpConnection::
-unlink(const string & path) const {
-    return libssh2_sftp_unlink(sftp_session, path.c_str());
+unlink(const Utf8String & path) const {
+    return libssh2_sftp_unlink(sftp_session, ssh2CharPointer(path));
 }
 
 int
 SftpConnection::
-mkdir(const string & path) const {
-    return libssh2_sftp_mkdir(sftp_session, path.c_str(),
+mkdir(const Utf8String & path) const {
+    return libssh2_sftp_mkdir(sftp_session, ssh2CharPointer(path),
                               LIBSSH2_SFTP_S_IRWXU | LIBSSH2_SFTP_S_IRWXG |
                               LIBSSH2_SFTP_S_IRWXO);
 }
@@ -905,12 +929,12 @@ mkdir(const string & path) const {
 namespace {
 
 struct SftpHostInfo {
-    std::string sftpHost;
+    Utf8String sftpHost;
     std::shared_ptr<SftpConnection> connection;  //< Used to access this uri
 };
 
 std::mutex sftpHostsLock;
-std::unordered_map<std::string, SftpHostInfo> sftpHosts;
+std::unordered_map<Utf8String, SftpHostInfo> sftpHosts;
 
 } // file scope
 
@@ -918,9 +942,9 @@ std::unordered_map<std::string, SftpHostInfo> sftpHosts;
     you can open it directly from sftp.
 */
 
-void registerSftpHostPassword(const std::string & hostname,
-                              const std::string & username,
-                              const std::string & password,
+void registerSftpHostPassword(const Utf8String & hostname,
+                              const Utf8String & username,
+                              const Utf8String & password,
                               const std::string & port)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
@@ -931,15 +955,15 @@ void registerSftpHostPassword(const std::string & hostname,
     SftpHostInfo info;
     info.sftpHost = hostname;
     info.connection = std::make_shared<SftpConnection>();
-    info.connection->connectPasswordAuth(hostname, username, password, port);
+    info.connection->connectPasswordAuth(hostname.rawString(), username.rawString(), password.rawString(), port);
     
     sftpHosts[hostname] = info;
 }
 
-void registerSftpHostPublicKey(const std::string & hostname,
-                               const std::string & username,
-                               const std::string & publicKeyFile,
-                               const std::string & privateKeyFile,
+void registerSftpHostPublicKey(const Utf8String & hostname,
+                               const Utf8String & username,
+                               const Utf8String & publicKeyFile,
+                               const Utf8String & privateKeyFile,
                                const std::string & port)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
@@ -950,9 +974,9 @@ void registerSftpHostPublicKey(const std::string & hostname,
     SftpHostInfo info;
     info.sftpHost = hostname;
     info.connection = std::make_shared<SftpConnection>();
-    info.connection->connectPublicKeyAuth(hostname, username,
-                                          publicKeyFile,
-                                          privateKeyFile,
+    info.connection->connectPublicKeyAuth(hostname.rawString(), username.rawString(),
+                                          publicKeyFile.rawString(),
+                                          privateKeyFile.rawString(),
                                           port);
     sftpHosts[hostname] = info;
 }
@@ -961,19 +985,18 @@ struct RegisterSftpHandler {
 
     static UriHandler
     getSftpHandler(const std::string & scheme,
-                   const std::string & resource,
+                   const Utf8String & resource,
                    std::ios_base::openmode mode,
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
-        string::size_type pos = resource.find('/');
-        if (pos == string::npos)
+        auto [connStr, path, found] = split_on_first(resource, "/");
+        if (!found) {
             throw MLDB::Exception("unable to find sftp host name in resource "
                                 + resource);
-        string connStr(resource, 0, pos);
-
+        }
         const auto & connection = getSftpConnectionFromConnStr(connStr);
-        string path = resource.substr(connStr.size());
+
         if (mode == ios::in) {
             std::shared_ptr<std::streambuf> buf
                 (connection.streamingDownloadStreambuf(path).release());
@@ -1008,7 +1031,7 @@ struct RegisterSftpHandler {
 
 } registerSftpHandler;
 
-const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr)
+const SftpConnection & getSftpConnectionFromConnStr(const Utf8String & connStr)
 {
     std::unique_lock<std::mutex> guard(sftpHostsLock);
     auto it = sftpHosts.find(connStr);
@@ -1017,18 +1040,10 @@ const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr)
     }
     auto creds = getCredential("sftp", "sftp://" + connStr);
 
-    const auto pos = connStr.find(":");
-    string host;
-    string port;
-    if (pos == string::npos) {
-        host = connStr;
+    auto [host, port, found] = split_on_first(connStr, ":");
+    if (!found) {
         port = "ssh";
     }
-    else {
-        host = connStr.substr(0, pos);
-        port = connStr.substr(pos + 1);
-    }
-
 
     SftpHostInfo info;
     info.sftpHost = host;
@@ -1040,24 +1055,19 @@ const SftpConnection & getSftpConnectionFromConnStr(const std::string & connStr)
 
 namespace {
 
-string connStrFromUri(const string & uri) {
-    ExcAssert(uri.find("sftp://") == 0);
-    const auto pos = uri.find("/", 7);
-    if (pos == string::npos) {
-        throw MLDB::Exception("Couldn't find sftp hostname in %s", uri.c_str());
-    }
-    return uri.substr(7, pos - 7);
+string connStrFromUri(const Utf8String & uri) {
+    return must_remove_prefix(uri, "sftp://").extractAscii();
 };
 
 struct SftpUrlFsHandler : public UrlFsHandler {
 
     UriHandler getUriHandler(const Url & url) const
     {
-        string urlStr = url.toDecodedString();
-        ExcAssert(urlStr.find("sftp://") == 0);
+        auto urlStr = url.toDecodedString();
+        urlStr = must_remove_prefix(urlStr, "sftp://");
         const std::map<std::string, std::string> options;
         return RegisterSftpHandler::getSftpHandler(
-            "", urlStr.substr(7), ios::in, options, nullptr);
+            "", urlStr, ios::in, options, nullptr);
     }
 
     FsObjectInfo getInfo(const Url & url) const override
@@ -1079,20 +1089,20 @@ struct SftpUrlFsHandler : public UrlFsHandler {
 
     void makeDirectory(const Url & url) const override
     {
-        string urlStr = url.toDecodedString();
+        auto urlStr = url.toDecodedString();
         string connStr = connStrFromUri(urlStr);
         const auto & conn = getSftpConnectionFromConnStr(connStr);
-        conn.mkdir(urlStr.substr(7 + connStr.size()));
+        conn.mkdir(must_remove_prefix(urlStr, "sftp://" + connStr));
     }
 
     bool erase(const Url & url, bool throwException) const override
     {
-        string urlStr = url.toDecodedString();
-        string connStr = connStrFromUri(urlStr);
+        auto urlStr = url.toDecodedString();
+        auto connStr = connStrFromUri(urlStr);
         const auto & conn = getSftpConnectionFromConnStr(connStr);
         int res = 0;
         try {
-            res = conn.unlink(urlStr.substr(7 + connStr.size()));
+            res = conn.unlink(must_remove_prefix(urlStr, "sftp://" + connStr));
         }
         catch (const Exception & e) {
             if (throwException) {
@@ -1110,16 +1120,16 @@ struct SftpUrlFsHandler : public UrlFsHandler {
                  const std::string & startAt) const override
     {
         ExcAssert(delimiter == "/");
-        string url = prefix.toString();
+        auto url = prefix.toString();
         const string connStr = connStrFromUri(url);
         const auto & conn = getSftpConnectionFromConnStr(connStr);
 
-        function<void(string, int)> processPath = [&] (string path, int depth) {
+        function<void(Utf8String, int)> processPath = [&] (Utf8String path, int depth) {
             auto dir = conn.getDirectory(path);
-            dir.forEachFile([&] (string name, SftpConnection::Attributes attr) {
+            dir.forEachFile([&] (Utf8String name, SftpConnection::Attributes attr) {
                 // For help with masks see
                 // https://github.com/libssh2/libssh2/blob/master/docs/libssh2_sftp_fstat_ex.3
-                string currUri = "sftp://" + connStr + path + "/" + name;
+                Utf8String currUri = "sftp://" + connStr + path + "/" + name;
                 if (LIBSSH2_SFTP_S_ISREG (attr.permissions)) {
                     OpenUriObject open = [=,this] (const std::map<std::string, std::string> & options) -> UriHandler
                     {
@@ -1149,7 +1159,7 @@ struct SftpUrlFsHandler : public UrlFsHandler {
             });
         };
 
-        string path = url.substr(7 + connStr.size());
+        Utf8String path(url.begin() + 7 + connStr.size(), url.end());
         processPath(path, 0);
 
         return true;

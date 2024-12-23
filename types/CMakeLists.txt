@@ -35,6 +35,7 @@ set(LIBVALUE_DESCRIPTION_SOURCES
     json_parsing.cc
     json_printing.cc
     dtoa.c
+    dtoa_impl.cc
     meta_value_description.cc
     distribution_description.cc
 )

@@ -72,7 +72,7 @@ struct PluginResource {
     {
     }
 
-    std::string address;
+    Utf8String address;
     PackageElementSources source;
     Any args;
     Any status;
@@ -108,7 +108,7 @@ DECLARE_STRUCTURE_DESCRIPTION(ScriptResource);
 
 
 struct PluginVersion {
-    std::string address;
+    Utf8String address;
     std::string revision;
     std::string branch;
     std::string message;
@@ -162,12 +162,12 @@ struct LoadedPluginResource {
     Url url;
     Any args;
 
-    std::string getElementFilename(PackageElement elem) const;
-    std::string getElementLocation(PackageElement elem) const;
+    Utf8String getElementFilename(PackageElement elem) const;
+    Utf8String getElementLocation(PackageElement elem) const;
     bool packageElementExists(PackageElement elem) const;
     Utf8String getScript(PackageElement elem) const;
     Utf8String getScriptUri(PackageElement elem) const;
-    std::string getFilenameForErrorMessages() const;
+    Utf8String getFilenameForErrorMessages() const;
 
     std::filesystem::path getPluginDir() const;
 

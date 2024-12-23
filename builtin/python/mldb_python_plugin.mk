@@ -10,6 +10,7 @@ PYTHON_INTERPRETER_LINK := \
 	$(BOOST_PYTHON_LIBRARY) \
 	vfs \
 	arch \
+	base \
 	value_description \
 	types \
 	utils \

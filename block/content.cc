@@ -12,6 +12,7 @@
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/types/basic_value_descriptions.h"
+#include "mldb/utils/split.h"
 #include <chrono>
 #include <future>
 
@@ -70,16 +71,15 @@ namespace {
 static struct RegisterContentHandler {
     static UriHandler
     getContentHandler(const std::string & scheme,
-                      const std::string & resource,
+                      const Utf8String & resource,
                       std::ios_base::openmode mode,
                       const std::map<std::string, std::string> & options,
                       const OnUriHandlerException & onException)
     {
-        string::size_type pos = resource.find('/');
-        if (pos == string::npos)
+        auto [bucket, object, found] = split_on_first(resource, "/");
+        if (!found)
             throw MLDB::Exception("unable to find content bucket name in resource "
                                 + resource);
-        string bucket(resource, 0, pos);
 
         if (mode == ios::in) {
             std::pair<std::unique_ptr<std::streambuf>, FsObjectInfo> sb_info;

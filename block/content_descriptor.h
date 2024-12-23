@@ -82,7 +82,7 @@ struct ContentDescriptor {
 
     Url getUrl() const;
     Utf8String getUrlString() const;
-    std::string getUrlStringUtf8() const;
+    std::u8string getUrlStringUtf8() const;
 };
 
 PREDECLARE_VALUE_DESCRIPTION(ContentDescriptor);

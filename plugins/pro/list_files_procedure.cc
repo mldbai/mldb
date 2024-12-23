@@ -76,7 +76,7 @@ run(const ProcedureRunConfig & run,
     const int ROWS_SIZE(1024);
     rows.reserve(ROWS_SIZE);
 
-    auto onFoundObject = [&](const std::string &uri,
+    auto onFoundObject = [&](const Utf8String &uri,
                              const FsObjectInfo &info,
                              const OpenUriObject & open,
                              int depth) {
@@ -100,7 +100,7 @@ run(const ProcedureRunConfig & run,
         return true;
     };
 
-    auto onSubDir = [&] (const std::string & dirName, int depth)
+    auto onSubDir = [&] (const Utf8String & dirName, int depth)
     {
         return runProcConf.maxDepth == -1 || depth <= runProcConf.maxDepth;
     };

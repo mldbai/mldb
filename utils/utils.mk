@@ -40,7 +40,7 @@ $(eval $(call library,json_diff,json_diff.cc json_utils.cc,arch base value_descr
 LIBRUNNERCOMMON_SOURCES := \
 	runner_common.cc
 
-LIBRUNNERCOMMON_LINK := arch types value_description
+LIBRUNNERCOMMON_LINK := arch base types value_description
 
 $(eval $(call library,runner_common,$(LIBRUNNERCOMMON_SOURCES),$(LIBRUNNERCOMMON_LINK)))
 $(eval $(call program,runner_helper,runner_common arch))
@@ -51,7 +51,7 @@ LIBRUNNER_SOURCES := \
 	sink.cc \
 	runner.cc
 
-LIBRUNNER_LINK := runner_common io_base value_description logging utils arch types
+LIBRUNNER_LINK := runner_common io_base value_description logging utils arch base types
 
 $(eval $(call set_compile_option,runner.cc,-DBIN=\"$(BIN)\"))
 $(eval $(call library,runner,$(LIBRUNNER_SOURCES),$(LIBRUNNER_LINK)))

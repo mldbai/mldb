@@ -48,4 +48,7 @@ DECLARE_STRUCTURE_DESCRIPTION(StoredCredentials);
 Credential getCredential(const std::string & resourceType,
                          const std::string & resource);
 
+Credential getCredential(const std::string & resourceType,
+                         const Utf8String & resource);
+
 } // namespace MLDB
