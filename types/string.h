@@ -63,6 +63,7 @@ public:
 
     operator std::basic_string_view<char8_t>() const { return {(const char8_t *)data_.data(), data_.length()}; }
     operator std_filesystem_path() const;
+    Utf8String(const std_filesystem_path & path, bool check = true);
 
     /** Allow default construction of an empty string. */
     Utf8String()

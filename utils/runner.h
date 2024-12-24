@@ -133,6 +133,15 @@ struct Runner : public EpollLoop {
         run(commandUtf8, onTerminate, stdOutSink, stdErrSink);
     }
 
+    void run(const std::initializer_list<Utf8String> & command,
+             const OnTerminate & onTerminate,
+             const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+             const std::shared_ptr<InputSink> & stdErrSink = nullptr)
+    {
+        std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+        run(commandUtf8, onTerminate, stdOutSink, stdErrSink);
+    }
+
     /** Run a program synchronously. This method does not need any preliminary
      * registration to a MessageLoop. */
     RunResult runSync(const std::vector<std::string> & command,
@@ -310,14 +319,34 @@ RunResult execute(Command&& command,
     return execute(commandUtf8, stdOutSink, stdErrSink, stdInData, closeStdin);
 }
 
-#if 0
+inline RunResult execute(const std::initializer_list<Utf8String> & command,
+                         const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                         const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                         const std::string & stdInData = "",
+                         bool closeStdin = false)
+{
+    std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+    return execute(commandUtf8, stdOutSink, stdErrSink, stdInData, closeStdin);
+}
+
 /** (Deprecated) Execute a command synchronously using the specified message
  * loop. */
 RunResult execute(MessageLoop & loop,
-                  const std::vector<std::string> & command,
+                  const std::vector<Utf8String> & command,
                   const std::shared_ptr<InputSink> & stdOutSink = nullptr,
                   const std::shared_ptr<InputSink> & stdErrSink = nullptr,
                   const std::string & stdInData = "",
                   bool closeStdin = false);
-#endif
+
+inline RunResult execute(MessageLoop & loop,
+                         const std::initializer_list<Utf8String> & command,
+                         const std::shared_ptr<InputSink> & stdOutSink = nullptr,
+                         const std::shared_ptr<InputSink> & stdErrSink = nullptr,
+                         const std::string & stdInData = "",
+                         bool closeStdin = false)
+{
+    std::vector<Utf8String> commandUtf8(command.begin(), command.end());
+    return execute(loop, commandUtf8, stdOutSink, stdErrSink, stdInData, closeStdin);
+}
+
 } // namespace MLDB

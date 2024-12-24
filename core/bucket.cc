@@ -311,6 +311,20 @@ initialize(bool hasNulls,
 
 CellValue
 BucketDescriptions::
+getValue(uint32_t bucket) const
+{
+    if (bucket < numeric.offset)
+        return CellValue(); //empty
+    else if (bucket < strings.offset)
+        return CellValue(numeric.splits[bucket - numeric.offset]);
+    else if (bucket < blobs.offset)
+        return strings.buckets[bucket - strings.offset];
+
+    throw AnnotatedException(500, "Invalid bucket");
+}
+
+CellValue
+BucketDescriptions::
 getSplit(uint32_t bucket) const
 {
     if (bucket < numeric.offset)

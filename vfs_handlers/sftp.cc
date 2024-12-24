@@ -1049,8 +1049,8 @@ const SftpConnection & getSftpConnectionFromConnStr(const Utf8String & connStr)
     info.sftpHost = host;
     info.connection = std::make_shared<SftpConnection>();
     info.connection->connectPasswordAuth(host, creds.id, creds.secret, port.extractAscii());
-    sftpHosts[connStr] = info;
-    return *info.connection.get();
+    auto [it2, inserted] = sftpHosts.insert({connStr, std::move(info)});
+    return *it2->second.connection.get();
 }
 
 namespace {

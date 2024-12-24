@@ -2,6 +2,9 @@
 #include "mldb/plugins/jml/algebra/matrix.h"
 #include "mldb/plugins/jml/algebra/matrix_ops.h"
 
+#define CHECK_EQUAL(x, y) CHECK(x == y)
+#include "mldb/types/db/testing/test_serialize_reconstitute.h"
+
 using namespace std;
 using namespace MLDB;
 
@@ -188,4 +191,14 @@ TEST_CASE("multiply")
     for (unsigned i = 0;  i < 2;  ++i)
         for (unsigned j = 0;  j < 4;  ++j)
             CHECK(m3[i][j] == m[i][j]); 
+}
+
+TEST_CASE("serialize reconstitute")
+{
+    MLDB::Matrix<float, 2> A(3, 3);
+    for (unsigned i = 0;  i < 3;  ++i)
+        for (unsigned j = 0;  j < 3;  ++j)
+            A[i][j] = j * j - i;
+
+    test_serialize_reconstitute(A);
 }

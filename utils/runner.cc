@@ -1024,7 +1024,7 @@ RunResultStateDescription()
 
 RunResult
 execute(MessageLoop & loop,
-        const vector<string> & command,
+        const vector<Utf8String> & command,
         const shared_ptr<InputSink> & stdOutSink,
         const shared_ptr<InputSink> & stdErrSink,
         const string & stdInData,

@@ -25,8 +25,8 @@ namespace Builtins {
 /* GEOGRAPHICAL FUNCTIONS                                                    */
 /*****************************************************************************/
 
-static constexpr double EARTH_EQUATORIAL_RADIUS_METERS = 6378137.0;
-static constexpr double EARTH_POLAR_RADIUS_METERS      = 6356752.3;
+//static constexpr double EARTH_EQUATORIAL_RADIUS_METERS = 6378137.0;
+//static constexpr double EARTH_POLAR_RADIUS_METERS      = 6356752.3;
 
 // https://en.wikipedia.org/w/index.php?title=Earth_radius&action=edit&section=16
 static constexpr double EARTH_MEAN_RADIUS_METERS       = 6371008.8;

@@ -461,12 +461,6 @@ shutdown()
     recordHit("serviceStopped");
 }
 
-static bool endsWith(const std::string & str,
-                     const std::string & what)
-{
-    return str.rfind(what) == str.length() - what.length();
-}
-
 void
 MldbServer::
 scanPlugins(const std::string & dir_)

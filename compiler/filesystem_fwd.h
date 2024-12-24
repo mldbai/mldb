@@ -20,15 +20,6 @@ _LIBCPP_END_NAMESPACE_FILESYSTEM
 
 #elif MLDB_STDLIB_GCC
 #include <bits/fs_fwd.h>
-
-#if 0
-namespace std {
-namespace filesystem {
-class path;
-} // namespace filesystem
-} // namespace std
-#endif
-
 #else
 #error "Unknown standard library"
 #endif

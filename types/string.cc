@@ -97,6 +97,11 @@ Utf8String::fromLatin1(std::string && lat1Str)
     return Utf8String(std::move(utf8Str), false /* check */);
 }
 
+Utf8String::Utf8String(const std_filesystem_path & path, bool check)
+    : Utf8String(path.u8string(), check)
+{
+}
+
 Utf8String::Utf8String(const Utf8String & str, size_t startAt, ssize_t endAt)
 {
     auto it = str.begin(), end = str.end();
