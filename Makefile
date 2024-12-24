@@ -1,3 +1,5 @@
+exec-shell=$(if $(TRACE_SHELL_COMMANDS),$(warning executing shell command $(1)))$(shell $(1))
+
 JML_BUILD := mldb/jml-build
 include mldb/jml-build/os/os.mk
 

@@ -15,7 +15,7 @@ set(LIBMLDB_LINK
     sql_expression
     runner
     credentials
-    libgit2
+    libgit2package
     mldb_builtin
     command_expression
     vfs_handlers
@@ -66,6 +66,7 @@ set(LIBMLDB_PLATFORM_PYTHON_LINK
     ${Python_LIBRARIES}
     types
     arch
+    base
     value_description
     mldb_python_plugin
     io_base
@@ -75,8 +76,8 @@ set(LIBMLDB_PLATFORM_PYTHON_LINK
 
 set_source_files_properties(${LIBMLDB_PLATFORM_PYTHON_SOURCES} PROPERTIES INCLUDE_DIRECTORIES "${Python_INCLUDE_DIRS}")
 
-add_library(mldb_platform_python ${LIBMLDB_PLATFORM_PYTHON_SOURCES})
-target_link_libraries(mldb_platform_python PUBLIC ${Python_LIBRARIES})
+add_library(mldb_platform_python ${LIBMLDB_PLATFORM_PYTHON_SOURCES} ${Python_LIBRARIES})
+target_link_libraries(mldb_platform_python PUBLIC ${LIBMLDB_PLATFORM_PYTHON_LINK})
 
 
 #target_include_directories(mldb_platform_python PRIVATE ${PYTHON_INCLUDE_PATH})

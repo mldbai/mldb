@@ -23,7 +23,7 @@ DOCKER_REGISTRY?=
 #
 # This should be overridden in local.mk, not edited here.
 
-DOCKER_USER?=$(shell whoami)
+DOCKER_USER?=$(call exec-shell, whoami)
 
 # DOCKER_BASE_IMAGE: the docker image that docker images will be built on top
 # of.  Note that you can override this per target.  For example,
@@ -70,7 +70,7 @@ DOCKER_GET_REVISION_SCRIPT?=$(JML_BUILD)/get_git_revision.sh
 # DOCKER_TAG: if this is defined, the given tag will also be applied to the
 # built image.  By default it's "latest" which is expected by most docker
 # tooling, but can be changed to something else or undefined if required.
-DOCKER_TAG:= $(shell whoami)_latest
+DOCKER_TAG:= $(call exec-shell, whoami)_latest
 DOCKER_TAGS += $(DOCKER_TAG)
 
 # DOCKER_COMMIT_ARGS: Anything in this variable (which should be overridden

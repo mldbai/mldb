@@ -12,9 +12,9 @@ DOCKER_REGISTRY:=quay.io/
 DOCKER_USER:=mldb/
 
 # Shim for the 14.04 migration
-DIST_CODENAME:=$(shell lsb_release -sc)
+DIST_CODENAME:=$(call exec-shell, lsb_release -sc)
 
-MACHINE_NAME:=$(shell uname -n)
+MACHINE_NAME:=$(call exec-shell, uname -n)
 
 V8_LIB:=v8
 
@@ -34,7 +34,7 @@ default: all
 .PHONY: default
 
 BUILD   ?= build
-ARCH    ?= $(shell uname -m)
+ARCH    ?= $(call exec-shell, uname -m)
 OBJ     := $(BUILD)/$(ARCH)/obj
 BIN     := $(BUILD)/$(ARCH)/bin
 LIB	:= $(BUILD)/$(ARCH)/lib
@@ -79,7 +79,7 @@ include $(JML_BUILD)/python.mk
 include $(JML_BUILD)/tcmalloc.mk
 include $(JML_BUILD)/docker.mk
 include mldb/mldb_macros.mk
-include mldb/release.mk
+#include mldb/release.mk
 
 PREMAKE := 1
 

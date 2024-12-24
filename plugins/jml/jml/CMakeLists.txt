@@ -62,7 +62,7 @@ set(LIBBOOSTING_SOURCES
 )
 
 set(LIBBOOSTING_LINK
-    jml_utils utils db algebra arch judy fasttext log arch base value_description Boost::timer vfs
+    jml_utils utils db algebra arch judy fasttext log arch base value_description vfs
 )
 
 add_library(boosting ${LIBBOOSTING_SOURCES})

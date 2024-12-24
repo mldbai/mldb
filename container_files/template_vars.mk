@@ -1,5 +1,5 @@
 # Variables for templating
-export GIT_HASH := $(shell git rev-parse HEAD)
+export GIT_HASH := $(call exec-shell, git rev-parse HEAD)
 export HTTP_BASE_URL :=  # empty. '/' is added in nginx conf
 export IPYTHON_DIR = /opt/local/ipython
 export IPYTHON_IMAGES_DIR = /usr/local/lib/python2.7/dist-packages/notebook/static/base/images
@@ -23,4 +23,4 @@ export MLDB_USER = _mldb
 export MLDB_VALIDATOR_DIR = $(MLDB_DATA_DIR)/.mldb_validator
 export NGINX_ROOT = /opt/local/public_html/nginx
 export UWSGI_VALIDATOR_PORT = 9100
-export VERSION_NAME2 = $(if $(VERSION_NAME),$(VERSION_NAME),$(shell date +"%Y.%m.%d.dev-")$(shell git rev-parse --short HEAD))
+#export VERSION_NAME2 = $(if $(VERSION_NAME),$(VERSION_NAME),$(call exec-shell, date +"%Y.%m.%d.dev-")$(call exec-shell, git rev-parse --short HEAD))

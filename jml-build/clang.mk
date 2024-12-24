@@ -1,16 +1,33 @@
 # Note: clang 3.6 won't compile MLDB if GCC6 is installed
 
-find_command=$(foreach command,$(firstword $(1)),$(if $(shell which $(command)),$(command),$(call find_command,$(wordlist 2,10000,$(1)))))
+SPACE:=$(NOTHING) $(NOTHING)
+make_cacheable2=$(subst =,X,$(subst $(SPACE),^,$(1)))
+make_cacheable=$(w arning make_cacheable $(1))$(call make_cacheable2,$(1))
+find_command_impl=$(foreach command,$(firstword $(1)),$(if $(call exec-shell, which $(command)),$(command),$(call find_command,$(wordlist 2,10000,$(1)))))
+find_command=$(w arning find_command $(1) var=__find_command_cache_$(call make_cacheable,$(1)))$(if $(__find_command_cache_$(call make_cacheable,$(1))),$(__find_command_cache_$(call make_cacheable,$(1))),$(eval __find_command_cache_$(call make_cacheable,$(1)):=$(call find_command_impl,$(1)))$(__find_command_cache_$(call make_cacheable,$(1))))
 
-CLANGXX?=$(call find_command,clang++ clang++-19 clang++-18 clang++-17 clang++-16 clang++-15 clang++-14 clang++-13 clang++-12 clang++-11 clang++-10 clang++-9 clang++-8)
-CLANG?=$(call find_command,clang clang-19 clang-18 clang-17 clang-16 clang-15 clang-14 clang-13 clang-12 clang-11 clang-10 clang-9 clang-8)
 
-CLANG_VERSION:=$(shell $(CLANGXX) --version | head -n1 | awk '{ print $$4; }' | sed 's/-*//g')
+ifeq ($(CLANG),)
+CLANG:=$(call find_command,clang clang-19 clang-18 clang-17 clang-16 clang-15 clang-14 clang-13 clang-12 clang-11 clang-10 clang-9 clang-8)
+endif
+
+ifeq ($(CLANGXX),)
+CLANGXX:=$(call find_command,clang++ clang++-19 clang++-18 clang++-17 clang++-16 clang++-15 clang++-14 clang++-13 clang++-12 clang++-11 clang++-10 clang++-9 clang++-8)
+endif
+
+CLANG_VERSION:=$(call exec-shell, $(CLANGXX) --version | head -n1 | awk '{ print $$4; }' | sed 's/-*//g')
 #$(warning CLANG_VERSION=$(CLANG_VERSION))
-CLANG_VERSION_MAJOR?=$(strip $(shell $(CLANGXX) -dM -E - < /dev/null | grep __clang_major__ | sed 's/.* //g'))
+
+ifeq ($(CLANG_VERSION_MAJOR),)
+CLANG_VERSION_MAJOR:=$(strip $(call exec-shell, $(CLANGXX) -dM -E - < /dev/null | grep __clang_major__ | sed 's/.* //g'))
+endif
+
 #$(warning CLANG_MAJOR=$(CLANG_VERSION_MAJOR))
 
-CXX_VERSION?=$(CLANG_VERSION)
+ifeq ($(CXX_VERSION),)
+CXX_VERSION:=$(CLANG_VERSION)
+endif
+
 CXX := $(COMPILER_CACHE) $(CLANGXX)
 BUILDING_WITH_CLANG:=1
 
