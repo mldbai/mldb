@@ -190,7 +190,7 @@ define mldb_plugin_static_directory
 # Lists all files in the given static content directory.  It
 # uses the find command to look for files, then filters them out using the
 # STATIC_CONTENT_FILTER_PATTERNS variable.
-MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) := $$(filter-out $$(STATIC_CONTENT_FILTER_PATTERNS),$$(shell find $(CWD)/$(2)/ -type f | sed "s!$(CWD)/!!"))
+MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) := $$(filter-out $$(STATIC_CONTENT_FILTER_PATTERNS),$$(call exec-shell, find $(CWD)/$(2)/ -type f | sed "s!$(CWD)/!!"))
 
 # Debug... print them out
 #$$(warning MLDB_PLUGIN_$(1)_STATIC_FILES_$(2) = $$(MLDB_PLUGIN_$(1)_STATIC_FILES_$(2)))

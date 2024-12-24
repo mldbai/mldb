@@ -2,10 +2,17 @@ cmake_minimum_required(VERSION 3.30)
 
 project(mldb)
 
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/jml-build")
+
 # Set the C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
+
+# Shared libraries by default
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+set(BUILD_SHARED_LIBS ON FORCE)
+set(BUILD_STATIC_LIBS OFF FORCE)
 
 find_program(SCCACHE "sccache")
 if(SCCACHE)
@@ -22,7 +29,6 @@ find_package(Boost REQUIRED COMPONENTS
     python312
     system
     iostreams
-    timer
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -60,6 +66,6 @@ add_subdirectory(engine)
 add_subdirectory(builtin)
 add_subdirectory(plugins)
 add_subdirectory(server)
-add_subdirectory(sdk)
+#add_subdirectory(sdk)
 #add_subdirectory(testing)
 

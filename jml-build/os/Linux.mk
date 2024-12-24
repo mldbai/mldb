@@ -11,8 +11,8 @@ SO_EXTENSION:=.so
 # Include the lsb-release file to know what version of v8 to link with
 include /etc/lsb-release
 
-DIST_CODENAME:=$(shell lsb_release -sc)
-MACHINE_NAME:=$(shell uname -n)
+DIST_CODENAME:=$(call exec-shell, lsb_release -sc)
+MACHINE_NAME:=$(call exec-shell, uname -n)
 READLINK:=readlink -f
 
 VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)

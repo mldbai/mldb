@@ -57,6 +57,8 @@ target_link_libraries(ml ${LIBML_LINK})
 # Include sub-make for ml_testing
 add_subdirectory(testing)
 
+find_library(SVM_LIBRARY svm)
+
 # Jml plugins
 set(LIBMLDB_JML_PLUGIN_SOURCES
     randomforest_procedure.cc
@@ -79,6 +81,7 @@ set(LIBMLDB_JML_PLUGIN_LINK
     mldb_core
     mldb_engine
     arch
+    mldb_core
     types
     utils
     sql_expression

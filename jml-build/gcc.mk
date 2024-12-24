@@ -2,9 +2,12 @@ ifneq ($(GCC_MK_INCLUDED),1)
 GCC_MK_INCLUDED:=1
 GCC?=$(if $(DEFAULTGCC),$(DEFAULTGCC),gcc)
 GXX?=$(if $(DEFAULTGXX),$(DEFAULTGXX),g++)
-GCC_VERSION:=$(shell $(GXX) --version | head -n1 | sed 's/.* //g')
+GCC_VERSION:=$(call exec-shell, $(GXX) --version | head -n1 | sed 's/.* //g')
 CXX_VERSION?=$(GCC_VERSION)
-GXX_VERSION_MAJOR?=$(strip $(shell $(GXX) -dM -E - < /dev/null | grep __GNUC__ | sed 's/.* //g'))
+ifeq ($(GXX_VERSION_MAJOR),)
+GXX_VERSION_MAJOR?=$(strip $(call exec-shell, $(GXX) -dM -E - < /dev/null | grep __GNUC__ | sed 's/.* //g'))
+endif
+
 $(warning GXX_VERSION_MAJOR=$(GXX_VERSION_MAJOR))
 CXX:=$(COMPILER_CACHE) $(GXX)
 CC:=$(COMPILER_CACHE) $(GCC)

@@ -11,7 +11,7 @@ LIBSQLITE_SOURCES := \
 
 LIBSQLITE_LINK := 
 	
-$(eval $(call set_compile_option,sqlite3.c shell.c,-Wno-array-bounds -Wno-unused-const-variable -Wno-misleading-indentation gcc14+:-Wno-stringop-overread))
+$(eval $(call set_compile_option,sqlite3.c shell.c,-Wno-array-bounds -Wno-unused-const-variable -Wno-misleading-indentation gcc13+:-Wno-stringop-overread))
 
 $(eval $(call library,sqlite-mldb,$(LIBSQLITE_SOURCES),$(LIBSQLITE_LINK)))
 

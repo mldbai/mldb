@@ -1,6 +1,6 @@
 ifeq ($(PYTHON_ENABLED),1)
 
-PYTHON_VERSION_DETECTED := $(shell $(JML_BUILD)/detect_python.sh)
+PYTHON_VERSION_DETECTED := $(call exec-shell, $(JML_BUILD)/detect_python.sh)
 PYTHON_VERSION ?= $(PYTHON_VERSION_DETECTED)
 PY_SO_EXTENSION?=.so# even on Darwin
 
