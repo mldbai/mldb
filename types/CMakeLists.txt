@@ -16,10 +16,10 @@ if(APPLE)
 endif()
 
 #message("ICU_ROOT: ${ICU_ROOT}")
-set(ICU_DEBUG ON)
+#set(ICU_DEBUG ON)
 
 find_package(ICU REQUIRED COMPONENTS data i18n)
-message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
+#message("ICU_INCLUDE_DIRS: ${ICU_INCLUDE_DIRS}")
 
 set(JSONCPP_SOURCES
     ../ext/jsoncpp/json_reader.cpp
@@ -41,10 +41,12 @@ set(LIBVALUE_DESCRIPTION_SOURCES
 )
 
 set(LIBVALUE_DESCRIPTION_LINK
-    arch
-    base
-    ICU::i18n
-    ICU::data
+    PRIVATE
+        arch
+        base
+    PUBLIC
+        ICU::i18n
+       ICU::data
 )
 
 #set(JSONCPP_COMPILER_FLAGS "-Wno-unused-result")
@@ -54,7 +56,7 @@ set(LIBVALUE_DESCRIPTION_LINK
 #endforeach()
 
 add_library(value_description ${LIBVALUE_DESCRIPTION_SOURCES} ${JSONCPP_SOURCES})
-target_link_libraries(value_description PRIVATE ${LIBVALUE_DESCRIPTION_LINK})
+target_link_libraries(value_description PRIVATE arch base PUBLIC ICU::i18n ICU::data)
 
 add_library(any any.cc)
 target_link_libraries(any PRIVATE value_description arch base)

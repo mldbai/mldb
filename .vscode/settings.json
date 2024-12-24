@@ -110,7 +110,10 @@
         "cfenv": "cpp",
         "__functional_base_03": "cpp",
         "__bits": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "__verbose_abort": "cpp",
+        "execution": "cpp",
+        "print": "cpp"
     },
     "cmake.configureOnOpen": false
 }

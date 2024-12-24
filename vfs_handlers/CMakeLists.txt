@@ -4,7 +4,7 @@
 add_subdirectory(aws)
 
 # We need the libssh2 library
-find_library(SSH2 ssh2)
+find_library(SSH2_LIBRARIES ssh2)
 
 # Library for VFS Handlers
 add_library(vfs_handlers sftp.cc archive.cc docker.cc)

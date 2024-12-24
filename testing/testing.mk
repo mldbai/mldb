@@ -4,7 +4,7 @@
 # some extra tests can be enabled.  This will be "1" or empty for true or false.
 # these tests access *public* files in the dev.mldb.mldb.ai bucket, so any old
 # valid credentials will do
-HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev/null && echo "1")
+HAS_S3_CREDENTIALS:=$(call exec-shell, grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev/null && echo "1")
 
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)
@@ -169,7 +169,7 @@ $(eval $(call mldb_unit_test,MLDB-102-select-formats.js))
 $(eval $(call mldb_unit_test,MLDB-543-column-named-zero.js))
 $(eval $(call mldb_unit_test,MLDB-2188-label_feature_validation.py))
 
-$(shell rm -f tmp/MLDB-574-reddit.sqlite) # MLDB-574 fails if the file is already present
+$(call exec-shell, rm -f tmp/MLDB-574-reddit.sqlite) # MLDB-574 fails if the file is already present
 $(eval $(call mldb_unit_test,MLDB-574-sqlite-backend.js))
 
 $(eval $(call mldb_unit_test,MLDB-541-record-column.js))

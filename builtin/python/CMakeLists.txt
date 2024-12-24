@@ -38,7 +38,7 @@ set(PYTHON_PLUGIN_SOURCES
 # Define the libraries to link with the Python plugin
 set(PYTHON_PLUGIN_LINK
     value_description
-    ${PYTHON_LIBRARY}
+    ${Python_LIBRARIES}
     Boost::python312
     mldb_core
     mldb_builtin_base

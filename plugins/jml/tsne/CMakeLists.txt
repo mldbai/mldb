@@ -11,7 +11,7 @@ set(LIBTSNE_LINK
     arch
     stats
     base
-    Boost::timer)
+)
 
 add_library(tsne ${LIBTSNE_SOURCES})
 target_link_libraries(tsne ${LIBTSNE_LINK})

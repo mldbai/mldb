@@ -34,33 +34,33 @@ set(LIBMLDB_BUILTIN_BASE_SOURCES
 )
 
 set(LIBMLDB_BUILTIN_BASE_LINK
-    mldb_core
-    mldb_engine
-    runner
-    libgit2
-    ${SSH2_LIBRARIES}
-    arch
-    value_description
-    types
-    base
-    utils
-    sql_expression
-    vfs
-    rest
-    link
-    rest_entity
-    any
-    json_diff
-    progress
-    log
-    watch
-    gc
-    mldb_core
-    utils
-    sql_types
+    PUBLIC
+        algebra
+        arch
+        value_description
+        types
+        base
+        utils
+        sql_expression
+        vfs
+        any
+        libgit2package
+    PRIVATE
+        mldb_core
+        mldb_engine
+        runner
+        ${SSH2_LIBRARIES}
+        rest
+        link
+        rest_entity
+        json_diff
+        progress
+        log
+        watch
+        gc
+        sql_types
 )
 
-# Shared_mutex only in C++17
 set_source_files_properties(plugin_resource.cc PROPERTIES COMPILE_OPTIONS "-Imldb/ext/libgit2/include")
 
 add_library(mldb_builtin_base ${LIBMLDB_BUILTIN_BASE_SOURCES})

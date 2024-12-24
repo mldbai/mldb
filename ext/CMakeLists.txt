@@ -30,6 +30,9 @@ set(BUILD_CLI OFF)
 add_subdirectory(libgit2)
 
 add_subdirectory(sqlite)
+add_subdirectory(svm)
+add_subdirectory(libstemmer)
+
 
 set(ABSL_PROPAGATE_CXX_STD ON)
 set(ABSL_ENABLE_INSTALL OFF)

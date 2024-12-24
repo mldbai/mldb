@@ -15,15 +15,7 @@ HOEDOWN_SRC=\
 	src/stack.c \
 	src/version.c \
 
-HOEDOWN_WARNING_FLAGS :=
-
-ifeq ($(toolchain),gcc6)
-HOEDOWN_WARNING_FLAGS := -Wno-misleading-indentation
-endif
-
-ifeq ($(toolchain),gcc14)
-HOEDOWN_WARNING_FLAGS := -Wno-enum-int-mismatch
-endif
+HOEDOWN_WARNING_FLAGS := gcc13+:-Wno-enum-int-mismatch
 
 HOEDOWN_REAL_SRC=$(HOEDOWN_SRC)
 

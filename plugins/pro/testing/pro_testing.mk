@@ -4,7 +4,7 @@ ifdef asd
 
 # Test for the presence of ~/.cloud_credentials with an S3 entry.  If present,
 # some extra tests can be enabled.  This will be "1" or empty for true or false.
-HAS_S3_CREDENTIALS:=$(shell grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev/null && echo "1")
+HAS_S3_CREDENTIALS:=$(call exec-shell, grep -l "^s3" ~/.cloud_credentials >/dev/null 2>/dev/null && echo "1")
 
 # Make a test manual if there are no S3 credentials available
 MANUAL_IF_NO_S3:=$(if $(HAS_S3_CREDENTIALS),,manual)

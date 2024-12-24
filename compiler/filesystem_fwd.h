@@ -9,12 +9,21 @@
 
 #pragma once
 
+#include "mldb/compiler/stdlib.h"
+
+#ifdef MLDB_STDLIB_CLANG
 _LIBCPP_BEGIN_NAMESPACE_FILESYSTEM
 
 struct path;
 
 _LIBCPP_END_NAMESPACE_FILESYSTEM
 
+#elif MLDB_STDLIB_GCC
+#include <bits/fs_fwd.h>
+#else
+#error "Unknown standard library"
+#endif
+
 namespace MLDB {
 using std_filesystem_path = std::filesystem::path;
-} //
+} // namespace MLDB

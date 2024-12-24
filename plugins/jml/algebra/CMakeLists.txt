@@ -11,6 +11,6 @@ set(LIBALGEBRA_SOURCES
 )
 
 add_library(algebra ${LIBALGEBRA_SOURCES})
-target_link_libraries(algebra utils lapack blas db arch base value_description Boost::timer)
+target_link_libraries(algebra PUBLIC arch base types value_description utils PRIVATE lapack blas db)
 
 add_subdirectory(testing)

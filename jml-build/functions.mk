@@ -11,7 +11,7 @@ SHELL := /bin/bash
 
 ifneq ($(strip $(TERM)),)
     # we have a term
-    ifeq ($(shell if [ $$(tput colors) -gt 7 ]; then echo "1"; fi;),1)
+    ifeq ($(call exec-shell, if [ $$(tput colors) -gt 7 ]; then echo "1"; fi;),1)
 
     ESC :=
 
@@ -61,9 +61,9 @@ QUOTE:="
 COMMA:=$(NOTHING),$(NOTHING)
 
 
-hash_command2 = $(wordlist 1,1,$(shell echo $(strip $(1)) | $(MD5SUM)))
+hash_command2 = $(wordlist 1,1,$(call exec-shell, echo $(strip $(1)) | $(MD5SUM)))
 
-hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(shell echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
+hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(call exec-shell, echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
 
 command_key = $(subst $(RPARAN),_,$(subst $(LPARAN),_,$(subst $(SEMICOLON),_,$(subst $(QUOTE),_,$(subst =,_,$(subst $(SPACE),_,$(subst $(DOLLAR),_,$(subst \,,$(strip $(1))))))))))
 
@@ -375,18 +375,17 @@ endef
 
 filter_compiler_option_clang16=$(if $(filter $(1),clang clang8+ clang9+ clang10+ clang11+ clang12+ clang13+ clang14+ clang15+ clang16),$(2),)
 filter_compiler_option_clang19=$(if $(filter $(1),clang clang8+ clang9+ clang10+ clang11+ clang12+ clang13+ clang14+ clang15+ clang16+ clang17+ clang18+ clang19),$(2),)
+filter_compiler_option_gcc13=$(if $(filter $(1),gcc gcc8+ gcc9+ gcc10+ gcc11+ gcc12+ gcc13+ gcc13),$(2),)
 filter_compiler_option_gcc14=$(if $(filter $(1),gcc gcc8+ gcc9+ gcc10+ gcc11+ gcc12+ gcc13+ gcc14+ gcc14),$(2),)
 
 get_compiler_with_version=$(if $(findstring clang,$(toolchain)),clang$(CLANG_VERSION_MAJOR),$(toolchain))
 
 # Make sure we have a filter for compiler options for this toolchain
 COMPILER_WITH_VERSION:=$(call get_compiler_with_version)
-#$(warning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
+$(w arning toolchain=$(toolchain) COMPILER_WITH_VERSION=$(COMPILER_WITH_VERSION) CLANG_MAJOR_VERSION=$(CLANG_VERSION_MAJOR))
 $(if $(call filter_compiler_option_$(COMPILER_WITH_VERSION),$(COMPILER_WITH_VERSION),true),,$(error need to add a filter_compiler_option_$(COMPILER_WITH_VERSION) function for $(toolchain)))
 
-
-filter_compiler_option5=$(call filter_compiler_option_$(toolchain),$(1),$(2))
-#filter_compiler_option5=$(error filter_compiler_option5 $(1) $(2))
+filter_compiler_option5=$(w arning filter_compiler_option5 $(COMPILER_WITH_VERSION) $(1) $(2) = $(call filter_compiler_option_$(COMPILER_WITH_VERSION),$(1),$(2)))$(call filter_compiler_option_$(COMPILER_WITH_VERSION),$(1),$(2))
 filter_compiler_option4=$(call filter_compiler_option5,$(word 1,$(subst :, ,$(1))),$(wordlist 2,1000000,$(subst :, ,$(1))),$(call get_compiler_with_version,$(toolchain)))
 filter_compiler_option3=$(foreach option,$(1),$(w arning option $(option))$(if $(findstring :,$(option)),$(call filter_compiler_option4,$(option)),$(option)) )
 filter_compiler_option2=$(if $(findstring :,$(1)),$(call filter_compiler_option3,$(1)),$(1))
@@ -396,7 +395,7 @@ filter_compiler_option=$(w arning filter_compiler_option $(1))$(call filter_comp
 # $(1): filename
 # $(2): compile option
 define set_single_compile_option
-OPTIONS_$(CWD)/$(1) += $$(call filter_compiler_option,$(2))
+OPTIONS_$(CWD)/$(1) += $(call filter_compiler_option,$(2))
 #$$(warning setting OPTIONS_$(CWD)/$(1) += $(2))
 endef
 
@@ -567,7 +566,7 @@ $$(eval $$(call add_sources,$$(_testsrc)))
 
 $(1)_OBJFILES:=$$(BUILD_$(CWD)/$$(_testsrc).lo_OBJ)
 
-LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $(if $(findstring catch2,$(3)), -lCatch2 -lCatch2Main) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
+LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $(TESTS)/$(1) -lexception_hook -ldl  $$($(1)_OBJFILES) $$(foreach lib,$(2), $$(LIB_$$(lib)_LINKER_OPTIONS)  $$(if $$(LIB_$$(lib)_HAS_NO_SHLIB),,-l$$(lib))) $(if $(findstring boost,$(3)), -lboost_unit_test_framework) $(if $(findstring catch2,$(3)), -lCatch2Main -lCatch2) $$(POSTCXXFLAGS) $$(CXXEXEPOSTFLAGS)
 
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")

@@ -11,7 +11,7 @@ set(LIBDB_SOURCES
 
 # Create the 'db' library and specify its dependencies
 add_library(db ${LIBDB_SOURCES})
-target_link_libraries(db PRIVATE arch)
+target_link_libraries(db PRIVATE arch base)
 
 # Include the 'db_testing' subdirectory
 add_subdirectory(testing)

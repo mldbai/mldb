@@ -48,56 +48,64 @@ set(V8_LIBRARY_PATH_SUFFIXES lib lib64 lib.target)
 if(MSVC OR CMAKE_BUILD_TYPE EQUAL "Debug")
 	set(V8_HEADERS v8.h v8-debug.h v8-profiler.h v8stdint.h)
 else()
-    if(DEFINED DISTRIB_CODENAME)
-        set(V8_RELEASE_CODENAME ${DISTRIB_CODENAME})
-    else()
-        message(FATAL_ERROR "No distribution codename found; does /etc/lsb-release exist and define DISTRIB_CODENAME?")
-    endif()
-
-    # Define the V8 architecture based on the ARCH variable
-    set(V8_ARCH_x86_64 "x64")
-    set(V8_ARCH_aarch64 "arm64")
-    set(V8_ARCH_arm "arm")
-    set(V8_ARCH ${V8_ARCH_${ARCH}})
-
-    if(NOT V8_ARCH)
-        message(FATAL_ERROR "Couldn't find V8 architecture for ${ARCH}; set V8_ARCH_${ARCH} in mldb_js_plugin.mk")
-    endif()
-
-    # Define library dependencies and paths
-    set(LIB_v8_DEPS
-        "${LIB}/libv8${SO_EXTENSION}"
-        "${LIB}/natives_blob.bin"
-        "${LIB}/snapshot_blob.bin"
-    )
-    set(V8_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/mldb/ext/v8-cross-build-output/include")
-
-    add_custom_command(
-        OUTPUT "${CMAKE_BINARY_DIR}/${LIB}/libv8${SO_EXTENSION}"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE_DIR:mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/libv8${SO_EXTENSION}> $<TARGET_FILE_DIR:mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/libv8${SO_EXTENSION}>
-        DEPENDS "mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/libv8${SO_EXTENSION}"
-    )
-
-    if(NOT PREMAKE)
-        add_custom_command(
-            OUTPUT "${CMAKE_BINARY_DIR}/${LIB}/natives_blob.bin"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE_DIR:mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/natives_blob.bin> $<TARGET_FILE_DIR:mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/natives_blob.bin>
-            DEPENDS "mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/natives_blob.bin"
-        )
-        
-        add_custom_command(
-            OUTPUT "${CMAKE_BINARY_DIR}/${LIB}/snapshot_blob.bin"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE_DIR:mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/snapshot_blob.bin> $<TARGET_FILE_DIR:mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/snapshot_blob.bin>
-            DEPENDS "mldb/ext/v8-cross-build-output/${V8_RELEASE_CODENAME}/${V8_ARCH}/snapshot_blob.bin"
-        )
-    endif()
+	set(V8_HEADERS v8.h v8stdint.h)
 endif()
+
+find_path(V8_INCLUDE_DIR ${V8_HEADERS}
+	PATHS ${V8_PATHS}
+	PATH_SUFFIXES include
+	DOC "Google V8 JavaScript Engine Headers"
+)
+
+message(STATUS "V8_INCLUDE_DIR: ${V8_INCLUDE_DIR}")
+
+# Find V8 base library release
+find_library(V8_LIBRARY_RELEASE
+	NAMES ${V8_NAMES_RELEASE}
+	PATHS ${V8_PATHS} ${V8_PATHS_RELEASE}
+	PATH_SUFFIXES ${V8_LIBRARY_PATH_SUFFIXES}
+	DOC "Google V8 JavaScript Engine Library (Release)"
+)
+
+# Find V8 base library debug
+find_library(V8_LIBRARY_DEBUG
+	NAMES ${V8_NAMES_DEBUG}
+	PATHS ${V8_PATHS} ${V8_PATHS_DEBUG}
+	PATH_SUFFIXES ${V8_LIBRARY_PATH_SUFFIXES}
+	DOC "Google V8 JavaScript Engine Library (Debug)"
+)
+
+# Find V8 platform library release
+find_library(V8_PLATFORM_LIBRARY_RELEASE
+	NAMES ${V8_PLATFORM_NAMES_RELEASE}
+	PATHS ${V8_PATHS} ${V8_PATHS_RELEASE}
+	PATH_SUFFIXES ${V8_LIBRARY_PATH_SUFFIXES}
+	DOC "Google V8 JavaScript Engine Library Platform (Release)"
+)
+
+# Find V8 platform library debug
+find_library(V8_PLATFORM_LIBRARY_DEBUG
+	NAMES ${V8_PLATFORM_NAMES_DEBUG}
+	PATHS ${V8_PATHS} ${V8_PATHS_DEBUG}
+	PATH_SUFFIXES ${V8_LIBRARY_PATH_SUFFIXES}
+	DOC "Google V8 JavaScript Engine Library Platform (Debug)"
+)
+
+if(CMAKE_BUILD_TYPE EQUAL "Debug" AND V8_LIBRARY_DEBUG AND V8_PLATFORM_LIBRARY_DEBUG)
+    set(V8_LIBRARY ${V8_LIBRARY_DEBUG} ${V8_PLATFORM_LIBRARY_DEBUG}) # ${V8_ICU_LIBRARY_DEBUG})
+else()
+    set(V8_LIBRARY ${V8_LIBRARY_RELEASE} ${V8_PLATFORM_LIBRARY_RELEASE}) # ${V8_ICU_LIBRARY_RELEASE})
+endif()
+
+set(V8_LIBRARIES ${V8_LIBRARY})
+
+message(STATUS "V8_LIBRARIES: ${V8_LIBRARIES}")
+
 
 # List of libraries linked for LIBJS
 set(LIBJS_LINK
     value_description
-    v8
-    v8_libplatform
+    ${V8_LIBRARIES}
     arch
     utils
     types

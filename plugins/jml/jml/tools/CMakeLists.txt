@@ -16,7 +16,6 @@ target_link_libraries(boosting_tools
     boosting
     base
     vfs
-    Boost::timer
 )
 
 add_executable(classifier_training_tool classifier_training_tool.cc)

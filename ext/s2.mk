@@ -103,34 +103,13 @@ S2_CC_FILES:= \
 	util/math/mathutil.cc \
 	util/units/length-units.cc \
 
+S2_WARNING_OPTIONS := \
+	$(addprefix gcc13+:-Wno-,comment maybe-uninitialized) \
+	$(addprefix clang:-Wno-,unused-but-set-variable) \
 
-ifeq ($(toolchain),gcc)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs
-endif
-ifeq ($(toolchain),gcc5)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs
-endif
-ifeq ($(toolchain),gcc6)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type
-endif
-ifeq ($(toolchain),gcc7)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type
-endif
-ifeq ($(toolchain),gcc8)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type -Wno-class-memaccess
-endif
-ifeq ($(toolchain),gcc9)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type -Wno-class-memaccess
-endif
-ifeq ($(toolchain),gcc10)
-S2_WARNING_OPTIONS:=-Wno-format-contains-nul -Wno-parentheses -Wno-unused-local-typedefs -Wno-attributes -Wno-comment -Wno-bool-compare -Wno-return-type -Wno-class-memaccess
-endif
-ifeq ($(toolchain),gcc14)
-S2_WARNING_OPTIONS:=-Wno-comment -Wno-maybe-uninitialized
-endif
-ifeq ($(toolchain),clang)
-S2_WARNING_OPTIONS:=-Wno-parentheses -Wno-absolute-value -Wno-unused-local-typedef -Wno-unused-const-variable -Wno-format -Wno-dynamic-class-memaccess -Wno-unused-private-field -Wno-range-loop-analysis -Wno-ambiguous-reversed-operator -Wno-unused-but-set-variable
-endif
+#	$(addprefix clang:-Wno-,parentheses absolute-value unused-local-typedef unused-const-variable format dynamic-class-memaccess unused-private-field range-loop-analysis ambiguous-reversed-operator unused-but-set-variable)
+
+$(w arning S2_WARNING_OPTIONS=$(S2_WARNING_OPTIONS))
 
 S2_COMPILE_OPTIONS:=-Imldb/ext/s2geometry/src -Imldb/ext/abseil-cpp -DS2_USE_EXACTFLOAT $(OPENSSL_INCLUDE_FLAGS)
 

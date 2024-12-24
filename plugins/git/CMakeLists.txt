@@ -32,7 +32,7 @@ set(LIBMLDB_GIT_PLUGIN_LINK
     mldb_builtin_base
     mldb_builtin
     sql_types
-    git2
+    libgit2package
 )
 
 add_library(mldb_git_plugin ${LIBMLDB_GIT_PLUGIN_SOURCES})

@@ -1,7 +1,7 @@
 # Makefile for tensorflow plugin for MLDB
 
 ifeq ($(WITH_CUDA),1)
-NUM_CUDA_GPUS:=$(shell nvidia-smi -L | grep 'GPU ' | wc -l)
+NUM_CUDA_GPUS:=$(call exec-shell, nvidia-smi -L | grep 'GPU ' | wc -l)
 else
 NUM_CUDA_GPUS:=0
 endif
