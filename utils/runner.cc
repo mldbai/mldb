@@ -793,7 +793,7 @@ runWrapper(const vector<Utf8String> & command, ProcessFds & fds)
         throw MLDB::Exception(errno, "launching runner helper");
     }
 
-    throw MLDB::Exception("You are the King of Time!");
+    throw std::logic_error("EXCVE returned success; should never happen");
 }
 
 string

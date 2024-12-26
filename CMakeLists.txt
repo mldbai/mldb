@@ -67,5 +67,5 @@ add_subdirectory(builtin)
 add_subdirectory(plugins)
 add_subdirectory(server)
 #add_subdirectory(sdk)
-#add_subdirectory(testing)
+add_subdirectory(testing)
 
