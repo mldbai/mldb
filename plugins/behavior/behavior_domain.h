@@ -104,7 +104,7 @@ struct SubjectFilter {
     SH maxSubject;
     
 private:
-    friend class BehaviorDomain;
+    friend struct BehaviorDomain;
     std::string includeRegexStr;
     std::unique_ptr<std::regex> includeRegex;
     LightweightHashSet<SH> inList;
@@ -177,7 +177,7 @@ struct BehaviorFilter {
     int requiredStatsFields() const;
 
 private:
-    friend class BehaviorDomain;
+    friend struct BehaviorDomain;
     std::string includeRegexStr;
     std::unique_ptr<std::regex> includeRegex;
     LightweightHashSet<BH> inList;

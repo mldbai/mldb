@@ -209,7 +209,7 @@ handlePutWithFirstRun(Utf8String key, PolyConfig config, bool mustBeNew, bool as
     return polyStatus;
 }
 
-template class PolyCollection<Procedure>;
+template struct PolyCollection<Procedure>;
 
 } // namespace MLDB
 

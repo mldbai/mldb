@@ -52,7 +52,7 @@ struct FunctionCollection: public PolyCollection<Function> {
     MldbEngine * engine;
 };
 
-extern template class PolyCollection<Function>;
+extern template struct PolyCollection<Function>;
 
 } // namespace MLDB
 

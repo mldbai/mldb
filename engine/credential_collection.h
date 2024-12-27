@@ -78,7 +78,7 @@ struct CredentialRuleCollection
     getConfig(std::string key, const CredentialRule & value) const;
 };
 
-extern template class RestCollection<std::string, MLDB::CredentialRule>;
+extern template struct RestCollection<std::string, MLDB::CredentialRule>;
 
 } // MLDB namespace
 

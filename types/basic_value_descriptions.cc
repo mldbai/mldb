@@ -31,9 +31,9 @@ struct StringDescription
     }
 };
 
-template class ValueDescriptionI<std::string, ValueKind::STRING, StringDescription>;
+template struct ValueDescriptionI<std::string, ValueKind::STRING, StringDescription>;
 
-struct Utf8StringDescription
+class Utf8StringDescription
     : public ValueDescriptionI<Utf8String, ValueKind::STRING, Utf8StringDescription> {
 
     virtual void parseJsonTyped(Utf8String * val,
@@ -54,7 +54,7 @@ struct Utf8StringDescription
     }
 };
 
-template class ValueDescriptionI<Utf8String, ValueKind::STRING, Utf8StringDescription>;
+template struct ValueDescriptionI<Utf8String, ValueKind::STRING, Utf8StringDescription>;
 
 struct Utf32StringDescription
     : public ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription> {
@@ -79,7 +79,7 @@ struct Utf32StringDescription
     }
 };
 
-template class ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription>;
+template struct ValueDescriptionI<Utf32String, ValueKind::STRING, Utf32StringDescription>;
 
 struct CharDescription
     : public ValueDescriptionI<char, ValueKind::INTEGER, CharDescription> {
@@ -97,7 +97,7 @@ struct CharDescription
     }
 };
 
-template class ValueDescriptionI<char, ValueKind::INTEGER, CharDescription>;
+template struct ValueDescriptionI<char, ValueKind::INTEGER, CharDescription>;
 
 struct SignedCharDescription
     : public ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription> {
@@ -115,7 +115,7 @@ struct SignedCharDescription
     }
 };
 
-template class ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription>;
+template struct ValueDescriptionI<signed char, ValueKind::INTEGER, SignedCharDescription>;
 
 struct UnsignedCharDescription
     : public ValueDescriptionI<unsigned char, ValueKind::INTEGER, UnsignedCharDescription> {
@@ -149,7 +149,7 @@ struct SignedShortIntDescription
     }
 };
 
-template class ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription>;
+template struct ValueDescriptionI<signed short int, ValueKind::INTEGER, SignedShortIntDescription>;
 
 struct UnsignedShortIntDescription
     : public ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription> {
@@ -167,7 +167,7 @@ struct UnsignedShortIntDescription
     }
 };
 
-template class ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription>;
+template struct ValueDescriptionI<unsigned short int, ValueKind::INTEGER, UnsignedShortIntDescription>;
 
 struct SignedIntDescription
     : public ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription> {
@@ -185,7 +185,7 @@ struct SignedIntDescription
     }
 };
 
-template class ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription>;
+template struct ValueDescriptionI<signed int, ValueKind::INTEGER, SignedIntDescription>;
 
 struct UnsignedIntDescription
     : public ValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription> {
@@ -203,7 +203,7 @@ struct UnsignedIntDescription
     }
 };
 
-template class ValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription>;
+template struct ValueDescriptionI<unsigned int, ValueKind::INTEGER, UnsignedIntDescription>;
 
 struct SignedLongDescription
     : public ValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription> {
@@ -221,7 +221,7 @@ struct SignedLongDescription
     }
 };
 
-template class ValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription>;
+template struct ValueDescriptionI<signed long, ValueKind::INTEGER, SignedLongDescription>;
 
 struct UnsignedLongDescription
     : public ValueDescriptionI<unsigned long, ValueKind::INTEGER, UnsignedLongDescription> {

@@ -94,7 +94,7 @@ private:
  * TYPED MESSAGE QUEUE                                                       *
  *****************************************************************************/
 
-class test_typed_message_queue;
+struct test_typed_message_queue;
 
 /* A multiple writer/consumer thread-safe message queue similar to the above
  * but only optionally bounded. When bounded, the advantage over the above is
@@ -103,7 +103,7 @@ class test_typed_message_queue;
 template<typename Message>
 struct TypedMessageQueue: public AsyncEventSource
 {
-    friend class test_typed_message_queue;
+    friend struct test_typed_message_queue;
 
     /* Type of callback invoked when one or more messages have become
      * available. If the function returns "true", it will continue to be

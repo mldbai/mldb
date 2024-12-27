@@ -51,7 +51,7 @@ struct ProcedureRunCollection
     construct(ProcedureRunConfig config, const OnProgress & onProgress) const;
 };
 
-//extern template class PolyCollection<MLDB::ProcedureRun>;
+//extern template struct PolyCollection<MLDB::ProcedureRun>;
 DECLARE_REST_COLLECTION_INSTANTIATIONS(Utf8String,
                                        ProcedureRun,
                                        ProcedureRunConfig,

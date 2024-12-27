@@ -20,7 +20,7 @@
 
 namespace MLDB {
 
-struct Utf8String;
+class Utf8String;
 
 /** Holds an array of bucket indexes, efficiently. */
 struct BucketList {
@@ -44,8 +44,8 @@ struct BucketList {
         return numEntries;
     }
 
-    friend class WritableBucketList;
-    friend class ParallelWritableBucketList;
+    friend struct WritableBucketList;
+    friend struct ParallelWritableBucketList;
     FrozenMemoryRegionT<uint32_t> storage;
     const uint32_t * storagePtr = nullptr;
     

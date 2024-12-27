@@ -206,7 +206,7 @@ struct Function: public MldbEntity {
     virtual ExpressionValue apply(const FunctionApplier & applier,
                                   const ExpressionValue & context) const = 0;
 
-    friend class FunctionApplier;
+    friend struct FunctionApplier;
 };
 
 

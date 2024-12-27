@@ -157,7 +157,7 @@ private:
     std::set<std::string> verbs;
     std::vector<RequestParamFilter> filters;
   
-    friend class RestRequestRouter;
+    friend struct RestRequestRouter;
     friend std::ostream & operator << (std::ostream & stream, const RequestFilter & filter);
 
 };

@@ -24,11 +24,11 @@ namespace MLDB {
 class Classifier_Impl;
 class Decoder_Impl;
 class Training_Data;
-class Feature;
+struct Feature;
 class Feature_Space;
 class Mutable_Feature_Space;
-class Weight_Spec;
-class Optimization_Info;
+struct Weight_Spec;
+struct Optimization_Info;
 
 
 /** Calculate and print statistics of how a classifier went over a dataset. */

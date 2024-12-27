@@ -902,7 +902,7 @@ struct IdDescription
 };
 
 //extern template class ValueDescriptionT<MLDB::Id>;
-//extern template class ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
+//extern template struct ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
 
 struct StringIdDescription: public IdDescription {
 
@@ -993,7 +993,7 @@ isDefaultTyped(const MLDB::Id * val) const
     return !val->notNull();
 }
 
-template class ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
+template struct ValueDescriptionI<MLDB::Id, ValueKind::ATOM, IdDescription>;
 
 void
 StringIdDescription::

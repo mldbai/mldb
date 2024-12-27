@@ -33,7 +33,7 @@ BUILDING_WITH_CLANG:=1
 
 #$(warning building with clang++ version $(CLANG_VERSION))
 
-CLANGXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Wno-deprecated -Winit-self -Qunused-arguments -Wno-mismatched-tags -Wno-unused-function -ftemplate-backtrace-limit=0 -Wno-inconsistent-missing-override
+CLANGXXWARNINGFLAGS?=-Wall -Werror -Wno-sign-compare -Woverloaded-virtual -Wno-deprecated-declarations -Winit-self -Qunused-arguments -Wno-unused-function -ftemplate-backtrace-limit=0 -Wno-inconsistent-missing-override
 
 CLANG_SANITIZER_COMMON_FLAGS:=
 CLANG_SANITIZER_address_FLAGS:=-fsanitize=address ${CLANG_SANITIZER_COMMON_FLAGS}

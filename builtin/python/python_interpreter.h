@@ -141,7 +141,7 @@ private:
     static void exitThread(EnterThreadToken * tok);
     static void freeThread(PyThreadState * st);
     static void dontFreeThread(PyThreadState * st);
-    friend class PythonInterpreter;
+    friend struct PythonInterpreter;
 };
 
 

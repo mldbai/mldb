@@ -187,7 +187,7 @@ public:
     RestRequestRouter router;
 
 private:
-    friend class RemotePeer;
+    friend struct RemotePeer;
 
     PeerInfo peerInfo;
 
@@ -249,6 +249,6 @@ private:
     std::shared_ptr<spdlog::logger> logger;
 };
 
-extern template class RestCollection<std::string, RemotePeer>;
+extern template struct RestCollection<std::string, RemotePeer>;
 
 } // namespace MLDB

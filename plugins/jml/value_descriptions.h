@@ -14,8 +14,8 @@
 
 namespace MLDB {
 
-struct Classifier_Impl;
-struct Feature_Space;
+class Classifier_Impl;
+class Feature_Space;
 
 } // namespace MLDB
 
@@ -44,9 +44,9 @@ struct FeatureSpaceContext {
     static const MLDB::Feature_Space * current();
 };
 
-struct Dense_Feature_Space;
+class Dense_Feature_Space;
 struct Feature_Info;
-struct Configuration;
+class Configuration;
 
 PREDECLARE_VALUE_DESCRIPTION(MLDB::Dense_Feature_Space);
 

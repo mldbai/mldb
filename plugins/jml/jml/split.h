@@ -23,8 +23,8 @@ using namespace MLDB;
 
 class Feature_Space;
 class Feature_Set;
-class Feature_Info;
-class Optimization_Info;
+struct Feature_Info;
+struct Optimization_Info;
 
 class Split {
 public:
