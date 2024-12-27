@@ -27,7 +27,7 @@
 namespace MLDB {
 
 template<typename T, typename Underlying>
-struct distribution;
+class distribution;
 
 struct Date;
 struct MatrixNamedRow;
@@ -1354,8 +1354,8 @@ private:
     };
     Date ts_;   ///< Nominal timestamp that the information was known
 
-    friend class ExpressionValueDescription;
-    friend class ExpressionValueDescriptionNoTimestamp;
+    friend struct ExpressionValueDescription;
+    friend struct ExpressionValueDescriptionNoTimestamp;
 };
 
 
@@ -1478,32 +1478,32 @@ struct ScalarExpressionValueInfoT: public ExpressionValueInfoT<Storage> {
     }
 };
 
-extern template class ExpressionValueInfoT<float>;
-extern template class ExpressionValueInfoT<double>;
-extern template class ExpressionValueInfoT<CellValue>;
-extern template class ExpressionValueInfoT<std::string>;
-extern template class ExpressionValueInfoT<Utf8String>;
-extern template class ExpressionValueInfoT<std::vector<uint8_t> >;
-extern template class ExpressionValueInfoT<Path>;
-extern template class ExpressionValueInfoT<int64_t>;
-extern template class ExpressionValueInfoT<uint64_t>;
-extern template class ExpressionValueInfoT<char>;
-extern template class ExpressionValueInfoT<Date>;
-extern template class ScalarExpressionValueInfoT<float>;
-extern template class ScalarExpressionValueInfoT<double>;
-extern template class ScalarExpressionValueInfoT<CellValue>;
-extern template class ScalarExpressionValueInfoT<std::string>;
-extern template class ScalarExpressionValueInfoT<Utf8String>;
-extern template class ScalarExpressionValueInfoT<std::vector<uint8_t> >;
-extern template class ScalarExpressionValueInfoT<Path>;
-extern template class ScalarExpressionValueInfoT<int64_t>;
-extern template class ScalarExpressionValueInfoT<uint64_t>;
-extern template class ScalarExpressionValueInfoT<char>;
-extern template class ScalarExpressionValueInfoT<Date>;
+extern template struct ExpressionValueInfoT<float>;
+extern template struct ExpressionValueInfoT<double>;
+extern template struct ExpressionValueInfoT<CellValue>;
+extern template struct ExpressionValueInfoT<std::string>;
+extern template struct ExpressionValueInfoT<Utf8String>;
+extern template struct ExpressionValueInfoT<std::vector<uint8_t> >;
+extern template struct ExpressionValueInfoT<Path>;
+extern template struct ExpressionValueInfoT<int64_t>;
+extern template struct ExpressionValueInfoT<uint64_t>;
+extern template struct ExpressionValueInfoT<char>;
+extern template struct ExpressionValueInfoT<Date>;
+extern template struct ScalarExpressionValueInfoT<float>;
+extern template struct ScalarExpressionValueInfoT<double>;
+extern template struct ScalarExpressionValueInfoT<CellValue>;
+extern template struct ScalarExpressionValueInfoT<std::string>;
+extern template struct ScalarExpressionValueInfoT<Utf8String>;
+extern template struct ScalarExpressionValueInfoT<std::vector<uint8_t> >;
+extern template struct ScalarExpressionValueInfoT<Path>;
+extern template struct ScalarExpressionValueInfoT<int64_t>;
+extern template struct ScalarExpressionValueInfoT<uint64_t>;
+extern template struct ScalarExpressionValueInfoT<char>;
+extern template struct ScalarExpressionValueInfoT<Date>;
 
-extern template class ExpressionValueInfoT<RowValue>;
-extern template class ExpressionValueInfoT<ExpressionValue>;
-extern template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
+extern template struct ExpressionValueInfoT<RowValue>;
+extern template struct ExpressionValueInfoT<ExpressionValue>;
+extern template struct ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
 
 /*****************************************************************************/

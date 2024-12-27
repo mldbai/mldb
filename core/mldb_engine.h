@@ -12,18 +12,15 @@
 #include <functional>
 #include <memory>
 #include "mldb/rest/rest_request_fwd.h"
+#include "mldb/types/json_fwd.h"
 
 // NOTE TO MLDB DEVELOPERS: This is an API header file.  No includes
 // should be added, especially value_description.h.
 
-namespace Json {
-struct Value;
-} // namespace Json
-
 namespace MLDB {
 
 struct PolyConfig;
-struct Utf8String;
+class Utf8String;
 struct Package;
 
 struct Plugin;
@@ -37,7 +34,7 @@ struct CredentialRule;
 struct MatrixNamedRow;
 
 struct Date;
-struct Utf8String;
+class Utf8String;
 
 template<typename... T> struct WatchT;
 

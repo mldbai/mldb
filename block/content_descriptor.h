@@ -22,7 +22,7 @@
 
 namespace MLDB {
 
-struct filter_istream;
+class filter_istream;
 struct Url;
 
 

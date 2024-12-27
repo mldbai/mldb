@@ -11,15 +11,11 @@
 #include <vector>
 #include <functional>
 #include <string>
-
-namespace Json {
-struct Value;
-} // namespace Json
-
+#include "json_fwd.h"
 
 namespace MLDB {
 
-struct Utf8String;
+class Utf8String;
 struct ParseContext;
 struct JsonParsingContext;
 struct ValueDescription;

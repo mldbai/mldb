@@ -26,7 +26,7 @@ struct PluginCollection: public PolyCollection<Plugin> {
     virtual Any getEntityStatus(const Plugin & plugin) const;
 };
 
-extern template class PolyCollection<Plugin>;
+extern template struct PolyCollection<Plugin>;
 
 } // namespace MLDB
 

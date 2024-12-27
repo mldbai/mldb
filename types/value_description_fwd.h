@@ -12,10 +12,7 @@
 
 #include <string>
 #include <memory>
-
-namespace Json {
-class Value;
-} // namespace Json
+#include "json_fwd.h"
 
 namespace MLDB {
 

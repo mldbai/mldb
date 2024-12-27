@@ -16,7 +16,7 @@
 #include <map>
 #include <errno.h>
 
-namespace Json { struct Value; }
+#include "mldb/types/json_fwd.h"
 
 namespace MLDB {
 

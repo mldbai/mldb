@@ -73,7 +73,7 @@ struct DatasetCollection: public PolyCollection<Dataset> {
                     bool sortColumns) const;
 };
 
-extern template class PolyCollection<Dataset>;
+extern template struct PolyCollection<Dataset>;
 
 } // namespace MLDB
 

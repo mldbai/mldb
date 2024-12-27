@@ -121,8 +121,8 @@ private:
     std::shared_ptr<FrozenColumn> rowNames;
     std::shared_ptr<FrozenColumn> timestamps;
 
-    friend class TabularDataset;
-    friend class MutableTabularDatasetChunk;
+    friend struct TabularDataset;
+    friend struct MutableTabularDatasetChunk;
 };
 
 

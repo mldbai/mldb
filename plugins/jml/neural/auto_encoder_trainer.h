@@ -20,7 +20,7 @@
 namespace MLDB {
 
 
-struct Configuration;
+class Configuration;
 
 
 /*****************************************************************************/

@@ -11,7 +11,7 @@
 
 namespace MLDB {
 
-template class DistributionValueDescription<float, std::vector<float> >;
-template class DistributionValueDescription<double, std::vector<double> >;
+template struct DistributionValueDescription<float, std::vector<float> >;
+template struct DistributionValueDescription<double, std::vector<double> >;
 
 } // namespace MLDB

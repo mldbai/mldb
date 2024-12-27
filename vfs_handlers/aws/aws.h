@@ -13,7 +13,7 @@
 #include "mldb/http/http_rest_proxy.h"
 
 namespace tinyxml2 {
-struct XMLDocument;
+class XMLDocument;
 } // namespace tinyxml2
 
 namespace MLDB {

@@ -17,15 +17,15 @@
 #include "mldb/plugins/jml/jml/feature_info.h"
 
 namespace MLDB {
-struct Mutable_Feature_Set;
-struct Classifier_Impl;
+class Mutable_Feature_Set;
+class Classifier_Impl;
 } // namespace MLDB
 
 
 namespace MLDB {
 
 
-class SqlExpression;
+struct SqlExpression;
 
 enum ClassifierMode {
     CM_REGRESSION,

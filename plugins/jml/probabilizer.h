@@ -18,14 +18,14 @@
 #include "mldb/plugins/jml/value_descriptions.h"
 
 namespace MLDB {
-struct GLZ_Probabilizer;
+class GLZ_Probabilizer;
 } // namespace MLDB
 
 
 namespace MLDB {
 
 
-class SqlExpression;
+struct SqlExpression;
 
 
 struct ProbabilizerConfig : public ProcedureConfig {

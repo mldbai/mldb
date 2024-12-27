@@ -10,16 +10,7 @@
 #include <string>
 
 #include "mldb/http/http_header.h"
-
-
-/* Forward declarations */
-
-namespace Json {
-
-struct Value;
-
-}
-
+#include "mldb/types/json_fwd.h"
 
 namespace MLDB {
 

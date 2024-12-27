@@ -28,7 +28,7 @@
 namespace MLDB {
 
 template<typename T, std::size_t NumDims>
-class MatrixRef;
+struct MatrixRef;
 
 namespace DB {
 

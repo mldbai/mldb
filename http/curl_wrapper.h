@@ -19,7 +19,7 @@
 
 namespace MLDB
 {
-    class RestParams;
+struct RestParams;
     
 namespace CurlWrapper {
     class Easy;

@@ -39,7 +39,7 @@ struct PeerDiscovery {
     RestCollection<std::string, PeerInfo> knownPeers;
 };
 
-extern template class RestCollection<std::string, PeerInfo>;
+extern template struct RestCollection<std::string, PeerInfo>;
 
 
 /*****************************************************************************/

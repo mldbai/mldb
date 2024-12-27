@@ -482,8 +482,8 @@ struct UrlDescription
     virtual bool isDefaultTyped(const Url * val) const;
 };
 
-extern template class ValueDescriptionT<MLDB::Url>;
-extern template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
+extern template struct ValueDescriptionT<MLDB::Url>;
+extern template struct ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
 DEFINE_VALUE_DESCRIPTION(Url, UrlDescription);
 
@@ -524,6 +524,6 @@ void setUrlDocumentationUri(const std::string & newUri)
         ->documentationUri = "/doc/builtin/Url.md";
 }
 
-template class ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
+template struct ValueDescriptionI<MLDB::Url, ValueKind::ATOM, UrlDescription>;
 
 } // namespace MLDB

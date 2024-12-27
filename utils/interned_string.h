@@ -266,7 +266,7 @@ struct InternedString {
     
 private:
     template<size_t OtherBytes, typename OtherChar>
-    friend class InternedString;
+    friend struct InternedString;
 
 public:
     bool isExt() const noexcept { return intLength_ == IS_EXT; }

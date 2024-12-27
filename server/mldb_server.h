@@ -20,7 +20,7 @@
 namespace MLDB {
 
 struct PolyConfig;
-struct Utf8String;
+class Utf8String;
 struct Package;
 
 

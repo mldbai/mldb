@@ -390,7 +390,7 @@ construct(PolyConfig config, const OnProgress & onProgress) const
     return PolyCollection<Function>::construct(config, onProgress);
 }
 
-template class PolyCollection<MLDB::Function>;
+template struct PolyCollection<MLDB::Function>;
 
 } // namespace MLDB
 

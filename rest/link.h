@@ -124,7 +124,7 @@ protected:
     std::shared_ptr<const LinkToken> otherEnd() const;
 
 private:
-    friend class LinkData;
+    friend struct LinkData;
 
     friend 
     std::pair<std::shared_ptr<LinkToken>,

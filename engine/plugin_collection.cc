@@ -171,7 +171,7 @@ getEntityStatus(const Plugin & plugin) const
     return plugin.getStatus();
 }
 
-template class PolyCollection<Plugin>;
+template struct PolyCollection<Plugin>;
 
 } // namespace MLDB
 

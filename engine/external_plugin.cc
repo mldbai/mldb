@@ -478,8 +478,8 @@ struct AtInit {
 
 } // file scope
 
-template class PolyCollection<MLDB::ExternalPluginSetup>;
-template class PolyCollection<MLDB::ExternalPluginStartup>;
+template struct PolyCollection<MLDB::ExternalPluginSetup>;
+template struct PolyCollection<MLDB::ExternalPluginStartup>;
 
 } // namespace MLDB
 

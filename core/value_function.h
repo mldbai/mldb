@@ -199,7 +199,7 @@ private:
     }
 
     template<typename InputT, typename OutputT>
-    friend class FunctionApplierT;
+    friend struct FunctionApplierT;
 };
 
 } // namespace MLDB

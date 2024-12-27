@@ -222,7 +222,7 @@ struct FrozenBlobTable {
 private:
     struct Itl;
     std::shared_ptr<Itl> itl;
-    friend class MutableBlobTable;
+    friend struct MutableBlobTable;
 };
 
 struct MutableBlobTable {

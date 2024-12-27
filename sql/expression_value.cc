@@ -5010,32 +5010,32 @@ std::ostream & operator << (std::ostream & stream, const ExpressionValue & val)
 /* TEMPLATE INSTANTIATIONS                                                   */
 /*****************************************************************************/
 
-template class ExpressionValueInfoT<float>;
-template class ExpressionValueInfoT<double>;
-template class ExpressionValueInfoT<CellValue>;
-template class ExpressionValueInfoT<std::string>;
-template class ExpressionValueInfoT<Utf8String>;
-template class ExpressionValueInfoT<std::vector<unsigned char> >;
-template class ExpressionValueInfoT<Path>;
-template class ExpressionValueInfoT<int64_t>;
-template class ExpressionValueInfoT<uint64_t>;
-template class ExpressionValueInfoT<char>;
-template class ExpressionValueInfoT<Date>;
-template class ScalarExpressionValueInfoT<float>;
-template class ScalarExpressionValueInfoT<double>;
-template class ScalarExpressionValueInfoT<CellValue>;
-template class ScalarExpressionValueInfoT<std::string>;
-template class ScalarExpressionValueInfoT<Utf8String>;
-template class ScalarExpressionValueInfoT<std::vector<unsigned char> >;
-template class ScalarExpressionValueInfoT<Path>;
-template class ScalarExpressionValueInfoT<int64_t>;
-template class ScalarExpressionValueInfoT<uint64_t>;
-template class ScalarExpressionValueInfoT<char>;
-template class ScalarExpressionValueInfoT<Date>;
+template struct ExpressionValueInfoT<float>;
+template struct ExpressionValueInfoT<double>;
+template struct ExpressionValueInfoT<CellValue>;
+template struct ExpressionValueInfoT<std::string>;
+template struct ExpressionValueInfoT<Utf8String>;
+template struct ExpressionValueInfoT<std::vector<unsigned char> >;
+template struct ExpressionValueInfoT<Path>;
+template struct ExpressionValueInfoT<int64_t>;
+template struct ExpressionValueInfoT<uint64_t>;
+template struct ExpressionValueInfoT<char>;
+template struct ExpressionValueInfoT<Date>;
+template struct ScalarExpressionValueInfoT<float>;
+template struct ScalarExpressionValueInfoT<double>;
+template struct ScalarExpressionValueInfoT<CellValue>;
+template struct ScalarExpressionValueInfoT<std::string>;
+template struct ScalarExpressionValueInfoT<Utf8String>;
+template struct ScalarExpressionValueInfoT<std::vector<unsigned char> >;
+template struct ScalarExpressionValueInfoT<Path>;
+template struct ScalarExpressionValueInfoT<int64_t>;
+template struct ScalarExpressionValueInfoT<uint64_t>;
+template struct ScalarExpressionValueInfoT<char>;
+template struct ScalarExpressionValueInfoT<Date>;
 
-template class ExpressionValueInfoT<RowValue>;
-template class ExpressionValueInfoT<ExpressionValue>;
-template class ExpressionValueInfoT<distribution<double, std::vector<double> > >;
+template struct ExpressionValueInfoT<RowValue>;
+template struct ExpressionValueInfoT<ExpressionValue>;
+template struct ExpressionValueInfoT<distribution<double, std::vector<double> > >;
 
 
 /*****************************************************************************/

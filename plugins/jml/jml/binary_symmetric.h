@@ -17,7 +17,7 @@ namespace MLDB {
 
 
 class Training_Data;
-class Feature;
+struct Feature;
 
 
 /** Check to see if the given dataset and weights are binary symmetric

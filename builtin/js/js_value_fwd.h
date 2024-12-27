@@ -11,13 +11,8 @@
 
 #include <string>
 #include "mldb/types/string.h"
+#include "mldb/types/json_fwd.h"
 #include <type_traits>
-
-namespace Json {
-
-class Value;
-
-} // namespace Json
 
 namespace MLDB {
 struct Date;
