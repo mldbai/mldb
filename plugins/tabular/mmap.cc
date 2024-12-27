@@ -648,7 +648,7 @@ MappingContext::MappingContext(MappingContext * parent, std::string name, const 
 
 MappingContext::~MappingContext()
 {
-    if (localState_->parent == nullptr && sharedState_.unique()) {
+    if (localState_->parent == nullptr && sharedState_.use_count() == 1) {
         printStats(*sharedState_->stats, getOption(DUMP_MEMORY_MAP), getOption(DUMP_TYPE_STATS));
     }
 }

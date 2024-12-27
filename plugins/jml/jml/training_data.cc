@@ -33,9 +33,9 @@ namespace MLDB {
 namespace {
 
 template<typename T>
-auto dangerous_shared_pointer_is_unique(shared_ptr<T> && ptr) -> decltype(std::declval<std::shared_ptr<T>>().unique())
+auto dangerous_shared_pointer_is_unique(shared_ptr<T> && ptr) -> decltype(std::declval<std::shared_ptr<T>>().use_count() == 1)
 {
-    return ptr.unique();
+    return ptr.use_count() == 1;
 }
 
 template<typename T>

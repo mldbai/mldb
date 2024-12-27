@@ -94,7 +94,7 @@ ListBuilder List::steal()
     // Create a moveable view of the values, stealing them if we're the only reference
     // or copying them otherwise
     ListBuilder result;
-    if (/*items.vals.unique()*/false) {
+    if (items.vals.use_count() == 1) {
         // Only reference?  We can have mutable access
         if (items.start == 0 && items.end == items.vals->size()) {
             result = std::move(*items.vals);
