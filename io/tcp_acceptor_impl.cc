@@ -27,8 +27,6 @@ using namespace std;
 using namespace boost;
 using namespace MLDB;
 
-static asio::ip::tcp::resolver::iterator endIterator;
-
 
 /****************************************************************************/
 /* TCP ACCEPTOR IMPL                                                        */
@@ -57,13 +55,9 @@ listen(const PortRange & portRange, const string & hostname, int backlog)
     ExcAssert(!hostname.empty());
 
     asio::ip::tcp::resolver resolver(eventLoop_.impl().ioContext());
-    asio::ip::tcp::resolver::query query(hostname,
-                                         to_string(portRange.first));
+    auto results = resolver.resolve(hostname, to_string(portRange.first));
 
-    for (auto it = resolver.resolve(query);
-         it != endIterator && !(v4Endpoint_.isOpen() && v6Endpoint_.isOpen());
-         it++) {
-        auto result = *it;
+    for (auto result: results) {
         auto ep = result.endpoint();
         if (ep.protocol() == asio::ip::tcp::v4()) {
             if (!v4Endpoint_.isOpen()) {

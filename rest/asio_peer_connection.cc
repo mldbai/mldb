@@ -471,7 +471,7 @@ void
 AsioPeerConnection::
 postWorkSync(std::function<void ()> work)
 {
-    itl->strand.post(work);
+    boost::asio::post(itl->strand, work);
 }
 
 void

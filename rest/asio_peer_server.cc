@@ -128,9 +128,8 @@ struct AsioPeerServer::Impl {
 
         auto & ioContext = eventLoop.impl().ioContext();
         ip::tcp::resolver resolver(ioContext);
-        ip::tcp::resolver::query query(hostName, portName);
         boost::system::error_code error;
-        ip::tcp::resolver::iterator endpoint_iterator = resolver.resolve(query, error);
+        auto results = resolver.resolve(hostName, portName, error);
 
         if (error) {
             // Throw is OK: synchronous context
@@ -143,7 +142,7 @@ struct AsioPeerServer::Impl {
         cerr << "peer " << peerInfo.peerName << " is connecting to "
              << info.peerName << " at " << info.uri << endl;
     
-        boost::asio::connect(*sock, endpoint_iterator, error);
+        boost::asio::connect(*sock, results, error);
 
         cerr << "error = " << error.message() << endl;
 

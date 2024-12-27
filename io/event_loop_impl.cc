@@ -17,11 +17,16 @@ using namespace MLDB;
 /* EVENT LOOP IMPL                                                          */
 /****************************************************************************/
 
+EventLoopImpl::
+EventLoopImpl()
+    : work_(boost::asio::make_work_guard(ioContext_))
+{
+}
+
 void
 EventLoopImpl::
 run()
 {
-    work_.reset(new asio::io_context::work(ioContext_));
     ioContext_.run();
 }
 
@@ -29,10 +34,10 @@ void
 EventLoopImpl::
 terminate()
 {
+    // Not sure we really need to post this, I suspect we can just call work_.reset() directly
     auto clearFn = [&] {
         work_.reset();
     };
-    ioContext_.post(clearFn);
+    boost::asio::post(ioContext_, clearFn);
     ioContext_.stop();
-    ioContext_.reset();
 }
