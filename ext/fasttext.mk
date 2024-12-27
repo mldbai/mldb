@@ -9,7 +9,7 @@ FASTTEXT_SOURCE := \
     src/utils.cc \
     src/fasttext.cc \
 
-$(eval $(call set_compile_option,$(FASTTEXT_SOURCE),-Imldb/ext/fasttext/src -Wno-tautological-constant-out-of-range-compare))
+$(eval $(call set_compile_option,$(FASTTEXT_SOURCE),-Imldb/ext/fasttext/src -Wno-tautological-constant-out-of-range-compare -Wno-deprecated-this-capture))
 
 $(eval $(call library,fasttext,$(FASTTEXT_SOURCE)))
 

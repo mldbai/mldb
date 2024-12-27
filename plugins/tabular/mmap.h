@@ -13,6 +13,8 @@
 #include <span>
 #include <any>
 #include <cstddef>
+#include <vector>
+#include <algorithm>
 #include <unordered_map>
 #include "mldb/arch/demangle.h"
 #include "mldb/utils/min_max.h"

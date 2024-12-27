@@ -26,7 +26,7 @@ static constexpr inline uint64_t pow64(uint64_t x, uint64_t y)
 // Russian peasant algorithm, signed version
 static constexpr inline int64_t pow64_signed(int64_t x, uint64_t y)
 {
-    int64_t result = pow64(abs(x), y);
+    int64_t result = pow64(std::abs(x), y);
     result *= x < 0 ? -1 : 1;
     return result;
 }
@@ -47,7 +47,7 @@ static constexpr inline uint32_t pow32(uint32_t x, uint32_t y)
 // Russian peasant algorithm, signed version
 static constexpr inline int64_t pow32_signed(int32_t x, uint32_t y)
 {
-    int32_t result = pow32(abs(x), y);
+    int32_t result = pow32(std::abs(x), y);
     result *= x < 0 ? -1 : 1;
     return result;
 }

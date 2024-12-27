@@ -118,6 +118,7 @@ struct IntTableIterator: public IntTableIteratorBase {
     value_type operator * () const { return owner->at(pos); }
 
     IntTableIterator & operator++() { pos += 1; return *this; }
+    IntTableIterator & operator--() { pos -= 1; return *this; }
     IntTableIterator & operator += (int n) { pos += n;  return *this; }
     IntTableIterator & operator -= (int n) { pos -= n;  return *this; }
 

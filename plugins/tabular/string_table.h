@@ -28,9 +28,9 @@ inline std::ostream & operator << (std::ostream & stream, const std::u16string_v
     using namespace std;
     for (auto c: str) {
         if (isascii(c))
-            stream << c;
+            stream << (char)c;
         else
-            stream << "<" << setw(4) << hex << c << dec << setw(0) << ">";
+            stream << "<" << setw(4) << hex << (int)c << dec << setw(0) << ">";
     }
     return stream;
 }

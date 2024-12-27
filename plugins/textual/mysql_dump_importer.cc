@@ -549,7 +549,7 @@ struct MysqlDumpImporter: public Procedure {
             make_pair("iterating", "lines")
         });
 
-        std::string filename = runProcConf.dataFileUrl.toDecodedString();
+        auto filename = runProcConf.dataFileUrl.toDecodedString();
         filter_istream stream(filename, { { "mapped", "true" } });
         Date timestamp = stream.info().lastModified;
 

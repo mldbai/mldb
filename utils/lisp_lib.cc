@@ -9,6 +9,7 @@
 #include "lisp_predicate.h"
 #include "lisp_visitor.h"
 #include "safe_clamp.h"
+#include <mutex>
 #include <shared_mutex>
 #include <map>
 

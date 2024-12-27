@@ -7,6 +7,7 @@
 
 #include "lisp_lib_impl.h"
 #include <numeric>
+#include <cmath>
 
 using namespace std;
 

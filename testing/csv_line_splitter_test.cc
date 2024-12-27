@@ -23,7 +23,7 @@
 using namespace std;
 using namespace MLDB;
 
-CSVSplitter csvSplitter('"', false /* multiLines */, CsvLineEncoding::UTF8);
+CSVSplitter csvSplitter('"', false /* multiLines */, CsvLineEncoding::UTF8, false /* invalid chars */);
 
 struct ComparativeBlockSplitter: public BlockSplitterT<CSVSplitterState> {
     using State = CSVSplitterState;

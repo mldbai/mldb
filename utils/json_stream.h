@@ -126,7 +126,7 @@ struct ArrayJsonStreamPrintingContext: public JsonStreamPrintingContext {
 
     virtual ~ArrayJsonStreamPrintingContext() = default;
 
-    virtual JsonPrintingContext & current()
+    virtual JsonPrintingContext & current() override
     {
         return context_;
     }

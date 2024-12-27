@@ -234,10 +234,9 @@ public:
     // Data but not necessarily null terminated
     const char * rawData() const { return data_.c_str(); }
 
-    // Null terminated string of utf8 encoded charadcters
-    const char * c_str() const { return data_.c_str(); }
-
     size_t rawLength() const { return data_.length() ; }
+
+    // Null terminated string of utf8 encoded charadcters
     const char * c_str() const { return data_.c_str(); }
 
     bool startsWith(const Utf8String & prefix) const;

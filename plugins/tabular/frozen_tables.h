@@ -173,7 +173,7 @@ struct FrozenBlobTable {
 private:
     struct Itl;
     std::shared_ptr<Itl> itl;
-    friend class MutableBlobTable;
+    friend struct MutableBlobTable;
 };
 
 struct MutableBlobTable {
@@ -192,13 +192,9 @@ struct MutableBlobTable {
     
     FrozenBlobTable freeze(MappedSerializer & serializer);
     FrozenBlobTable freezeUncompressed(MappedSerializer & serializer);
-
+ 
     std::pair<FrozenBlobTable, std::vector<uint32_t>>
-    freezeRemapped(MappedSerializer & serializer)
-    {
-        return { freeze(serializer), {} };
-    }
-
+    freezeRemapped(MappedSerializer & serializer);
 };
 
 
@@ -298,51 +294,7 @@ struct MutableDoubleTable {
     size_t size() const { return underlying.size(); }
 
     FrozenDoubleTable freeze(MappedSerializer & serializer);
-};
 
-/*****************************************************************************/
-/* BLOB TABLES                                                               */
-/*****************************************************************************/
-
-struct FrozenBlobTable {
-    FrozenBlobTable();
-    ~FrozenBlobTable();
-    
-    size_t getSize(uint32_t index) const;
-    size_t getBufferSize(uint32_t index) const;
-    bool needsBuffer(uint32_t index) const;
-    std::string_view
-    getContents(uint32_t index,
-                char * tempBuffer,
-                size_t tempBufferSize) const;
-    
-    size_t memusage() const;
-    size_t size() const;
-    void serialize(StructuredSerializer & serializer) const;
-    void reconstitute(StructuredReconstituter & reconstituter);
-
-private:
-    struct Itl;
-    std::shared_ptr<Itl> itl;
-    friend struct MutableBlobTable;
-};
-
-struct MutableBlobTable {
-
-    MutableBlobTable();
-    
-    size_t add(std::string && blob);
-    size_t add(std::string_view blob);
-
-    size_t size() const { return blobs.size(); }
-
-    MutableIntegerTable offsets;
-    std::vector<std::string> blobs;
-
-    StringStats stats;
-    
-    FrozenBlobTable freeze(MappedSerializer & serializer);
-    FrozenBlobTable freezeUncompressed(MappedSerializer & serializer);
     std::pair<FrozenDoubleTable, std::vector<uint32_t>>
     freezeRemapped(MappedSerializer & serializer);
 };

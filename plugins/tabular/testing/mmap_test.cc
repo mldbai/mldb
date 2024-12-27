@@ -4,7 +4,7 @@
 
     This file is part of MLDB. Copyright 2016 mldb.ai inc. All rights reserved.
 */
-#include "mldb/ext/catch2/src/catch2/catch_all.hpp"
+#include "catch2/catch_all.hpp"
 #include "mldb/plugins/tabular/mmap.h"
 #include "mldb/plugins/tabular/predictor.h"
 

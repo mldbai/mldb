@@ -142,10 +142,11 @@ TEST_CASE("test count prefixes")
     auto getPref = [&] (const char * s) -> int
     {
         std::string_view sv(s);
-        auto it = pref.find(sv);
-        if (it == pref.end())
-            return 0;
-        return it->second;
+        for (auto && [pref, res]: pref) {
+            if (pref == sv)
+                return res;
+        }
+        return 0;
     };
 
     CHECK(pref.size() == 2);
@@ -168,10 +169,10 @@ TEST_CASE("test count prefixes 2")
     auto getPref = [&] (const char * s) -> int
     {
         std::string_view sv(s);
-        auto it = pref.find(sv);
-        if (it == pref.end())
-            return 0;
-        return it->second;
+        for (auto && [pref, res]: pref)
+            if (pref == sv)
+                return res;
+        return 0;
     };
 
     CHECK(pref.size() == 4);
@@ -196,10 +197,10 @@ TEST_CASE("test count prefixes 3")
     auto getPref = [&] (const char * s) -> int
     {
         std::string_view sv(s);
-        auto it = pref.find(sv);
-        if (it == pref.end())
-            return 0;
-        return it->second;
+        for (auto && [pref, res]: pref)
+            if (pref == sv)
+                return res;
+        return 0;
     };
 
     CHECK(pref.size() == 5);

@@ -7,6 +7,7 @@
 
 #include "lisp_parsing.h"
 #include "mldb/base/scope.h"
+#include <cctype>
 
 using namespace std;
 
@@ -59,7 +60,7 @@ match_rule_name(ParseContext & context)
         if (!isupper(c) && c != '@')
             return nullopt;
         segment += c;  c = *(++context);
-        while (isalpha(c) || c == '_' || (!segment.empty() && isnumber(c))) {
+        while (isalpha(c) || c == '_' || (!segment.empty() && isdigit(c))) {
             segment += c;
             ++context;
             if (context.eof())

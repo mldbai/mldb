@@ -16,7 +16,7 @@ namespace MLDB {
 struct ParseContext;
 struct Path;
 struct PathElement;
-struct Utf8String;
+class Utf8String;
 
 namespace Lisp {
 

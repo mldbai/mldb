@@ -11,6 +11,7 @@
 #include <map>
 #include <unordered_map>
 #include <utility>
+#include <optional>
 
 // This file contains a set of functions to help calculate the actual memory usage of a data
 // structure.

@@ -785,7 +785,7 @@ getFunction(const std::string & script_source,
 template<typename T>
 T
 from_js_ref(const JSValue & val, T *,
-            typename std::enable_if<std::is_trivial_v<T> && std::is_standard_layout_v<T>>::type * = 0)
+            std::enable_if_t<std::is_standard_layout_v<T> && std::is_trivial_v<T>> * = 0)
 {
     return from_js(val, (T*)0);
 }

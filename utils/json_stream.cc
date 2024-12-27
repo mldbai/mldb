@@ -941,7 +941,7 @@ std::optional<Utf8String> match_identifier(ParseContext & context)
     Utf8String name;
     name.reserve(18);
     char c = *context;
-    while (isalpha(c) || c == '_' || (!name.empty() && isnumber(c))) {
+    while (isalpha(c) || c == '_' || (!name.empty() && isdigit(c))) {
         name += c;
         ++context;
         if (context.eof())
@@ -978,7 +978,7 @@ std::optional<PathElement> match_path_element_literal(ParseContext & context)
     }
     else {
         char c = *context;
-        while (isalpha(c) || c == '_' || (!segment.empty() && isnumber(c))) {
+        while (isalpha(c) || c == '_' || (!segment.empty() && isdigit(c))) {
             segment += c;
             ++context;
             if (context.eof())

@@ -11,6 +11,7 @@
 #include "mldb/plugins/jml/algebra/least_squares.h"
 #include "mldb/plugins/jml/algebra/lapack.h"
 #include "mldb/utils/safe_clamp.h"
+#include "mldb/utils/possibly_dynamic_buffer.h"
 #include <cctype>
 #include <iostream>
 
@@ -297,7 +298,7 @@ struct FitAccumulator {
     IntTableStats<uint32_t> xStats, yStats;
     std::vector<uint64_t> sumX;
     std::vector<uint64_t> sumXYCov;
-    boost::multi_array<double, 2> cov;
+    Matrix<double, 2> cov;
     uint64_t sumY = 0;
     uint64_t sumYVar = 0;
     size_t numPoints = 0;
@@ -349,13 +350,13 @@ struct FitAccumulator {
     }
 
     template<typename Float>
-    boost::multi_array<Float, 2> covariance1(size_t order) const
+    Matrix<Float, 2> covariance1(size_t order) const
     {
         using namespace std;
 
         ExcAssert(numPoints == xs.size());
 
-        boost::multi_array<Float, 2> result(boost::extents[order + 1][order + 1]);
+        Matrix<Float, 2> result(order + 1, order + 1);
         for (size_t i = 0;  i <= order;  ++i) {
             for (size_t j = 0;  j <= order;  ++j) {
                 // cov (i,j) = sum_{x=0...n} (x^i - ximean) (x^j - xjmean)
@@ -373,7 +374,7 @@ struct FitAccumulator {
     }
 
     template<typename Float>
-    boost::multi_array<Float, 2> covariance2(size_t order) const
+    Matrix<Float, 2> covariance2(size_t order) const
     {
         using namespace std;
 
@@ -407,7 +408,7 @@ struct FitAccumulator {
         double meanY = sumY / numPoints;
 #endif
 
-        boost::multi_array<Float, 2> result(boost::extents[order + 1][order + 1]);
+        Matrix<Float, 2> result(order + 1,order + 1);
         for (size_t i = 0;  i <= order;  ++i) {
             for (size_t j = 0;  j <= order;  ++j) {
                 if (i == 0 && j == 0) {
@@ -429,13 +430,13 @@ struct FitAccumulator {
     }
 
     template<typename Float>
-    boost::multi_array<Float, 2> covariance3(size_t order) const
+    Matrix<Float, 2> covariance3(size_t order) const
     {
         using namespace std;
 
         ExcAssert(numPoints == xs.size());
 
-        boost::multi_array<Float, 2> result(boost::extents[order + 1][order + 1]);
+        Matrix<Float, 2> result(order + 1, order + 1);
 
         for (size_t i = 0;  i <= order;  ++i) {
             for (size_t j = 0;  j <= order;  ++j) {
@@ -454,15 +455,15 @@ struct FitAccumulator {
     }
 
     // Nothrow version of inverse, returns non zero in second result if not successful
-    static std::tuple<boost::multi_array<double, 2>, int, const char *>
-    try_inverse(const boost::multi_array<double, 2> & x)
+    static std::tuple<Matrix<double, 2>, int, const char *>
+    try_inverse(const MatrixRef<double, 2> & x)
     {
-        boost::multi_array<double, 2> A = x;
+        Matrix<double, 2> A = x;
 
-        if (x.shape()[0] != x.shape()[1])
+        if (x.dim(0) != x.dim(1))
             return { A, -1000, "nonsquare" };
 
-        auto n = x.shape()[0];
+        auto n = x.dim(0);
 
 
         if (n == 1) {
@@ -479,21 +480,22 @@ struct FitAccumulator {
         }
         else if (n == 3) {
             // ...
+            MLDB_THROW_UNIMPLEMENTED();
         }
 
         using namespace std;
-
-        int ipiv[n];
-        if (auto res = ML::LAPack::getrf(n, n, A.data(), A.strides()[0], ipiv) != 0) {
+        
+        PossiblyDynamicBuffer<int> ipiv(n);
+        if (auto res = LAPack::getrf(n, n, A.data(), A.strides()[0], ipiv.data()) != 0) {
             return { A, res, "getrf" };
         }
-        if (auto res = ML::LAPack::getri(n, A.data(), A.strides()[0], ipiv) != 0) {
+        if (auto res = LAPack::getri(n, A.data(), A.strides()[0], ipiv.data()) != 0) {
             return { A, res, "getri" };
         }
         return { A, 0, "ok" };
     }
 
-    static boost::multi_array<double, 2> inverse(const boost::multi_array<double, 2> & x)
+    static Matrix<double, 2> inverse(const Matrix<double, 2> & x)
     {
         auto [A, code, msg] = try_inverse(x);
         if (code == 0)
@@ -502,7 +504,7 @@ struct FitAccumulator {
             MLDB_THROW_RUNTIME_ERROR(msg);
     }
 
-    static boost::multi_array<double, 2> pseudo_inverse(const boost::multi_array<double, 2> & x, double eps = 1e-9)
+    static Matrix<double, 2> pseudo_inverse(const Matrix<double, 2> & x, double eps = 1e-9)
     {
         // Try direct inverse first
         auto [res, code, msg] = try_inverse(x);
@@ -511,18 +513,18 @@ struct FitAccumulator {
         }
 
         // If not...
-        auto minmn = std::min(x.shape()[0], x.shape()[1]);
-        auto [VT, U, svalues] = ML::svd_square(x);
+        auto minmn = std::min(x.dim(0), x.dim(1));
+        auto [svalues, VT, U] = svd_square(x);
         svalues.resize(minmn);
 
         // Invert or zero singular values
         for (size_t i = 0;  i < svalues.size();  ++i) {
             auto & v = svalues[i];
-            if (abs(v) > eps)
+            if (std::abs(v) > eps)
                 v = 1.0 / v;
             else v = 0;
         }
-        return ML::diag_mult(U, svalues, VT, true /* parallel */);
+        return diag_mult(U, svalues, VT, true /* parallel */);
     }
 
     std::vector<float> fit(size_t order) const

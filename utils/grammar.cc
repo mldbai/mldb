@@ -12,7 +12,10 @@
 #include "mldb/types/any_impl.h"
 #include "lisp_visitor.h"
 #include "lisp_parsing.h"
+#include <mutex>
+#include <cctype>
 #include <shared_mutex>
+
 
 using namespace std;
 
@@ -48,7 +51,7 @@ match_rule_name(ParseContext & context)
         if (!isupper(c) && c != '@')
             return nullopt;
         segment += c;  c = *(++context);
-        while (isalpha(c) || c == '_' || (!segment.empty() && isnumber(c))) {
+        while (isalpha(c) || c == '_' || (!segment.empty() && isdigit(c))) {
             segment += c;
             ++context;
             if (context.eof())
@@ -76,7 +79,7 @@ match_variable_name(ParseContext & context)
         if (!islower(c) && c != '$')
             return nullopt;
         segment += c;  c = *(++context);
-        while (isalpha(c) || c == '_' || (!segment.empty() && isnumber(c))) {
+        while (isalpha(c) || c == '_' || (!segment.empty() && isdigit(c))) {
             segment += c;
             ++context;
             if (context.eof())
@@ -930,7 +933,7 @@ compile(std::shared_ptr<CompilationContext> context) const
 
     // To parse a grammar rule, we attempt the productions one by one
     // until we find one that works
-    auto parse = [=] (ParsingContext & context) -> ParserOutput
+    auto parse = [=,this] (ParsingContext & context) -> ParserOutput
     {
         cerr << "running parser for rule " << name << endl;
         for (auto & p: productionParsers) {

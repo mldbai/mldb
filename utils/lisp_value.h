@@ -176,7 +176,7 @@ private:
     int quotes_ = 0;   ///< Level to which the value is quoted
     Any value_;
     std::map<MetadataType, Value> md_;
-    friend class MLDB::ValueDescription;
+    friend struct MLDB::ValueDescription;
 };
 
 inline std::ostream & operator << (std::ostream & stream, Value val)
@@ -229,6 +229,7 @@ struct ListIterator {
     auto operator <=> (const ListIterator & other) const = default;
 
     ListIterator & operator++() { pos += 1; return *this; }
+    ListIterator & operator--() { pos -= 1; return *this; }
     ListIterator & operator += (int n) { pos += n;  return *this; }
     ListIterator & operator -= (int n) { pos -= n;  return *this; }
     ListIterator & operator +  (ssize_t n) { pos += n;  return *this; }

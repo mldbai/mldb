@@ -49,6 +49,7 @@
 #include <iostream>
 #include <cstdint>
 #include <functional>
+#include <cstring>
 #include "mldb/base/exc_assert.h"
 #include "mldb/arch/format.h"
 #include "mldb/arch/ansi.h"
@@ -88,7 +89,9 @@ struct RangeCoder64 {
             cerr << ansi::cyan << ansi::underline << format("Num Low                High               Range              Code               EOF                ChHx ChInt   Low  High   Rng Encoded In -> Out") << ansi::reset << endl;
         }
 
-        void print(std::function<std::string (int)> printCh) const
+        static std::string defaultPrintCh(char c) { return std::string(1, c); }
+
+        void print(std::function<std::string (int)> printCh = defaultPrintCh) const
         {
             using namespace std;
 
@@ -179,7 +182,7 @@ struct RangeCoder64 {
         }
         else return false;
 
-        return (Low ^ (Low+Range))<Top || Range<Bottom && ((Range= -Low & (Bottom-1)),true);
+        return (Low ^ (Low+Range))<Top || (Range<Bottom && ((Range= -Low & (Bottom-1)),true));
     }
 
     static uint32_t whole(uint64_t x, bool carry = false) { return (x >> 48) + (carry ? 0x10000 : 0x0); };

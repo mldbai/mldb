@@ -776,9 +776,9 @@ OptimizedStringTable optimize_string_table(const StringTable & table)
             auto dump = [] (auto str) -> std::string
             {
                 std::ostringstream s;
-                s << str << "\t";
+                s << Utf8String(str) << "\t";
                 for (auto c: str) {
-                    s << hex << setw(2 * sizeof(c)) << (std::make_unsigned_t<decltype(c)>)c << setw(0) << " " << dec;
+                    s << hex << setw(2 * sizeof(c)) << (unsigned)(std::make_unsigned_t<decltype(c)>)c << setw(0) << " " << dec;
                 }
                 return s.str();
             };

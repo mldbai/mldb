@@ -14,6 +14,8 @@
 #include <unordered_map>
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/min_max.h"
+#include <cstdint>
+#include <algorithm>
 
 
 namespace MLDB {

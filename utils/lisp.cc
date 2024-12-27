@@ -46,7 +46,7 @@ FunctionCompiler compilerReturningExpression(CompiledExpression compiled)
     return std::move(compiler);
 }
 
-FunctionCompiler compilerReturningConstant(Value val)
+[[maybe_unused]] FunctionCompiler compilerReturningConstant(Value val) 
 {
     return compilerReturningExpression(constantGenerator(std::move(val)));
 }

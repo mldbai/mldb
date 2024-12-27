@@ -120,14 +120,14 @@ struct JsonSplitterState {
 bool skipJson(ParseContext & context);
 
 struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
-    JsonSplitter(std::string filename,
+    JsonSplitter(Utf8String filename,
                  int startLine,
                  int startChar)
         : filename(std::move(filename)), startLine(startLine), startChar(startChar)
     {
     }
 
-    std::string filename;
+    Utf8String filename;
     int startLine;
     int startChar;
 
@@ -157,7 +157,7 @@ struct JsonSplitter: public BlockSplitterT<JsonSplitterState> {
         }
     }
 
-    virtual std::span<const char> fixupBlock(std::span<const char> block) const
+    virtual std::span<const char> fixupBlock(std::span<const char> block) const override
     {
         const char * p = block.data();
         const char * e = p + block.size();
@@ -194,7 +194,7 @@ struct SimdJsonParsingContext: public JsonParsingContext {
         throw MLDB::Exception(message);
     }
 
-    virtual std::string getContext() const
+    virtual Utf8String getContext() const
     {
         return "";
     }
@@ -688,7 +688,7 @@ struct StructureExpressionValueParser: public PredictiveExpressionValueParser {
             }
 
             auto & nextField = fields[next];
-            ExcAssertEqual(nextField.key, fieldName);
+            ExcAssertEqual(nextField.key, PathElement(fieldName));
             int startPosition = nextField.startPosition;
             if (startPosition == -1 && !alreadyParsed) {
                 ExcAssert(!alreadyParsed);

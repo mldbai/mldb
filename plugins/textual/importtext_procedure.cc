@@ -484,12 +484,12 @@ struct ImportTextProcedureWorkInstance {
     void loadText(DatasetBuilder & datasetBuilder,
                   const ImportTextConfig& config)
     {
-        auto filename = config.dataFileUrl.toDecodedString();
+        auto filename = config.dataFileUrl.getUrlString();
 
         // Get a handle to this content, which ensures we don't have any
         // kind of version skew from asking for different parts of the file
         std::shared_ptr<ContentHandler> content
-            = getDecompressedContent(filename);
+            = getDecompressedContent(config.dataFileUrl);
 
         // For some operations, we need a stream.  Get this from the
         // content handler, so that the underlying data is all shared.
@@ -604,7 +604,7 @@ struct ImportTextProcedureWorkInstance {
 
                 if (config.autoGenerateHeaders) {
                     // Re-open stream
-                    content = getContent(filename);
+                    content = getContent(config.dataFileUrl);
                     stream = content->getStream({ { "mapped", true } });
                     auto nfields = fields.size();
                     for (ssize_t i = 0; i < nfields; ++i) {
@@ -653,7 +653,7 @@ struct ImportTextProcedureWorkInstance {
         // Now we know the columns, we can bind our SQL expressions for the
         // select, where, named and timestamp parts of the expression.
         SqlCsvScope scope(datasetBuilder.engine, inputColumnNames, ts,
-                          Utf8String(config.dataFileUrl.getUrlString()),
+                          config.dataFileUrl.getUrlString(),
                           false /* can have extra columns */);
 
         this->builder = datasetBuilder.bind(scope, inputColumnNames);

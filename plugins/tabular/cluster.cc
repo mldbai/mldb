@@ -23,7 +23,6 @@ using namespace std;
 
 namespace MLDB {
 
-using namespace ML;
 using namespace ansi;
 
 std::ostream & bold_red (std::ostream & stream) { return stream << bold << red; }
@@ -209,7 +208,7 @@ bool Cluster::fit()
     }
 
     size_t dims = Predictor::BASIS_DIMS;
-    boost::multi_array<float, 2> A(boost::extents[points.size()][dims]);
+    Matrix<float, 2> A(points.size(), dims);
     distribution<float> b(points.size());
 
     //A.fill({0}, [&] (size_t i) -> std::array<float, 2> { return { 1, points[i].x }; });
@@ -989,7 +988,8 @@ std::string Cluster::print(size_t index) const
                 index, points.size(), storageBitsPerPoint(), storageBits() / 8192.0,
                 indexStats.minValue, indexStats.maxValue, density(),
                 valueStats.minValue, valueStats.maxValue,
-                residualStats.minValue, residualStats.maxValue, residualRange(), desiredResidualRange(),
+                (long long)residualStats.minValue, (long long)residualStats.maxValue,
+                (long long)residualRange(), desiredResidualRange(),
                 std::string(paramsStream.str(), 2, 20).c_str(),
                 iter, label.c_str());
 

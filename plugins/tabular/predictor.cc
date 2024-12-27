@@ -3,6 +3,7 @@
 #include "mldb/utils/safe_clamp.h"
 #include "mldb/types/structure_description.h"
 #include "mldb/types/array_description.h"
+#include <cmath>
 
 namespace MLDB {
 

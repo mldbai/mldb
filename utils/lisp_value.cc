@@ -94,7 +94,7 @@ ListBuilder List::steal()
     // Create a moveable view of the values, stealing them if we're the only reference
     // or copying them otherwise
     ListBuilder result;
-    if (items.vals.unique()) {
+    if (/*items.vals.unique()*/false) {
         // Only reference?  We can have mutable access
         if (items.start == 0 && items.end == items.vals->size()) {
             result = std::move(*items.vals);
@@ -608,7 +608,7 @@ struct ListDescription
         return *this->inner;
     }
 
-    virtual std::shared_ptr<const ValueDescription> containedPtr() const
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
     {
         return this->inner;
     }

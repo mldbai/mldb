@@ -29,7 +29,7 @@ extern BehaviorManager behManager;
 
 struct BehaviorDatasetBase: public Dataset {
 
-    friend class BehaviorDatasetRowStream;
+    friend struct BehaviorDatasetRowStream;
 
     BehaviorDatasetBase(MldbEngine * owner);
     

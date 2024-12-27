@@ -137,7 +137,7 @@ TEST_CASE("replay")
                     auto capDec = decodeWithCapStyle(narrowed, capDecoded, storage2);
 
                     CHECK(str16.length() == dec16.length());
-                    CHECK(s == capDec);
+                    CHECK(Utf8String(s) == Utf8String(capDec));
                 }
 
 #if 1
@@ -168,7 +168,7 @@ TEST_CASE("replay")
                     CHECK(suffixEnc.length() == dec16.length());
                     CHECK(suffixEnc == dec16);
                     CHECK(s.length() == capDec.length());
-                    CHECK(s == capDec);
+                    CHECK(Utf8String(s) == Utf8String(capDec));
                 }
 #endif
             }
