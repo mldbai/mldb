@@ -7,7 +7,7 @@ LIBTINYXPATH_SRC=\
 	xpath_expression.cpp xpath_processor.cpp xpath_stack.cpp xpath_stream.cpp \
 	xpath_syntax.cpp xpath_static.cpp
 
-$(eval $(call set_compile_option,$(LIBTINYXPATH_SRC),-Imldb/html/ext -Imldb/html/ext/libtinyxpath/src -I$(TMP) -Wno-switch -Wno-parentheses -Wno-unused-variable $(if $(findstring gcc,$(toolchain)),-Wno-maybe-uninitialized) $(if $(findstring clang,$(toolchain)),-Wno-sometimes-uninitialized -Wno-unused-but-set-variable)))
+$(eval $(call set_compile_option,$(LIBTINYXPATH_SRC),-Imldb/html/ext -Imldb/html/ext/libtinyxpath/src -I$(TMP) -Wno-switch -Wno-parentheses -Wno-unused-variable -Wno-deprecated-declarations $(if $(findstring gcc,$(toolchain)),-Wno-maybe-uninitialized) $(if $(findstring clang,$(toolchain)),-Wno-sometimes-uninitialized -Wno-unused-but-set-variable)))
 
 TINYXPATH_CWD:=$(CWD)
 
