@@ -104,14 +104,14 @@ namespace Scope {
     struct Failure : public Base<Func> {
         Failure(Func func)
             : Base<Func>(func)
-            , failed { false }
         { }
 
         Failure(Failure<Func>&& other) = default;
         Failure& operator=(Failure<Func>&& other) = default;
 
         ~Failure() noexcept {
-            if (std::uncaught_exception() || failed) {
+
+            if (failed && std::uncaught_exceptions() == nexceptions) {
                 Failure<Func>::exec();
             }
         }
@@ -122,7 +122,8 @@ namespace Scope {
         friend void fail(Failure<T>& failure, U func);
 
     private:
-        bool failed;
+        bool failed = false;
+        int nexceptions = std::uncaught_exceptions();
     };
 
     template<typename T, typename Func>
