@@ -12,8 +12,8 @@
 
 namespace MLDB {
 
-struct Classifier_Impl;
-struct Feature_Space;
+class Classifier_Impl;
+class Feature_Space;
 
 } // namespace ML
 
@@ -130,7 +130,7 @@ getDefaultDescription(const distribution<double> * = 0);
 MLDB::ValueDescriptionT<distribution<double> > *
 getDefaultDescriptionUninitialized(const distribution<double> * = 0);
 
-extern template class DistributionValueDescription<float, std::vector<float> >;
-extern template class DistributionValueDescription<double, std::vector<double> >;
+extern template struct DistributionValueDescription<float, std::vector<float> >;
+extern template struct DistributionValueDescription<double, std::vector<double> >;
 
 } // namespace MLDB

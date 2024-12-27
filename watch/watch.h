@@ -307,10 +307,10 @@ struct Watch {
 protected:
     void release(WatchData * data);
 
-    friend class WatchData;
-    friend class Watches;
-    template<typename... T> friend class WatchDataT;
-    template<typename... T> friend class WatchT;
+    friend struct WatchData;
+    friend struct Watches;
+    template<typename... T> friend struct WatchDataT;
+    template<typename... T> friend struct WatchT;
     WatchData * data;
 };
 
@@ -460,8 +460,8 @@ protected:
     /// Number of times it's had an error
     int errors;
 
-    friend class WatchData;
-    template<typename... T>  friend class WatchDataT;
+    friend struct WatchData;
+    template<typename... T>  friend struct WatchDataT;
 
     /// Internal logic to release the watch with the given watch data.  The
     /// holder argument is there as data->holder will have already been
@@ -595,7 +595,7 @@ private:
     WatchT(const WatchT & other) = delete;
     void operator = (const WatchT & other) = delete;
 
-    friend class Watch;
+    friend struct Watch;
     
     static std::pair<bool, std::tuple<T...> >
     doTryWaitTuple(WatchData * data, double timeToWait);

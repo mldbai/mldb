@@ -694,6 +694,6 @@ watchChannel(const Utf8String & channel,
                              channel.rawData());
 }
 
-template class RestCollection<std::string, RemotePeer>;
+template struct RestCollection<std::string, RemotePeer>;
 
 } // namespace MLDB

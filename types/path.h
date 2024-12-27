@@ -667,7 +667,7 @@ struct Path {
     }
 
 private:
-    friend class PathBuilder;
+    friend struct PathBuilder;
     bool equalElement(size_t el, const Path & other, size_t otherEl) const;
     bool lessElement(size_t el, const Path & other, size_t otherEl) const;
     int compareElement(size_t el, const Path & other, size_t otherEl) const;

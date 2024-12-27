@@ -30,7 +30,7 @@ using namespace MLDB;
 class File_Read_Buffer;
 
 template<typename T, std::size_t NumDims>
-class MatrixBase;
+struct MatrixBase;
 
 namespace DB {
 

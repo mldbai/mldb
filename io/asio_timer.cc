@@ -339,8 +339,8 @@ WatchT<Date> getTimer(Date nextExpiry,
     return watch;
 }
 
-template class WatchT<Date>;
-template class WatchesT<Date>;
+template struct WatchT<Date>;
+template struct WatchesT<Date>;
 
 } // namespace MLDB
 

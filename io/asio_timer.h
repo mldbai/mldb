@@ -13,7 +13,7 @@
 
 namespace boost {
 namespace asio {
-struct io_context;
+class io_context;
 
 // This is a typedef, and is embedded within io_context, and so can't be
 // forward declared.  See the StrandHolder workaround below.
@@ -38,7 +38,7 @@ struct StrandHolder {
     }
 
 private:
-    friend class AsioTimer;
+    friend struct AsioTimer;
     void init(void * strand, const std::type_info * type);
         
     void * strand;
@@ -105,7 +105,7 @@ WatchT<Date> getTimer(Date nextExpiry,
                       const StrandHolder & strand,
                       std::function<void (Date)> toBind = nullptr);
 
-extern template class WatchT<Date>;
-extern template class WatchesT<Date>;
+extern template struct WatchT<Date>;
+extern template struct WatchesT<Date>;
 
 } // namespace MLDB

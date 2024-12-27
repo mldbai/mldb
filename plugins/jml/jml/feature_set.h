@@ -24,7 +24,7 @@ namespace MLDB {
 
 class Training_Data;
 class Feature_Set;
-class Feature_Info;
+struct Feature_Info;
 using MLDB::Exception;
 
 /*****************************************************************************/

@@ -200,10 +200,10 @@ objectIsPersistent(const Utf8String & key, const PolyConfig & config) const
 
 DEFINE_REST_COLLECTION_INSTANTIATIONS(Utf8String, PolyEntity, PolyConfig, PolyStatus);
 
-template class WatchT<PolyCollectionBase::ChildEvent>;
+template struct WatchT<PolyCollectionBase::ChildEvent>;
 
-template class WatchT<Utf8String>;
-template class WatchesT<Utf8String>;
+template struct WatchT<Utf8String>;
+template struct WatchesT<Utf8String>;
 
 
 } // namespace MLDB

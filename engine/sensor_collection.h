@@ -25,7 +25,7 @@ struct SensorCollection: public PolyCollection<Sensor> {
     virtual Any getEntityStatus(const Sensor & sensor) const;
 };
 
-extern template class PolyCollection<MLDB::Sensor>;
+extern template struct PolyCollection<MLDB::Sensor>;
 
 } // namespace MLDB
 

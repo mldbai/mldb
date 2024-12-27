@@ -22,7 +22,7 @@ PeerDiscovery(RestEntity * owner)
 {
 }
 
-template class RestCollection<std::string, PeerInfo>;
+template struct RestCollection<std::string, PeerInfo>;
 
 
 /*****************************************************************************/

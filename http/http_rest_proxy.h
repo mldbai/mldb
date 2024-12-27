@@ -10,10 +10,7 @@
 #include <mutex>
 #include <functional>
 #include "mldb/http/http_header.h"
-
-namespace Json {
-struct Value;
-} // namespace JSON
+#include "mldb/types/json_fwd.h"
 
 namespace MLDB {
 
@@ -148,7 +145,8 @@ private:
     Normally used to consume REST-like APIs, hence the name.
 */
 
-struct HttpRestProxy {
+class HttpRestProxy {
+public:
     typedef HttpRestResponse Response;
     typedef HttpRestContent Content;
 

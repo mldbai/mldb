@@ -21,8 +21,8 @@
 
 namespace MLDB {
 
-struct filter_ostream;
-struct filter_istream;
+class filter_ostream;
+class filter_istream;
 struct MappedSerializer;
 struct StructuredSerializer;
 

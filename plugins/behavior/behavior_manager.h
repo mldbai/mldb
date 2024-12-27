@@ -27,7 +27,7 @@
 namespace MLDB {
 
 
-class BehaviorSvd;
+struct BehaviorSvd;
 
 
 /****************************************************************************/

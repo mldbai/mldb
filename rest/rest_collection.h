@@ -665,13 +665,13 @@ protected:
 };
 
 #define REST_COLLECTION_INSTANTIATIONS_IMPL(extern, Key, Value, Config, Status) \
-extern template class BackgroundTaskT<Value>;                       \
-extern template class RestCollection<Key, Value>; \
-extern template class RestConfigurableCollection<Key, Value, Config, Status>; \
-extern template class WatchT<Key, std::shared_ptr<Status> >; \
-extern template class WatchT<Key, std::shared_ptr<Config> >; \
-extern template class WatchesT<Key, std::shared_ptr<Config> >; \
-extern template class WatchesT<Key, std::shared_ptr<Status> >
+extern template struct BackgroundTaskT<Value>;                       \
+extern template struct RestCollection<Key, Value>; \
+extern template struct RestConfigurableCollection<Key, Value, Config, Status>; \
+extern template struct WatchT<Key, std::shared_ptr<Status> >; \
+extern template struct WatchT<Key, std::shared_ptr<Config> >; \
+extern template struct WatchesT<Key, std::shared_ptr<Config> >; \
+extern template struct WatchesT<Key, std::shared_ptr<Status> >
 
 #define DECLARE_REST_COLLECTION_INSTANTIATIONS(Key, Value, Config, Status) \
     REST_COLLECTION_INSTANTIATIONS_IMPL(extern, Key, Value, Config, Status)

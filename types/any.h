@@ -165,8 +165,8 @@ struct Any {
     Any getField(const std::string & fieldName) const;
 
 private:
-    friend class TypedAnyDescription;
-    friend class BareAnyDescription;
+    friend struct TypedAnyDescription;
+    friend struct BareAnyDescription;
     std::shared_ptr<void> obj_;
     const std::type_info * type_;
     const ValueDescription * desc_;

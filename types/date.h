@@ -15,13 +15,7 @@
 #include <string_view>
 #include <cmath>
 #include "value_description_fwd.h"
-
-namespace Json {
-
-class Value;
-
-} // namespace Json
-
+#include "json_fwd.h"
 
 namespace MLDB {
 namespace JS {

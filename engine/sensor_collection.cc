@@ -169,7 +169,7 @@ getEntityStatus(const Sensor & sensor) const
     return sensor.getStatus();
 }
 
-template class PolyCollection<MLDB::Sensor>;
+template struct PolyCollection<MLDB::Sensor>;
 
 } // namespace MLDB
 

@@ -37,7 +37,7 @@ private:
     MldbEngine * mldb;
 };
 
-extern template class PolyCollection<Procedure>;
+extern template struct PolyCollection<Procedure>;
 
 } // namespace MLDB
 

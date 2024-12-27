@@ -14,8 +14,8 @@ namespace MLDB {
 struct BehaviorDomain;
 struct MutableBehaviorDomain;
 struct BehaviorManager;
-class BehaviorColumnIndex;
-class BehaviorMatrixView;
+struct BehaviorColumnIndex;
+struct BehaviorMatrixView;
 
 // Static instance of a behavior manager, shared between all beh datasets
 // in behavior_dataset.cc
@@ -41,7 +41,7 @@ DECLARE_STRUCTURE_DESCRIPTION(BehaviorDatasetConfig);
 struct BehaviorDataset: public Dataset {
 
     friend class PandasRollupPlugin;
-    friend class BehaviorDatasetRowStream;
+    friend struct BehaviorDatasetRowStream;
 
     BehaviorDataset(MldbEngine * owner,
                      PolyConfig config,

@@ -26,8 +26,8 @@ using namespace MLDB;
 class Feature_Space;
 class Mutable_Feature_Space;
 class Training_Data;
-class Categorical_Info;
-class Mutable_Categorical_Info;
+struct Categorical_Info;
+struct Mutable_Categorical_Info;
 
 
 /*****************************************************************************/

@@ -589,7 +589,7 @@ queryStructured(const Dataset * dataset,
     runHttpQuery(runQuery, connection, format, createHeaders,rowNames, rowHashes, sortColumns);
 }
 
-template class PolyCollection<Dataset>;
+template struct PolyCollection<Dataset>;
 
 } // namespace MLDB
 

@@ -14,7 +14,7 @@
 
 namespace MLDB {
 
-struct Utf8String;
+class Utf8String;
 
 template<typename String>
 inline void to_lower(String& s)

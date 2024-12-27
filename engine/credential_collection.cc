@@ -221,7 +221,7 @@ createCredentialCollection(MLDB::MldbEngine * engine, RestRouteManager & routeMa
     return result;
 }
 
-template class RestCollection<std::string, CredentialRule>;
+template struct RestCollection<std::string, CredentialRule>;
 
 } // namespace MLDB
 

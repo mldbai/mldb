@@ -20,7 +20,7 @@
 namespace MLDB {
 
 
-class SqlExpression;
+struct SqlExpression;
 
 
 struct AccuracyConfig : public ProcedureConfig {

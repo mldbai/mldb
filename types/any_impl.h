@@ -105,7 +105,7 @@ assign(T && value)
     }
 }
 
-extern template class ValueDescriptionT<Any>;
+extern template struct ValueDescriptionT<Any>;
 
 
 struct TypedAnyDescription: public ValueDescriptionT<Any> {
