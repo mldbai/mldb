@@ -105,7 +105,7 @@ S2_CC_FILES:= \
 
 S2_WARNING_OPTIONS := \
 	$(addprefix gcc13+:-Wno-,comment maybe-uninitialized) \
-	$(addprefix clang:-Wno-,unused-but-set-variable) \
+	$(addprefix clang:-Wno-,unused-but-set-variable deprecated-declarations unused-function) \
 
 #	$(addprefix clang:-Wno-,parentheses absolute-value unused-local-typedef unused-const-variable format dynamic-class-memaccess unused-private-field range-loop-analysis ambiguous-reversed-operator unused-but-set-variable)
 
