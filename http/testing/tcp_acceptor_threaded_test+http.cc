@@ -117,7 +117,7 @@ sendRequest(int port)
 {
     boost::asio::io_context ioContext;
     auto socket = asio::ip::tcp::socket(ioContext);
-    auto address = asio::ip::address::from_string("127.0.0.1");
+    auto address = asio::ip::make_address("127.0.0.1");
     asio::ip::tcp::endpoint serverEndpoint(address, port);
     socket.connect(serverEndpoint);
     string request = ("GET /wait HTTP/1.1\r\n"

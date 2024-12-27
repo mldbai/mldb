@@ -147,7 +147,7 @@ void
 MirrorPeerConnection::
 postWorkSync(std::function<void ()> work)
 {
-    impl->strand.post(work);
+    boost::asio::post(impl->strand, work);
 }
 
 void

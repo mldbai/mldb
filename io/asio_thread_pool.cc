@@ -29,11 +29,11 @@ namespace MLDB {
 struct AsioThreadPool::Impl {
     Impl(boost::asio::io_context & ioContext,
          double probeIntervalSeconds = 0.1)
-        : ioContext(ioContext), shutdown(false)
+        : ioContext(ioContext),
+          work(boost::asio::make_work_guard(ioContext)),  
+          shutdown(false)
     {
-        work.reset(new boost::asio::io_context::work(ioContext));
-
-        threads.emplace_back([=] () { this->run(0); });
+        threads.emplace_back([=,this] () { this->run(0); });
 
         lastProbe = Date::now();
         lastLatency = 0;
@@ -53,7 +53,7 @@ struct AsioThreadPool::Impl {
         ioContext.stop();
         work.reset();
         for (auto & t: threads) {
-            ioContext.post([] () {});
+            boost::asio::post(ioContext, [] () {});
             t.join();
         }
         ioContext.stop();
@@ -80,10 +80,7 @@ struct AsioThreadPool::Impl {
                 return;
 
             if (true) {
-                boost::system::error_code err;
-                int res = ioContext.run(err);
-                if (err)
-                    cerr << "ioContext error " << err.message() << endl;
+                int res = ioContext.run();
                 if (res == 0) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     //cerr << "ioContext has stopped" << endl;
@@ -91,14 +88,13 @@ struct AsioThreadPool::Impl {
                 continue;
             }
             
-            boost::system::error_code err;
             Date before = Date::now();
 
             double timeSpentBefore = before.secondsSince(after);
             nanosSleeping += timeSpentBefore * 1000000000;
 
             numHandlers += 1;
-            size_t numDone = (threadNum == 0 ? ioContext.run_one(err) : ioContext.run(err));
+            size_t numDone = (threadNum == 0 ? ioContext.run_one() : ioContext.run());
             ++numWakeups;
             numHandlers -= 1;
 
@@ -180,7 +176,8 @@ struct AsioThreadPool::Impl {
     }
 
     boost::asio::io_context & ioContext;
-    std::unique_ptr<boost::asio::io_context::work> work;
+    boost::asio::executor_work_guard<boost::asio::io_context::executor_type> work;
+
     std::atomic<int64_t> nanosSleeping;
     std::atomic<int64_t> nanosProcessing;
     std::atomic<int> numEvents;
