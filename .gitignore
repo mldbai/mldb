@@ -57,3 +57,4 @@ airlines.*
 *.orig
 *.rej
 /scratch
+/build*
