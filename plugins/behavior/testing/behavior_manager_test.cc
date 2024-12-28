@@ -57,9 +57,11 @@ BOOST_AUTO_TEST_CASE( test_beh_manager_parse_specs )
 
 }
 
+EnvOption<std::string> TMP("TMP", "./tmp");
+
 BOOST_AUTO_TEST_CASE( test_beh_mgr_getS3CacheEntries )
 {
-    TestFolderFixture fixture("beh_mgr_getS3CacheEntries");
+    TestFolderFixture fixture(TMP.get() + "beh_mgr_getS3CacheEntries");
     char buffer[1024];
     char * cwd = ::getcwd(buffer, sizeof(buffer));
     if (!cwd) {

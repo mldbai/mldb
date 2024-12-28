@@ -18,6 +18,8 @@
 #include "mldb/types/basic_value_descriptions.h"
 
 #include <cxxabi.h>
+#include <climits>
+
 using namespace std;
 
 namespace MLDB {
