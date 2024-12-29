@@ -18,41 +18,26 @@
 
 namespace MLDB {
 
+using RestParamsBase = std::vector<std::pair<Utf8String, Utf8String> >;
+
 /*****************************************************************************/
 /* REST PARAMS                                                               */
 /*****************************************************************************/
 
 struct RestParams
-    : public std::vector<std::pair<Utf8String, Utf8String> > {
-    RestParams()
-    {
-    }
-
-    RestParams(const std::vector<std::pair<Utf8String, Utf8String> > & vec)
-        : std::vector<std::pair<Utf8String, Utf8String> >(vec)
-    {
-    }
-
-    RestParams(std::initializer_list<std::pair<Utf8String, Utf8String> > l)
-        : std::vector<std::pair<Utf8String, Utf8String> >(l.begin(), l.end())
-    {
-    }
-
-    template<typename It>
-    RestParams(It first, It last)
-        : std::vector<std::pair<Utf8String, Utf8String> >(first, last)
-    {
-    }
+    : public RestParamsBase {
+    using RestParamsBase::RestParamsBase;
+    RestParams() = default;
+    RestParams(const RestParamsBase & params) : RestParamsBase(params) {}
+    RestParams(RestParamsBase && params) : RestParamsBase(std::move(params)) {}
 
     RestParams(const std::map<Utf8String, Utf8String> & params)
-        : std::vector<std::pair<Utf8String, Utf8String> >
-          (params.begin(), params.end())
+        : RestParamsBase(params.begin(), params.end())
     {
     }
 
     RestParams(const std::map<std::string, std::string> & params)
-        : std::vector<std::pair<Utf8String, Utf8String> >
-          (params.begin(), params.end())
+        : RestParamsBase(params.begin(), params.end())
     {
     }
 

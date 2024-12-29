@@ -1,5 +1,6 @@
 // This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 
+#include "nanobind/stl/string.h"
 #include "mldb/builtin/python/python_interpreter.h"
 #include "mldb/builtin/python/capture_stream.h"
 #include "mldb/utils/testing/watchdog.h"
@@ -30,7 +31,7 @@ BOOST_AUTO_TEST_CASE( test_capture_streams )
     
     auto threadScope = interpreter.mainThread().enter();
 
-    auto main_module = boost::python::import("__main__");
+    auto main_module = nanobind::module_::import_("__main__");
     auto main_namespace = main_module.attr("__dict__");
 
     std::vector<std::string> written;
@@ -109,7 +110,7 @@ BOOST_AUTO_TEST_CASE(test_exec)
     PythonInterpreter interpreter;
     auto threadScope = interpreter.mainThread().enter();
 
-    auto main_module = boost::python::import("__main__");
+    auto main_module = nanobind::module_::import_("__main__");
     auto main_namespace = main_module.attr("__dict__");
 
     PythonThread::exec(*threadScope,
@@ -117,8 +118,8 @@ BOOST_AUTO_TEST_CASE(test_exec)
                        MLDB::format("%s:%d", __FILE__, __LINE__),
                        main_namespace);
     
-    boost::python::object world = main_namespace["world"];
-    std::string val = boost::python::extract<std::string>(world);
+    nanobind::object world = main_namespace["world"];
+    std::string val = nanobind::cast<std::string>(world);
 
     BOOST_CHECK_EQUAL(val, "hello");
 }
@@ -138,7 +139,7 @@ BOOST_AUTO_TEST_CASE(test_multithreaded_exec)
 
             auto threadScope = interpreter.mainThread().enter();
 
-            auto main_module = boost::python::import("__main__");
+            auto main_module = nanobind::module_::import_("__main__");
             auto main_namespace = main_module.attr("__dict__");
 
             size_t iter;
@@ -159,8 +160,8 @@ BOOST_AUTO_TEST_CASE(test_multithreaded_exec)
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
 
-                boost::python::object world = main_namespace[MLDB::format("world%d", iter)];
-                std::string val = boost::python::extract<std::string>(world);
+                nanobind::object world = main_namespace[MLDB::format("world%d", iter).c_str()];
+                std::string val = nanobind::cast<std::string>(world);
                 
                 BOOST_CHECK_EQUAL(val, "hello" + to_string(threadNum));
             }
@@ -198,7 +199,7 @@ BOOST_AUTO_TEST_CASE(test_multithreaded_exec_single_interpreter)
             auto thread = interpreter.newThread();
             auto threadScope = thread.enter();
 
-            auto main_module = boost::python::import("__main__");
+            auto main_module = nanobind::module_::import_("__main__");
             auto main_namespace = main_module.attr("__dict__");
 
             size_t iter;
@@ -219,8 +220,8 @@ BOOST_AUTO_TEST_CASE(test_multithreaded_exec_single_interpreter)
                     std::this_thread::sleep_for(std::chrono::milliseconds(5));
                 }
 
-                boost::python::object world = main_namespace[MLDB::format("world%d", threadNum)];
-                std::string val = boost::python::extract<std::string>(world);
+                nanobind::object world = main_namespace[MLDB::format("world%d", threadNum).c_str()];
+                std::string val = nanobind::cast<std::string>(world);
                 
                 BOOST_CHECK_EQUAL(val, "hello" + to_string(iter));
             }

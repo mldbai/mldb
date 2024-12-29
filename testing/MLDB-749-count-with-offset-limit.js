@@ -8,7 +8,7 @@ function getCountWithOffsetLimit(dataset, offset, limit) {
     var config = {
         type: "import.text",
         params: {
-            dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+            dataFileUrl : "file://mldb_test_data/titanic_train.csv",
             outputDataset: {
                 id: dataset,
             },

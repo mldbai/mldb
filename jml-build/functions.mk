@@ -514,7 +514,7 @@ $$(bindir)/$(1):	$$(bindir)/.dir_exists $$($(1)_OBJFILES) $$(foreach lib,$(2),$$
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "           $(COLOR_BLUE)[BIN]$(COLOR_RESET)                   	$(1)")
 	@$(call write_timing_to,$$@.timing) $$(LINK_$(1)_COMMAND)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$(1)")
-	$(if $(POST_LINK_COMMAND)$(POST_LINK_COMMAND_$(1)),$(if $(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND)) $$(bindir)/$(1))
+	$(if $(POST_LINK_COMMAND)$(POST_LINK_COMMAND_$(1)),@$(if $(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND)) $$(bindir)/$(1))
 
 $$(foreach target,$(4) programs,$$(eval $$(target): $$(bindir)/$(1)))
 

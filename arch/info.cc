@@ -28,6 +28,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include <filesystem>
 
 #ifdef __APPLE__
 #include <libproc.h>
@@ -116,29 +117,16 @@ std::string all_info()
 size_t num_open_files()
 {
 #ifdef __linux__
-    DIR * dfd = opendir("/proc/self/fd");
+    constexpr const char * dir = "/proc/self/fd";
 #elif defined(__APPLE__)
-    DIR * dfd = opendir("/dev/fd");
+    constexpr const char * dir = "/dev/fd";
 #else
 #  error "Tell us how to get open file count on your OS"
 #endif
 
-    if (dfd == 0)
-        throw Exception("num_open_files(): opendir(): "
-                        + string(strerror(errno)));
-
-    Scope_Exit(closedir(dfd));
-
     size_t result = 0;
-    
-    dirent entry;
-    for (dirent * current = &entry;  current;  ++result) {
-        auto res = readdir_r(dfd, &entry, &current);
-        if (res != 0)
-            throw Exception("num_open_files(): readdir_r: "
-                            + string(strerror(errno)));
-    }
-
+    for (auto entry: std::filesystem::directory_iterator(dir))
+        ++result;
     return result;
 }
 

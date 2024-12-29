@@ -60,7 +60,7 @@ class NullNameTest(MldbUnitTest):
         with self.assertRaises(Exception) as exc:
             ds.record_row(None, [['colA', 1, 1]])
         self.assertEqual(str(type(exc.exception)),
-                         "<class 'Boost.Python.ArgumentError'>")
+                         "<class 'TypeError'>")
 
     def test_post_row_name_none(self):
         mldb.put('/v1/datasets/ds2', {

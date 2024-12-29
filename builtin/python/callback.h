@@ -22,10 +22,12 @@
 
 #pragma once
 
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
 #include <iostream>
 
 namespace MLDB {
+
+#if 0
 
 namespace Python {
 
@@ -63,7 +65,7 @@ private:
 template<typename R, typename... Args>
 struct SafeCallback
 {
-    SafeCallback(PyObject* callable) : callback(callable) {}
+    SafeCallback(PyObject* callable) : callback(callable), obj(nanobind::borrow(callable)) {}
 
     template<typename... FnArgs>
     R operator() (FnArgs&&... args) const
@@ -71,7 +73,8 @@ struct SafeCallback
         // std::cout << "locking GIL: " << sizeof...(FnArgs) << std::endl;
         LockGil lock;
         try {
-            return boost::python::call<R>(callback, std::forward<FnArgs>(args)...);
+            auto result = obj(std::forward<FnArgs>(args)...);
+            return result.template cast<R>();
         }
         catch (...) {
             std::cout << "Python function threw an error." << std::endl;
@@ -82,6 +85,7 @@ struct SafeCallback
 
 private:
     PyObject* callback;
+    nanobind::object obj;
 };
 
 
@@ -99,7 +103,7 @@ struct UnsafeCallback
     R operator() (FnArgs&&... args) const
     {
         try {
-            return boost::python::call<R>(callback, std::forward<FnArgs>(args)...);
+            return nanobind::call<R>(callback, std::forward<FnArgs>(args)...);
         }
         catch (...) {
             std::cout << "Python function threw an error." << std::endl;
@@ -113,5 +117,7 @@ private:
 
 
 } // namespace Python
+
+#endif
 
 } // namespace MLDB

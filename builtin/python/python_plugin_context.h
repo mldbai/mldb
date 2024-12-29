@@ -8,14 +8,12 @@
 #pragma once
 
 #include "python_interpreter.h"
-#include <boost/python.hpp>
-#include <boost/python/return_value_policy.hpp>
+#include "nanobind/nanobind.h"
 #include <frameobject.h>
 
 #include "python_converters.h"
 #include "from_python_converter.h"
 #include "callback.h"
-#include <boost/python/to_python_converter.hpp>
 
 #include "mldb/builtin/plugin_resource.h"
 #include "mldb/core/plugin.h"
@@ -57,7 +55,7 @@ struct MldbPythonInterpreter: public PythonInterpreter {
     // GIL must be held
     ScriptException
     convertException(const EnterThreadToken & threadToken,
-                     const boost::python::error_already_set & exc2,
+                     const nanobind::python_error & exc2,
                      const std::string & context);
 
     // GIL must be held
@@ -75,14 +73,14 @@ struct MldbPythonInterpreter: public PythonInterpreter {
     runPythonScript(const EnterThreadToken & threadToken,
                     Utf8String scriptSource,
                     Utf8String scriptUri,
-                    boost::python::object globals,
-                    boost::python::object locals);
+                    nanobind::object globals,
+                    nanobind::object locals);
 
     std::shared_ptr<PythonContext> context;
     std::shared_ptr<MldbPythonContext> mldb;
     
-    boost::python::object main_module;
-    boost::python::object main_namespace;
+    nanobind::object main_module;
+    nanobind::object main_namespace;
 
     static std::shared_ptr<MldbPythonContext>
     findEnvironment();
@@ -122,18 +120,15 @@ struct PythonRestRequest {
     Utf8String remaining;
     std::string verb;
     std::string resource;
-    boost::python::list restParams;
+    RestParams restParams;
     Json::Value payload;
     std::string contentType;
     int contentLength;
-    boost::python::dict headers;
+    std::map<std::string, std::string> headers;
 
     // Must hold GIL; only called from Python so automatically true
     void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
 
-    // Must hold GIL; only called from Python so automatically true
-    void setReturnValue1(const Json::Value & rtnVal);
-    
     // These two are protected by the GIL
     Json::Value returnValue;
     int returnCode = -1;
@@ -149,10 +144,10 @@ struct PythonContext {
 
     virtual ~PythonContext();
     
-    void log(const std::string & message);
+    void log(const Utf8String & message);
 
     void logToStream(const char * stream,
-                     const std::string & message);
+                     const Utf8String & message);
     
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader, stdout, stderr;
@@ -224,7 +219,6 @@ struct MldbPythonContext {
     std::shared_ptr<PythonPluginContext> getPlugin();
     std::shared_ptr<PythonScriptContext> getScript();
 
-    void log(const std::string & message);
     void logJsVal(const Json::Value & jsVal);
     void logUnicode(const Utf8String & msg);
 
@@ -237,29 +231,11 @@ struct MldbPythonContext {
     std::shared_ptr<PythonScriptContext> script;
 
     Json::Value
-    perform2(const std::string & verb,
-             const std::string & resource);
-
-    Json::Value
-    perform3(const std::string & verb,
-             const std::string & resource,
-             const RestParams & params);
-
-    Json::Value
-    perform4(const std::string & verb,
-             const std::string & resource,
-             const RestParams & params,
-             Json::Value payload);
-
-    Json::Value
     perform(const std::string & verb,
             const std::string & resource,
             const RestParams & params=RestParams(),
             Json::Value payload=Json::Value(),
             const RestParams & header=RestParams());
-
-    Json::Value
-    readLines1(const std::string & path);
 
     Json::Value
     readLines(const std::string & path,

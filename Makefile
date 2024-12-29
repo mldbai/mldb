@@ -51,7 +51,7 @@ ALTROOT := $(BUILD)/$(ARCH)/altroot
 ETC     := $(ALTROOT)/etc
 PLUGINS := $(BUILD)/$(ARCH)/mldb_plugins
 
-INCLUDE := -Imldb
+INCLUDE := -Imldb -Imldb/ext/include
 
 export BIN
 export BUILD

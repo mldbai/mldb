@@ -13,6 +13,8 @@
 #include "mldb/arch/format.h"
 #include "fast_int_parsing.h"
 #include "fast_float_parsing.h"
+#include "mldb/ext/utfcpp/source/utf8.h"
+#include "mldb/base/exc_assert.h"
 #include <cassert>
 #include <fstream>
 #include "mldb/utils/possibly_dynamic_buffer.h"
@@ -46,7 +48,7 @@ ParseContext(const Utf8String & filename, const char * start,
       line_(line), col_(col), ofs_(0)
 {
     current_ = buffers_.insert(buffers_.end(),
-                               Buffer(0, start, end - start, false));
+                               Buffer(0, start, end - start, nullptr /* no pin */));
 }
 
 ParseContext::
@@ -57,7 +59,7 @@ ParseContext(const Utf8String & filename, const char * start,
       line_(line), col_(col), ofs_(0)
 {
     current_ = buffers_.insert(buffers_.end(),
-                               Buffer(0, start, length, false));
+                               Buffer(0, start, length, nullptr /* no pin */));
 
     //cerr << "current buffer has " << current_->size << " chars" << endl;
 }
@@ -87,8 +89,42 @@ ParseContext(const Utf8String & filename, std::istream & stream,
 }
 
 ParseContext::
+ParseContext(ParseContext && other)
+    : ParseContext()
+{
+    *this = std::move(other);
+}
+
+ParseContext &
+ParseContext::
+operator = (ParseContext && other)
+{
+    stream_ = other.stream_;  other.stream_ = nullptr;
+    chunk_size_ = other.chunk_size_;  other.chunk_size_ = 0;
+    first_token_ = other.first_token_;  other.first_token_ = 0;
+    last_token_ = other.last_token_;  other.last_token_ = 0;
+    filename_ = std::move(other.filename_);
+    cur_ = other.cur_;  other.cur_ = nullptr;
+    ebuf_ = other.ebuf_;  other.ebuf_ = nullptr;
+    line_ = other.line_;  other.line_ = 0;
+    col_ = other.col_;  other.col_ = 0;
+    ofs_ = other.ofs_;  other.ofs_ = 0;
+    buffers_ = std::move(other.buffers_);  other.buffers_.clear();
+    current_ = std::move(other.current_);  other.current_ = other.buffers_.end();
+    for (Token * tok = first_token_;  tok && tok != last_token_;  tok = tok->next) {
+        ExcAssertEqual(tok->context, &other);
+        tok->context = this;
+    }
+    return *this;
+}
+
+ParseContext::
 ~ParseContext()
 {
+    if (first_token_ && first_token_ != last_token_) {
+        cerr << "Destroying ParseContext with active token(s); aborting" << endl;
+        abort();
+    }
 }
 
 void
@@ -419,6 +455,28 @@ expect_double(double min, double max, const char * error, bool lenient)
     return val;
 }
 
+int
+ParseContext::
+expect_utf8_code_point()
+{
+    int c = *(*this)++;
+    // 1.  Get the character length and read the bytes into a temporary buffer
+    //     as we can't copy the ParseContext
+    char buf[8] = { (char)c };
+    char * bufp = buf;
+    auto charlen = utf8::internal::sequence_length(bufp);
+    ExcAssertGreaterEqual(charlen, 1);
+    ExcAssertLess(charlen, 8);
+
+    for (int i = 1;  i < charlen;  ++i) {
+        buf[i] = *(*this)++;
+    }
+
+    // 2.  Decode the character
+    bufp = buf;
+    return utf8::unchecked::next(bufp);
+}
+
 Utf8String
 ParseContext::
 where() const
@@ -465,6 +523,17 @@ exception_fmt(const char * fmt, ...) const
     string str = vformat(fmt, ap);
     va_end(ap);
     exception(str);
+}
+
+void
+ParseContext::
+throw_expect_literal_char_error(char c, const char * error)
+{
+    unsigned char ccur = (eof() ? '\xff' : *cur_);
+    if (ccur == 0)
+        ccur = '0';
+    int icur = eof() ? -1 : *cur_;
+    exception_fmt(error, c, ccur, icur);
 }
 
 bool
@@ -612,9 +681,6 @@ free_buffers()
             break;  // first token is in this buffer
         std::list<Buffer>::iterator to_erase = it;
         ++it;
-        if (to_erase->del) {
-            delete[] (const_cast<char *>(to_erase->pos));
-        }
         buffers_.erase(to_erase);
     }
 }
@@ -652,9 +718,11 @@ read_new_buffer()
     
     //cerr << "last_ofs = " << last_ofs << endl;
 
+    std::shared_ptr<char[]> pin(new char[read]);
+
     list<Buffer>::iterator result
         = buffers_.insert(buffers_.end(),
-                          Buffer(last_ofs, new char[read], read, true));
+                          Buffer(last_ofs, pin.get(), read, std::move(pin)));
     
     //cerr << "  now " << buffers_.size() << " buffers active" << endl;
 

@@ -44,7 +44,7 @@ mldb.log(res.json);
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+        dataFileUrl : "file://mldb_test_data/titanic_train.csv",
         outputDataset: {
             id: "titanic",
         },
@@ -83,7 +83,7 @@ try {
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+        dataFileUrl : "file://mldb_test_data/titanic_train.csv",
         outputDataset: {
             id: "titanic2",
         },

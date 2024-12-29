@@ -32,7 +32,7 @@ $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 $(eval $(call set_compile_option,hash.cc,-fpermissive))
 $(eval $(call set_compile_option,confidence_intervals.cc,-O3))
 
-$(eval $(call library,progress,progress.cc,types value_description arch))
+$(eval $(call library,progress,progress.cc,types value_description arch base types))
 $(eval $(call library,json_diff,json_diff.cc json_utils.cc,arch base value_description types utils highwayhash))
 
 # Runner Common

@@ -320,8 +320,8 @@ struct SparseMatrixDataset::Itl
         else return Date::fromSecondsSinceEpoch((ts - 2) * timeQuantumSeconds);
     }
 
-    CellValue decodeVal(uint64_t val, uint32_t tag, 
-                        ReadTransaction & trans) const
+    static CellValue decodeVal(uint64_t val, uint32_t tag, 
+                               ReadTransaction & trans)
     {
         switch (tag) {
         // null
@@ -421,6 +421,16 @@ struct SparseMatrixDataset::Itl
             return seconds - 1;
         else return seconds + 2;
     }
+
+#if 0
+    static std::pair<uint64_t, uint32_t>
+    encodeVal(const CellValue & val, WriteTransaction & trans)
+    {
+        auto [ival, tag] = encodeVal2(val, trans);
+        cerr << "encoding " << val << " returned tag " << tag << " with ivalue " << ival << endl;
+        return {ival, tag};
+    }
+#endif
 
     static std::pair<uint64_t, uint32_t>
     encodeVal(const CellValue & val, WriteTransaction & trans)

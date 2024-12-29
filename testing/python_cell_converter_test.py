@@ -20,12 +20,12 @@ class PythonCellConverterTest(unittest.TestCase):
         self.assertEqual(tester.cellValueToCpp(val), True)
 
     def test_rest_params(self):
-        val = [["warp", "10"]]
+        val = [("warp", "10")]
         self.assertEqual(tester.getRestParams(val), val)
 
-        self.assertEqual(tester.getRestParamsFromCpp(), [["patate", "pwel"]])
+        self.assertEqual(tester.getRestParamsFromCpp(), [("patate", "pwel")])
         self.assertEqual(tester.getRestParams(tester.getRestParamsFromCpp()),
-                [["patate", "pwel"]])
+                [("patate", "pwel")])
 
 if __name__ == '__main__':
     unittest.main()

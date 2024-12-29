@@ -347,11 +347,11 @@ $(eval $(call python_test,mldb-417_svd,mldb_py_runner))
 
 $(eval $(call include_sub_make,mldb_py_runner))
 
-$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter mldb_python_plugin types arch base mldb value_description))
+$(eval $(call python_addon,py_conv_test_module,python_converters_test_support.cc,$(PYTHON_LIBRARY) nanobind python_interpreter mldb_python_plugin types arch base mldb value_description))
 
 $(eval $(call python_test,python_converters_test,py_conv_test_module,$(MANUAL_IF_SANITIZERS)))
 
-$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(PYTHON_LIBRARY) $(BOOST_PYTHON_LIBRARY) python_interpreter types mldb_engine mldb_python_plugin value_description arch base sql_types http))
+$(eval $(call python_addon,py_cell_conv_test_module,python_cell_converter_test_support.cc,$(PYTHON_LIBRARY) nanobind python_interpreter types mldb_engine mldb_python_plugin value_description arch base sql_types http))
 
 $(eval $(call python_test,python_cell_converter_test,py_cell_conv_test_module,$(MANUAL_IF_SANITIZERS)))
 

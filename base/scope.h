@@ -94,10 +94,13 @@ namespace Scope {
         Success& operator=(Success<Func>&& other) = default;
 
         ~Success() noexcept {
-            if (!std::uncaught_exception()) {
+            if (std::uncaught_exceptions() == nexceptions) {
                 Success<Func>::exec();
             }
         }
+
+    private:
+        int nexceptions = std::uncaught_exceptions();
     };
 
     template<typename Func>

@@ -31,8 +31,8 @@ struct InternedString {
 
     // Only POD types can be used so that Reserve can use memcpy and
     // not need to handle exceptions
-    static_assert(std::is_pod<Char>::value, "InternedString can only hold POD "
-                  "types");
+    static_assert(std::is_standard_layout_v<Char> && std::is_trivial_v<Char>,
+                  "InternedString can only hold POD character types");
     
     InternedString()
         : intLength_(0)

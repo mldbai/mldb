@@ -3,7 +3,7 @@
 csv_conf = {
     type: "import.text",
     params: {
-        dataFileUrl : "https://s3.amazonaws.com/benchm-ml--main/test.csv",
+        dataFileUrl : "file://mldb_test_data/test.csv",
         outputDataset: {
             id: "test",
         },

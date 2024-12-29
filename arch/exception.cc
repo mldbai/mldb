@@ -3,7 +3,7 @@
 /* exception.cc
    Jeremy Barnes, 7 February 2005
    Copyright (c) 2005 Jeremy Barnes.  All rights reserved.
-      
+
 
 
    Exception class.
@@ -16,6 +16,7 @@
 #include <cstdarg>
 #include "demangle.h"
 #include "mldb/compiler/stdlib.h"
+#include <cstdarg>
 
 using namespace std;
 
@@ -32,6 +33,12 @@ inline void ensure_null_termintated_c_str(std::basic_string<Char> & str) { auto 
 
 Exception::Exception(const std::string & msg)
     : message(msg)
+{
+    ensure_null_termintated_c_str(message);
+}
+
+Exception::Exception(std::string && msg)
+    : message(std::move(msg))
 {
     ensure_null_termintated_c_str(message);
 }
@@ -99,6 +106,9 @@ std::string getExceptionString()
     catch (const std::bad_alloc & exc) {
         return "Out of memory (std::bad_alloc)";
     }
+    catch (const BadAlloc & exc) {
+        return "Out of memory (BadAlloc)";
+    }
     catch (const std::exception & exc) {
         return exc.what();
     }
@@ -135,33 +145,73 @@ AssertionFailure(const char * assertion,
 {
 }
 
-/*****************************************************************************/
-/* UNIMPLEMENTED EXCEPTION                                                   */
-/*****************************************************************************/
-
-UnimplementedException::
-UnimplementedException(const char * function,
-                       const char * file,
-                       int line)
-    : Exception(format("Unimplemented: %s at %s:%d",
-                    function, file, line))
-{
-}
-
 namespace {
-thread_local std::va_list unimplemented_exception_args;
-} // file scope
+thread_local std::va_list exception_args;
+} /* file scope */
 
-UnimplementedException::
-UnimplementedException(const char * function,
-                       const char * file,
-                       int line,
-                       const char * msg,
-                       ...)
-    : Exception(format("Unimplemented: %s at %s:%d : ", function, file, line)
-                 + ((va_start(unimplemented_exception_args, msg), format(msg, unimplemented_exception_args))))
+#define MLDB_IMPLEMENT_EXCEPTION_CLASS(Name)                                        \
+Name::                                                                              \
+Name(const char * function,                                                         \
+                       const char * file,                                           \
+                       int line)                                                    \
+    : Exception(format(#Name ": %s at %s:%d",                                       \
+                    function, file, line))                                          \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+Name::                                                                              \
+Name(const std::string & message)                                                   \
+    : Exception(message)                                                            \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+Name::                                                                              \
+Name(const char * function,                                                         \
+                       const char * file,                                           \
+                       int line,                                                    \
+                       const char * msg,                                            \
+                       ...)                                                         \
+    : Exception(format(#Name ": %s at %s:%d : ", function, file, line)              \
+                 + ((va_start(exception_args, msg), format(msg, exception_args))))  \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+Name::                                                                              \
+Name(const char * function,                                                         \
+                       const char * file,                                           \
+                       int line,                                                    \
+                       const std::string msg,                                       \
+                       ...)                                                         \
+    : Exception(format(#Name ": %s at %s:%d : ", function, file, line)              \
+                 + ((va_start(exception_args, msg), format(msg.c_str(), exception_args))))  \
+{                                                                                   \
+}                                                                                   \
+                                                                                    \
+void throw##Name(const char * function, const char * file, int line, const char * msg, ...) \
+{                                                                                   \
+    if (msg) {                                                                      \
+        throw Name(format(#Name ": %s at %s:%d : ", function, file, line)           \
+                          + ((va_start(exception_args, msg), format(msg, exception_args)))); \
+    }                                                                               \
+    else {                                                                          \
+        throw Name(function, file, line);                                           \
+    }                                                                               \
+}                                                                                   \
+                                                                                    \
+void throw##Name(const char * function, const char * file, int line, const std::string msg, ...) \
+{                                                                                   \
+    throw Name(format(#Name ": %s at %s:%d : ", function, file, line)               \
+                        + ((va_start(exception_args, msg), format(msg.c_str(), exception_args)))); \
+}                                                                                   \
+                                                                                    \
+
+MLDB_FOR_EACH_EXCEPTION_CLASS(MLDB_IMPLEMENT_EXCEPTION_CLASS)
+
+void throwUnimplementedException(const std::type_info & thisType, const char * function, const char * file, int line, const std::string msg, ...)
 {
+    throw UnimplementedException(format("Unimplemented: type %s does not implement operation at %s:%d : ",
+                                        demangle(thisType.name()).c_str(), file, line)
+                                 + ((va_start(exception_args, msg), format(msg.c_str(), exception_args))));
 }
-
 
 } // namespace MLDB
