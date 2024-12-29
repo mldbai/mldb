@@ -1662,9 +1662,9 @@ parseJson(JsonParsingContext & context,
 
         auto onObjectField = [&] ()
             {
-                const char * fieldName = context.fieldNamePtr();
+                auto fieldName = context.fieldNameView();
                 out.emplace_back
-                    (PathElement(fieldName, strlen(fieldName)),
+                    (PathElement(fieldName.data(), fieldName.length()),
                  parseJson(context, timestamp, arrays));
             };
         context.forEachMember(onObjectField);

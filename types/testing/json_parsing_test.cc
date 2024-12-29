@@ -117,16 +117,11 @@ void testExpectStringUtf8(ParseContext * context)
         //cerr << "c = " << c << " " << (char)c << endl;
 
         if (c < 0 || c > 127) {
-            // Unicode
-            c = utf8::unchecked::next(*context);
-
-            char * p1 = buffer + pos;
-            char * p2 = p1;
-            pos += utf8::append(c, p2) - p1;
-
-            continue;
+            c = context->expect_utf8_code_point();
         }
-        ++(*context);
+        else {
+            ++(*context);
+        }
 
         if (c == '\\') {
             c = *(*context)++;

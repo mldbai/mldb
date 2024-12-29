@@ -189,6 +189,8 @@ struct CellValue {
     /** Length of the data stored for the blob. */
     uint32_t blobLength() const;
 
+    std::span<const std::byte> blobSpan() const;
+
     /** Is it exactly representable as a 32 bit signed integer? */
     bool isExactInt32() const;
 

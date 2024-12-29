@@ -7,14 +7,12 @@
 
 
 #include "python_entities.h"
-#include <boost/python.hpp>
-#include <boost/python/return_value_policy.hpp>
+#include "nanobind/nanobind.h"
 #include <frameobject.h>
 
 #include "python_converters.h"
 #include "from_python_converter.h"
 #include "callback.h"
-#include <boost/python/to_python_converter.hpp>
 
 
 using namespace std;
@@ -122,7 +120,7 @@ createPythonProcedure(MldbPythonContext * c,
                      PyObject * trainFunction)
 {
 #if 0
-    auto localsPlugin = boost::python::object(boost::python::ptr(c));
+    auto localsPlugin = nanobind::object(nanobind::ptr(c));
     auto createProcedureEntity = 
         [=] (RestDirectory * peer,
              PolyConfig config,
@@ -133,10 +131,10 @@ createPythonProcedure(MldbPythonContext * c,
             procedure->trainPy = [=] (const ProcedureRunConfig & training)
                 {
                     try {
-                        return boost::python::call<Json::Value>(
+                        return nanobind::call<Json::Value>(
                             trainFunction, localsPlugin, jsonEncode(training).toString());
 
-                    } catch (const boost::python::error_already_set & exc) {
+                    } catch (const nanobind::error_already_set & exc) {
                         ScriptException pyexc
                         = interpreter.convertException
                             (pyControl,
@@ -196,8 +194,7 @@ namespace {
 
 void pythonEntitiesInit(const EnterThreadToken & thread)
 {
-    namespace bp = boost::python;
-
+#if 0
     from_python_converter< RowCellTuple,
                            Tuple3ElemConverter<ColumnPath, CellValue, Date> >();
 
@@ -222,15 +219,16 @@ void pythonEntitiesInit(const EnterThreadToken & thread)
     from_python_converter< std::vector<std::pair<ColumnPath, std::vector<ColumnCellTuple> > >,
                            VectorConverter<std::pair<ColumnPath, std::vector<ColumnCellTuple> > > >();
 
-    bp::class_<DatasetPy>("dataset", bp::no_init)
+    nanobind::class_<DatasetPy>("dataset", nanobind::no_init)
         .def("record_row", &DatasetPy::recordRow)
         .def("record_rows", &DatasetPy::recordRows)
         .def("record_column", &DatasetPy::recordColumn)
         .def("record_columns", &DatasetPy::recordColumns)
         .def("commit", &DatasetPy::commit);
 
-    bp::class_<FunctionInfo, boost::noncopyable>("function_info", bp::no_init)
+    nanobind::class_<FunctionInfo, boost::noncopyable>("function_info", nanobind::no_init)
         ;
+#endif
 }
 
 // Arrange for the above function to be run at the appropriate moment

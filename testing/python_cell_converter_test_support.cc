@@ -12,8 +12,7 @@
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
 #include <Python.h>
-#include "mldb/builtin/python/pointer_fix.h" //must come before boost python
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
 
 #include <iostream>
 #include "mldb/builtin/python/from_python_converter.h"
@@ -24,11 +23,11 @@
 #include "mldb/builtin/python/python_interpreter.h"
 
 using namespace std;
-using namespace boost::python;
+using namespace nanobind;
 
 using namespace MLDB::Python;
 using namespace MLDB;
-namespace bp = boost::python;
+namespace nb = nanobind;
 
 struct Tester {
     RestParams getRestParamsFromCpp()
@@ -52,17 +51,19 @@ struct Tester {
     }
 };
 
-BOOST_PYTHON_MODULE(py_cell_conv_test_module) {
+NB_MODULE(py_cell_conv_test_module, m) {
 
     PythonInterpreter::initializeFromModuleInit();
 
+#if 0
     from_python_converter<CellValue, CellValueConverter>();
 
     from_python_converter< RestParams, RestParamsConverter>();
-    bp::to_python_converter< RestParams, RestParamsConverter>();
+    nanobind::to_python_converter< RestParams, RestParamsConverter>();
+#endif
 
-    class_<Tester, std::shared_ptr<Tester>>
-        ("Tester", init<>())
+    class_<Tester>(m, "Tester")
+        .def(nanobind::init<>())
         .def("cellValueToCpp",&Tester::gotToCpp<CellValue>)
         .def("getRestParams",&Tester::getAndReturn<RestParams>)
         .def("getRestParamsFromCpp", &Tester::getRestParamsFromCpp)

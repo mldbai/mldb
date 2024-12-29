@@ -106,3 +106,9 @@
 [submodule "ext/utfcpp"]
 	path = ext/utfcpp
 	url = https://github.com/nemtrif/utfcpp.git
+[submodule "ext/nanobind"]
+	path = ext/nanobind
+	url = https://github.com/wjakob/nanobind
+[submodule "ext/robin-map"]
+	path = ext/robin-map
+	url = https://github.com/Tessil/robin-map

@@ -55,20 +55,20 @@ reconstituteMetadataHelper(StructuredReconstituter & reconstituter,
     
     auto onMember = [&] ()
         {
-            if (std::strcmp(context.fieldNamePtr(), "fmt") == 0) {
+            if (context.inField("fmt")) {
                 context.skip();
             }
-            else if (std::strcmp(context.fieldNamePtr(), "type") == 0) {
+            else if (context.inField("type")) {
                 context.skip();
                 //std::string structType = context.expectStringAscii();
                 // TODO: make sure it matches
                 //desc = ValueDescription::getType(structType);
                 // TODO: get the correct version too...
             }
-            else if (std::strcmp(context.fieldNamePtr(), "ver") == 0) {
+            else if (context.inField("ver")) {
                 version = context.expectInt();
             }
-            else if (std::strcmp(context.fieldNamePtr(), "data") == 0) {
+            else if (context.inField("data")) {
                 desc->parseJson(md, context);
             }
         };
@@ -1920,7 +1920,7 @@ thaw(StructuredReconstituter & reconstituter)
 
     auto onMember = [&] ()
         {
-            if (std::strcmp(context.fieldNamePtr(), "fmt") == 0) {
+            if (context.inField("fmt")) {
                 fmt = context.expectStringAscii();
             }
             else {

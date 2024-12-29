@@ -11,8 +11,11 @@
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
 #include <Python.h>
-#include "mldb/builtin/python/pointer_fix.h" //must come before boost python
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
+#include "nanobind/stl/string.h"
+#include "nanobind/stl/vector.h"
+#include "nanobind/stl/pair.h"
+#include "nanobind/stl/tuple.h"
 
 #include <iostream>
 #include "datetime.h"
@@ -22,12 +25,12 @@
 #include "mldb/builtin/python/python_interpreter.h"
 
 using namespace std;
-using namespace boost::python;
+using namespace nanobind;
 
 using namespace MLDB::Python;
 using namespace MLDB;
 
-namespace bp = boost::python;
+namespace nb = nanobind;
 
 
 struct Tester {
@@ -45,12 +48,13 @@ struct Tester {
     }
 };
 
-BOOST_PYTHON_MODULE(py_conv_test_module) {
+NB_MODULE(py_conv_test_module, m) {
 
     PythonInterpreter::initializeFromModuleInit();
     
     PyDateTime_IMPORT;
 
+#if 0
     to_python_converter< std::vector<std::string>, VectorConverter<std::string> >();
     from_python_converter< std::vector<std::string>, VectorConverter<std::string> >();
     
@@ -65,9 +69,10 @@ BOOST_PYTHON_MODULE(py_conv_test_module) {
 
     //from_python_converter< Json::Value, JsonValueConverter> ();
     //to_python_converter< Json::Value, JsonValueConverter> ();
+#endif
 
-    class_<Tester, std::shared_ptr<Tester>>
-        ("Tester", init<>())
+    class_<Tester>(m, "Tester")
+        .def(nanobind::init<>())
         .def("getString", &Tester::getAndReturn<string>)
         .def("getFloat", &Tester::getAndReturn<float>)
         .def("getInt", &Tester::getAndReturn<int>)

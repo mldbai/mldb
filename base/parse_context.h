@@ -55,6 +55,17 @@ struct ParseContext {
         {
         }
          
+        Exception(const Utf8String & what,
+                  std::string filename,
+                  int row,
+                  int col) noexcept
+            : MLDB::Exception(what),
+              filename(std::move(filename)),
+              row(row),
+              col(col)
+        {
+        }
+         
         ~Exception() throw()
         {
         }
@@ -87,6 +98,9 @@ struct ParseContext {
                   size_t chunk_size = DEFAULT_CHUNK_SIZE);
 
     ~ParseContext();
+
+    ParseContext(ParseContext&& other);
+    ParseContext & operator = (ParseContext&& other);
 
     /** Initialize from a filename, loading the file and uncompressing if
         necessary. */
@@ -165,11 +179,15 @@ struct ParseContext {
         if (*cur_ == c) { operator ++();  return true; }
         return false;
     }
-    
+
+    [[noreturn]] void throw_expect_literal_char_error(char c, const char * error);
+
     /** Expect a literal character.  Throws if the character is not matched. */
-    void expect_literal(char c, const char * error = "expected '%c', got '%c'")
+    void expect_literal(char c, const char * error = "expected '%c', got '%c' (%i)")
     {
-        if (!match_literal(c)) exception_fmt(error, c, (eof() ? '\0' : *cur_));
+        if (MLDB_UNLIKELY(!match_literal(c))) {
+            throw_expect_literal_char_error(c, error);
+        }
     }
     
     /** Match a literal string.  Returns true if it was matched and false if
@@ -464,6 +482,9 @@ struct ParseContext {
         return result;
     }
 
+    /// Parses and returns a Unicode code point encoded as utf-8
+    int expect_utf8_code_point();
+
     /** Return a message giving filename:line:col */
     Utf8String where() const;
     
@@ -473,6 +494,7 @@ struct ParseContext {
 
     void exception_fmt(const char * message, ...) const MLDB_NORETURN;
     
+    const Utf8String & get_filename() const { return filename_; }
     size_t get_offset() const { return ofs_; }
     size_t get_line() const { return line_; }
     size_t get_col() const { return col_; }
@@ -722,6 +744,23 @@ public:
         }
     };
 
+    /** A token that, if apply() is called, will rewind the parse context to
+        the state it was in when the token was obtained.
+    */
+    struct Rewind_Token : public Token {
+        Rewind_Token(ParseContext & context)
+            : Token(context)
+        {
+        }
+
+        ~Rewind_Token()
+        {
+            if (context) remove(true /* in destructor */);
+        }
+
+        using Token::apply;
+    };
+
 private:
     /** Go to the next buffer, creating and populating a new one if
         necessary. */
@@ -741,38 +780,38 @@ private:
     /** This contains a single contiguous block of text. */
     struct Buffer {
         Buffer(uint64_t ofs = 0, const char * pos = 0, size_t size = 0,
-               bool del = false)
-            : ofs(ofs), pos(pos), size(size), del(del)
+               std::shared_ptr<const void> pin = nullptr)
+            : ofs(ofs), pos(pos), size(size), pin(std::move(pin))
         {
         }
 
         uint64_t ofs;         ///< Offset of first character
         const char * pos;     ///< First character
         size_t size;          ///< Length
-        bool del;             ///< Do we delete it once finished with?
+        std::shared_ptr<const void> pin;  ///< Keeps the memory alive
     };
 
     /** Read a new buffer if possible, and update everything.  Doesn't
         do anything if it fails. */
     std::list<Buffer>::iterator read_new_buffer();
 
-    std::istream * stream_;   ///< Stream we read from; zero if none
-    size_t chunk_size_;       ///< Size of chunks we read in
+    std::istream * stream_ = nullptr;   ///< Stream we read from; zero if none
+    size_t chunk_size_ = 0;             ///< Size of chunks we read in
 
-    Token * first_token_;     ///< The earliest token
-    Token * last_token_;      ///< The latest token
+    Token * first_token_ = nullptr;     ///< The earliest token
+    Token * last_token_ = nullptr;      ///< The latest token
 
     std::list<Buffer> buffers_;
     std::list<Buffer>::iterator current_;
 
-    Utf8String filename_;    ///< For reporting errors only
+    Utf8String filename_;               ///< For reporting errors only
 
-    const char * cur_;        ///< Current position (points inside buffer)
-    const char * ebuf_;       ///< Position for the end of the buffer
+    const char * cur_ = nullptr;        ///< Current position (points inside buffer)
+    const char * ebuf_ = nullptr;       ///< Position for the end of the buffer
 
-    size_t line_;             ///< Line number at current position
-    size_t col_;              ///< Column number at current position
-    uint64_t ofs_;            ///< Offset of current position (chars since 0)
+    size_t line_ = 1;                   ///< Line number at current position
+    size_t col_ = 1;                    ///< Column number at current position
+    uint64_t ofs_ = 0;                  ///< Offset of current position (chars since 0)
 
     std::shared_ptr<std::istream> ownedStream_;
 };

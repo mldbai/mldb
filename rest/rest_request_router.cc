@@ -388,7 +388,7 @@ processRequest(RestConnection & connection,
 
     for (auto & sr: subRoutes) {
         if (debug)
-            cerr << "  trying subroute " << sr.router->description << endl;
+            cerr << "  trying subroute " << sr.path << " " << sr.router->description << endl;
         try {
             RestRequestMatchResult mr = sr.process(request, context, connection);
             //cerr << "returned " << mr << endl;

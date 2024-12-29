@@ -17,8 +17,8 @@ ds1.record_row('1', [['x', ":)", 0]])
 ds1.record_row('2', [['x', ":P", 0]])
 ds1.record_row('3', [['x', "(>_<)", 0]])
 ds1.record_row('4', [['x', "(ノಠ益ಠ)ノ彡┻━┻", 0]])
-ds1.record_row('5', [['x', "¯\_(ツ)_/¯", 0]])
-ds1.record_row('6', [['x', "¯\_(ツ)_/¯¯¯¯¯¯", 0]])
+ds1.record_row('5', [['x', "¯\\_(ツ)_/¯", 0]])
+ds1.record_row('6', [['x', "¯\\_(ツ)_/¯¯¯¯¯¯", 0]])
 
 ds1.commit()
 
@@ -30,7 +30,7 @@ result = mldb.put('/v1/functions/tokensplit_function', {
 mldb.log(result)
 
 test_str = str(
-    "whatever :P I do what ¯\_(ツ)_/¯¯¯¯¯¯ I want (>_<) (>_<) watwat :P "
+    "whatever :P I do what ¯\\_(ツ)_/¯¯¯¯¯¯ I want (>_<) (>_<) watwat :P "
     "(ノಠ益ಠ)ノ彡┻━┻ grrrr :P :P :P")
 result = mldb.get(
     '/v1/query',
@@ -42,7 +42,7 @@ response = result.json()
 
 assert response[0]['columns'][0][1] == test_str
 
-test_str = str("aaahhhhh ¯\_(ツ)_/¯")
+test_str = str("aaahhhhh ¯\\_(ツ)_/¯")
 result = mldb.get(
     '/v1/query',
     q="select tokensplit_function({'" + test_str + "' as text}) as query")

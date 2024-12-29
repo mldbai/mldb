@@ -15,6 +15,7 @@
 #include <errno.h>
 #include "mldb/arch/timers.h"
 #include "mldb/utils/testing/fixtures.h"
+#include "mldb/utils/environment.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/plugins/behavior/behavior_manager.h"

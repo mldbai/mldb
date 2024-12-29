@@ -126,7 +126,7 @@ class ImportTextTest(MldbUnitTest):
         mldb.post('/v1/procedures', {
             'type' : 'import.text',
             'params' : {
-                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                "dataFileUrl" : "file://mldb_test_data/titanic_train.csv",
                 'outputDataset' : "titanic_hashed",
                 "where": "rowHash() % 3 = 0",
                 'runOnCreation' : True,
@@ -136,7 +136,7 @@ class ImportTextTest(MldbUnitTest):
         mldb.post('/v1/procedures', {
             'type' : 'import.text',
             'params' : {
-                "dataFileUrl" : "https://raw.githubusercontent.com/datacratic/mldb-pytanic-plugin/master/titanic_train.csv",
+                "dataFileUrl" : "file://mldb_test_data/titanic_train.csv",
                 'outputDataset' : "titanic_no_hashed",
                 'runOnCreation' : True,
             }

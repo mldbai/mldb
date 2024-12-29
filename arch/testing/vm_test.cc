@@ -22,7 +22,7 @@
 #include "mldb/base/scope.h"
 #include <errno.h>
 #include <sys/mman.h>
-
+#include <filesystem>
 
 
 using namespace MLDB;
@@ -33,23 +33,9 @@ using boost::unit_test::test_suite;
 // Copied from utils/info.cc due to not being able to include utils lib
 size_t num_open_files()
 {
-    DIR * dfd = opendir("/proc/self/fd");
-    if (dfd == 0)
-        throw Exception("num_open_files(): opendir(): "
-                        + string(strerror(errno)));
-
-    Scope_Exit(closedir(dfd));
-
     size_t result = 0;
-    
-    dirent entry;
-    for (dirent * current = &entry;  current;  ++result) {
-        int res = readdir_r(dfd, &entry, &current);
-        if (res != 0)
-            throw Exception("num_open_files(): readdir_r: "
-                            + string(strerror(errno)));
-    }
-
+    for (auto entry: std::filesystem::directory_iterator("/proc/self/fd"))
+        ++result;
     return result;
 }
 
