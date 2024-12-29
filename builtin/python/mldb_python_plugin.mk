@@ -7,7 +7,6 @@ PYTHON_INTERPRETER_SOURCES := \
 
 PYTHON_INTERPRETER_LINK := \
 	$(PYTHON_LIBRARY) \
-	$(BOOST_PYTHON_LIBRARY) \
 	vfs \
 	arch \
 	base \
@@ -15,9 +14,10 @@ PYTHON_INTERPRETER_LINK := \
 	types \
 	utils \
 	runner \
+	nanobind \
 
 
-$(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
+$(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH) -I$(NANOBIND_INCLUDE_PATH)))
 
 $(eval $(call library,python_interpreter,$(PYTHON_INTERPRETER_SOURCES),$(PYTHON_INTERPRETER_LINK)))
 
@@ -32,7 +32,6 @@ PYTHON_PLUGIN_SOURCES := \
 PYTHON_PLUGIN_LINK := \
 	value_description \
 	$(PYTHON_LIBRARY) \
-	$(BOOST_PYTHON_LIBRARY) \
 	mldb_core \
 	mldb_builtin_base \
 	python_interpreter \
@@ -50,7 +49,8 @@ PYTHON_PLUGIN_LINK := \
 	vfs \
 	base \
 	sql_types \
-	http
+	http \
+	nanobind \
 
 
 # Needed so that Python plugin can find its header
