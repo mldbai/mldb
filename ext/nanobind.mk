@@ -1,18 +1,22 @@
 # Build instructions for nanobind, the Python binding library
 
 NANOBIND_SOURCES := \
-	nb_combined.cpp \
+	src/nb_combined.cpp \
 
-NANOBIND_LINK :=	m
+NANOBIND_LINK := \
+	$(PYTHON_LIBRARY) \
+
+NANOBIND_INCLUDE_PATH := mldb/ext/nanobind/include
 
 NANOBIND_COMPILE_OPTIONS := \
-	-fvisibility=hidden \
-	-I$(EXT_DIR)/nanobind/include \
-	-fPIC \
-	-I $(EXT_DIR)/robin_map/include \
+	-Imldb/ext/nanobind/include \
+	-Imldb/ext/robin-map/include \
+	-I$(PYTHON_INCLUDE_PATH) \
 	-fno-strict-aliasing \
     -ffunction-sections \
 	-fdata-sections \
+	-DNB_SHARED \
+	-fvisibility=hidden \
 
 #	-DNDEBUG \
 #	-DNB_COMPACT_ASSERTIONS \

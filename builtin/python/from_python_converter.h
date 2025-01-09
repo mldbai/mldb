@@ -12,12 +12,12 @@
 
 #pragma once
 
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
 
 namespace MLDB {
 namespace Python {
 
-
+#if 0
 /******************************************************************************/
 /* FROM_PYTHON_CONVERTER                                                      */
 /******************************************************************************/
@@ -39,12 +39,12 @@ struct from_python_converter
 {
     from_python_converter()
     {
-        boost::python::converter::registry::push_back(
+        nanobind::converter::registry::push_back(
                 &convertible,
                 &construct,
-                boost::python::type_id<T>()
+                nanobind::type_id<T>()
 #ifndef BOOST_PYTHON_NO_PY_SIGNATURE
-                , &boost::python::converter::expected_from_python_type<T>::get_pytype
+                , &nanobind::converter::expected_from_python_type<T>::get_pytype
 #endif
             );
 
@@ -57,9 +57,9 @@ struct from_python_converter
 
     static void construct(
             PyObject* obj,
-            boost::python::converter::rvalue_from_python_stage1_data* data)
+            nanobind::converter::rvalue_from_python_stage1_data* data)
     {
-        typedef boost::python::converter::rvalue_from_python_storage<T>
+        typedef nanobind::converter::rvalue_from_python_storage<T>
             TypedStorage;
 
         void* storage = reinterpret_cast<TypedStorage*>(data)->storage.bytes;
@@ -69,7 +69,7 @@ struct from_python_converter
         data->convertible = storage;
     }
 };
-
+#endif
 
 } // namespace Python
 } // namespace MLDB

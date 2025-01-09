@@ -7,11 +7,6 @@
     Plugin loader for Python plugins.
 */
 
-// Python includes aren't ready for c++17 which doesn't support register
-#define register 
-
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
-
 #include <Python.h>
 
 #include "mldb/core/mldb_engine.h"
@@ -21,16 +16,13 @@
 #include "mldb/base/scope.h"
 #include "mldb/builtin/plugin_resource.h"
 
-#include "pointer_fix.h" // must come before boost/python
-#include <boost/python.hpp>
-#include <boost/python/return_value_policy.hpp>
+#include "nanobind/nanobind.h"
+#include "nanobind/stl/shared_ptr.h"
 #include <frameobject.h>
 
 #include "python_converters.h"
 #include "from_python_converter.h"
 #include "callback.h"
-#include <boost/python/to_python_converter.hpp>
-#include <boost/python/raw_function.hpp>
 
 #include "python_plugin_context.h"
 #include "python_entities.h"
@@ -45,6 +37,7 @@
 #include "mldb/logging/logging.h"
 #include "mldb_python_converters.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/utils/lexical_cast.h"
 
 #include "datetime.h"
 
@@ -211,7 +204,7 @@ getStatus() const
         Any rtn;
         try {
             rtn = pluginCtx->getStatus();
-        } catch (const boost::python::error_already_set & exc) {
+        } catch (const nanobind::error_already_set & exc) {
             ScriptException pyexc = convertException(*interpreter, exc, "PyPlugin get status");
 
             {
@@ -276,9 +269,9 @@ handleRequest(RestConnection & connection,
         auto pyRestRequest
             = std::make_shared<PythonRestRequest>(request, context);
         
-        boost::python::dict locals;
-        locals["request"]
-            = boost::python::object(boost::python::ptr(pyRestRequest.get()));
+        nanobind::dict locals;
+        locals["request"] = pyRestRequest;
+//            = nanobind::object(nanobind::ptr(pyRestRequest.get()));
         
         last_output = interpreter->runPythonScript
             (*thread,
@@ -335,6 +328,9 @@ handleTypeRoute(RestDirectory * engine,
         // We need a brand new interpreter for this script, as we don't
         // want to allow for any interference with other things
         MldbPythonInterpreter interpreter(scriptCtx);
+        //auto & interpreter = MldbPythonInterpreter::mainInterpreter();
+        //cerr << "WARNING: Python scripts aren't isolated when using NanoBind" << endl;
+        //cerr << "DO NOT REMOVE THIS MESSAGE" << endl;
 
         Utf8String scriptSource
             = pluginRez->getScript(PackageElement::MAIN);
@@ -347,25 +343,29 @@ handleTypeRoute(RestDirectory * engine,
             // thread.
             auto enterThread = interpreter.mainThread().enter();
 
-            auto pyRestRequest
-                = std::make_shared<PythonRestRequest>(request, context);
-            interpreter.main_namespace["request"]
-                = boost::python::object(boost::python::ptr(pyRestRequest.get()));
-            
-            output = interpreter
-                .runPythonScript(*enterThread,
-                                 scriptSource,
-                                 scriptUri,
-                                 interpreter.main_namespace,
-                                 interpreter.main_namespace);
-
-            if (!output.exception) {
-                output.result = std::move(pyRestRequest->returnValue);
+            try {
+                auto pyRestRequest = std::make_shared<PythonRestRequest>(request, context);
+                interpreter.main_namespace["request"] = pyRestRequest;
+    //                = nanobind::object(nanobind::ptr(pyRestRequest.get()));
                 
-                if (pyRestRequest->returnCode <= 0) {
-                    pyRestRequest->returnCode = 200;
+                output = interpreter
+                    .runPythonScript(*enterThread,
+                                    scriptSource,
+                                    scriptUri,
+                                    interpreter.main_namespace,
+                                    interpreter.main_namespace);
+
+                if (!output.exception) {
+                    output.result = std::move(pyRestRequest->returnValue);
+                    
+                    if (pyRestRequest->returnCode <= 0) {
+                        pyRestRequest->returnCode = 200;
+                    }
+                    output.setReturnCode(pyRestRequest->returnCode);
                 }
-                output.setReturnCode(pyRestRequest->returnCode);
+            } catch (const std::exception & exc) {
+                cerr << "exception setting up script: " << getExceptionString() << endl;
+                throw;
             }
         }
         
@@ -386,124 +386,69 @@ handleTypeRoute(RestDirectory * engine,
     return RestRequestRouter::MR_NO;
 }
 
-namespace {
-
-std::string pyObjectToString(PyObject * pyObj)
-{
-    namespace bp = boost::python;
-
-    if(PyLong_Check(pyObj)) {
-        return boost::lexical_cast<std::string>(long(bp::extract<long>(pyObj)));
-    }
-    else if(PyFloat_Check(pyObj)) {
-        return boost::lexical_cast<std::string>(float(bp::extract<float>(pyObj)));
-    }
-    else if(PyBytes_Check(pyObj)) {
-        return bp::extract<std::string>(pyObj);
-    }
-    else if(PyUnicode_Check(pyObj)) {
-        PyObject* from_unicode = PyUnicode_AsASCIIString(pyObj);
-        std::string tmpStr = bp::extract<std::string>(from_unicode);
-
-        // not returned so needs to be garbage collected
-        Py_DECREF(from_unicode);
-
-        return tmpStr;
-    }
-
-    PyObject* str_obj = PyObject_Str(pyObj);
-    std::string str_rep = "<Unable to create str representation of object>";
-    if(str_obj) {
-        str_rep = bp::extract<std::string>(str_obj);
-    }
-    Py_DECREF(str_obj);
-    return str_rep;
-};
-
-boost::python::object
-logArgs(boost::python::tuple args, boost::python::dict kwargs)
-{
-    namespace bp = boost::python;
-
-    if(len(args) < 1) {
-        return bp::object();
-    }
-    
-    string str_accum; 
-    for(int i = 1; i < len(args); ++i) {
-        if(i > 1) str_accum += " ";
-        str_accum += pyObjectToString(bp::object(args[i]).ptr());
-    }
-
-    MldbPythonContext* pymldb = bp::extract<MldbPythonContext*>(bp::object(args[0]).ptr());
-    pymldb->log(str_accum);
-
-    return bp::object();
-}
-
+#if 0
 // At startup, initialize all of this fun stuff
+
+NB_MODULE(mldb, m) {
+    cerr << "loading in mldb modules from python_plugin_loader.cc" << endl;
+
+#if 0
+    nanobind::class_<MldbPythonContext>(m, "Mldb")
+        .def("log", logArgs)
+        .def("log", &MldbPythonContext::logUnicode)
+        .def("log", &MldbPythonContext::logJsVal)
+        .def("perform", &MldbPythonContext::perform) // for 5 args
+        .def("perform", &MldbPythonContext::perform4) // for 4 args
+        .def("perform", &MldbPythonContext::perform3) // for 3 args
+        .def("perform", &MldbPythonContext::perform2) // for 2 args
+        .def("read_lines", &MldbPythonContext::readLines)
+        .def("read_lines", &MldbPythonContext::readLines1)
+        .def("ls", &MldbPythonContext::ls)
+        .def("get_http_bound_address", &MldbPythonContext::getHttpBoundAddress)
+        .def("get_python_executable", &MldbPythonContext::getPythonExecutable)
+        .def("create_dataset", &DatasetPy::createDataset)
+        .def("create_procedure", &PythonProcedure::createPythonProcedure)
+        .def("create_function", &PythonFunction::createPythonFunction)
+        .def("debugSetPathOptimizationLevel", &MldbPythonContext::setPathOptimizationLevel)
+        ;
+#endif
+}
 
 void pythonLoaderInit(const EnterThreadToken & thread)
 {
-    namespace bp = boost::python;
-
     PyDateTime_IMPORT;
-    from_python_converter< RestParams, RestParamsConverter>();
-    bp::to_python_converter< RestParams, RestParamsConverter>();
+    //from_python_converter< RestParams, RestParamsConverter>();
+    //nanobind::to_python_converter< RestParams, RestParamsConverter>();
 
-    bp::class_<PythonRestRequest, std::shared_ptr<PythonRestRequest>, boost::noncopyable>("rest_request", bp::no_init)
-        .add_property("remaining",
-                      make_getter(&PythonRestRequest::remaining,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("verb",
-                      make_getter(&PythonRestRequest::verb,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("resource",
-                      make_getter(&PythonRestRequest::resource,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("rest_params",
-                      make_getter(&PythonRestRequest::restParams,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("payload",
-                      make_getter(&PythonRestRequest::payload,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("content_type",
-                      make_getter(&PythonRestRequest::contentType,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("content_length",
-                      make_getter(&PythonRestRequest::contentLength,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .add_property("headers",
-                      make_getter(&PythonRestRequest::headers,
-                                  bp::return_value_policy<bp::return_by_value>()))
-        .def("set_return", &PythonRestRequest::setReturnValue)
-        .def("set_return", &PythonRestRequest::setReturnValue1);
+#if 0
+    nanobind::class_<PythonRestRequest>(m, "rest_request")
+        .def_rw("remaining", &PythonRestRequest::remaining);
         ;
 
-    bp::class_<PythonPluginContext,
-               std::shared_ptr<PythonPluginContext>,
-               boost::noncopyable>
-        plugin("Plugin", bp::no_init);
-    bp::class_<PythonScriptContext,
-               std::shared_ptr<PythonScriptContext>,
-               boost::noncopyable>
-        script("Script", bp::no_init);
-    bp::class_<MldbPythonContext,
-               std::shared_ptr<MldbPythonContext>,
-               boost::noncopyable>
-        mldb("Mldb", bp::no_init);
+    nanobind::class_<PythonPluginContext,
+            std::shared_ptr<PythonPluginContext>,
+            /*boost::noncopyable*/>
+        plugin("Plugin", nanobind::no_init);
+    nanobind::class_<PythonScriptContext,
+            std::shared_ptr<PythonScriptContext>,
+            /*boost::noncopyable*/>
+        script("Script", nanobind::no_init);
+    nanobind::class_<MldbPythonContext,
+            std::shared_ptr<MldbPythonContext>,
+            /*boost::noncopyable*/>
+        mldb("Mldb", nanobind::no_init);
 
     script.add_property("args", &PythonScriptContext::getArgs);
     plugin.add_property("args", &PythonPluginContext::getArgs);
 
     plugin.def("serve_static_folder",
-               &PythonPluginContext::serveStaticFolder);
+            &PythonPluginContext::serveStaticFolder);
     plugin.def("serve_documentation_folder",
-               &PythonPluginContext::serveDocumentationFolder);
+            &PythonPluginContext::serveDocumentationFolder);
     plugin.def("get_plugin_dir",
-               &PythonPluginContext::getPluginDirectory);
+            &PythonPluginContext::getPluginDirectory);
 
-    mldb.def("log", bp::raw_function(logArgs, 1));
+    mldb.def("log", nanobind::raw_function(logArgs, 1));
     mldb.def("log", &MldbPythonContext::logUnicode);
     mldb.def("log", &MldbPythonContext::logJsVal);
     mldb.def("perform", &MldbPythonContext::perform); // for 5 args
@@ -518,21 +463,23 @@ void pythonLoaderInit(const EnterThreadToken & thread)
 
 
     mldb.def("create_dataset",
-             &DatasetPy::createDataset,
-             bp::return_value_policy<bp::manage_new_object>());
+            &DatasetPy::createDataset,
+            nanobind::return_value_policy<nanobind::manage_new_object>());
     mldb.def("create_procedure", &PythonProcedure::createPythonProcedure);
-             mldb.def("create_function", &PythonFunction::createPythonFunction);
+            mldb.def("create_function", &PythonFunction::createPythonFunction);
 
     mldb.add_property("script", &MldbPythonContext::getScript);
     mldb.add_property("plugin", &MldbPythonContext::getPlugin);
 
     mldb.def("debugSetPathOptimizationLevel",
-             &MldbPythonContext::setPathOptimizationLevel);
-
+            &MldbPythonContext::setPathOptimizationLevel);
+    }
     /****
      *  Functions
      *  **/
 
+#endif
+    cerr << "done loading python" << endl;
 }
 
 // Arrange for the above function to be run at the appropriate moment
@@ -541,6 +488,8 @@ void pythonLoaderInit(const EnterThreadToken & thread)
 // from AtInit.
 
 RegisterPythonInitializer regMe(&pythonLoaderInit);
+
+#endif
 
 struct AtInit {
     AtInit()
@@ -555,7 +504,5 @@ struct AtInit {
     }
 } atInit;
 
-
-} // file scope
 } // namespace MLDB
 

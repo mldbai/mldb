@@ -19,8 +19,8 @@
 #include "mldb/utils/replace_all.h"
 #include <memory>
 #include "frameobject.h"
-#include "pointer_fix.h"
 #include "capture_stream.h"
+#include "nanobind/stl/string.h"
 
 using namespace std;
 
@@ -35,6 +35,7 @@ namespace MLDB {
 std::shared_ptr<MldbPythonContext>
 findEnvironmentImpl()
 {
+    cerr << "findEnvironmentImpl strong version" << endl;
     return MldbPythonInterpreter::findEnvironment();
 }
 
@@ -50,11 +51,13 @@ std::shared_ptr<MldbPythonContext>
 MldbPythonInterpreter::
 findEnvironment()
 {
+    cerr << "findEnvironment" << endl;
     PyThreadState * st = PyThreadState_Get();
     ExcAssert(st);
 
     PyInterpreterState * interp = st->interp;
 
+    cerr << "looking for interpreter in " << environments.size() << " environments" << endl;
     auto it = environments.find(interp);
     if (it == environments.end())
         return nullptr;
@@ -68,17 +71,28 @@ MldbPythonInterpreter(std::shared_ptr<PythonContext> context)
 {
     auto enterThread = mainThread().enter();
 
-    mldb = std::make_shared<MldbPythonContext>(context);
-    
-    main_module = boost::python::import("__main__");
-    main_namespace = main_module.attr("__dict__");
+    try {
 
-    main_namespace["__mldb_environment__"]
-        = boost::python::object(boost::python::ptr(mldb.get()));
-    
-    injectOutputLoggingCode(*enterThread);
+        
+        mldb = std::make_shared<MldbPythonContext>(context);
+        environments[interpState.get()->interp] = mldb;
 
-    environments[interpState.get()->interp] = mldb;
+        nanobind::module_::import_("mldb");
+
+        main_module = nanobind::module_::import_("__main__");
+        main_namespace = main_module.attr("__dict__");
+
+#if 0
+        main_namespace["__mldb_environment__"] = mldb;
+#endif
+
+        injectOutputLoggingCode(*enterThread);
+
+    } catch (...) {
+        cerr << "got exception " << getExceptionString() << " initializing python interpreter" << endl;
+        environments.erase(interpState.get()->interp);
+        throw;
+    }
 }
 
 MldbPythonInterpreter::
@@ -98,8 +112,8 @@ destroy()
     {
         auto enterGuard = mainThread().enter();
 
-        main_module = boost::python::object();
-        main_namespace = boost::python::object();
+        main_module = nanobind::object();
+        main_namespace = nanobind::object();
 
         stdOutCapture.reset();
         stdErrCapture.reset();
@@ -113,7 +127,7 @@ destroy()
 ScriptException
 MldbPythonInterpreter::
 convertException(const EnterThreadToken & threadToken,
-                 const boost::python::error_already_set & exc2,
+                 const nanobind::python_error & exc,
                  const std::string & context)
 {
     try {
@@ -131,27 +145,21 @@ convertException(const EnterThreadToken & threadToken,
 
         ScriptException result;
 
-        using namespace boost::python;
-        using namespace boost;
 
-        PyObject *exc,*val,*tb;
-        object formatted_list, formatted;
-        PyErr_Fetch(&exc,&val,&tb);
-
-        if(val && PyUnicode_Check(val)) {
-            result.message = Utf8String(extract<string>(val));
+        auto val = exc.value();
+        cerr << "val is " << nanobind::repr(val).c_str() << endl;
+        if(val && PyUnicode_Check(val.ptr())) {
+            result.message = Utf8String(nanobind::cast<string>(val));
+        }
+        else {
+            result.message = "Cannot extract exception message from non-unicode Python string";
         }
 
-        PyErr_NormalizeException(&exc, &val, &tb);
-
-        handle<> hexc(exc),hval(allow_null(val)),htb(allow_null(tb));
-
         // Attempt to extract the type name
-        {
-            PyObject * repr = PyObject_Repr(exc);
-            Scope_Exit(Py_DECREF(repr));
-            std::string reprUtf8 = PyUnicode_AsUTF8(repr);
-        
+        nanobind::handle type = exc.type();
+        if (type) {
+            std::string reprUtf8 = nanobind::repr(type).c_str();
+            cerr << "exception repr is " << reprUtf8 << endl;
             static std::regex typePattern("<class '(.*)'>");
             std::smatch what;
             if (std::regex_match(reprUtf8, what, typePattern)) {
@@ -159,21 +167,12 @@ convertException(const EnterThreadToken & threadToken,
             }
         }        
 
-        if(val && PyUnicode_Check(val)) {
-            result.message = Utf8String(extract<string>(val));
-        }
-        else if (val) {
-            PyObject * str = PyObject_Str(val);
-            Scope_Exit(Py_DECREF(str));
-            result.message = PyUnicode_AsUTF8(str);
-        }
-            
+        nanobind::object traceback = exc.traceback();
 
-        if(htb) {
-            object tbb(htb);
-            result.lineNumber = extract<long>(tbb.attr("tb_lineno"));
+        if(traceback) {
+            result.lineNumber = nanobind::cast<long>(traceback.attr("tb_lineno"));
 
-            PyTracebackObject * ptb = (PyTracebackObject*)tb;
+            PyTracebackObject * ptb = (PyTracebackObject*)traceback.ptr();;
             while (ptb) {
                 auto frame = ptb->tb_frame;
                 long lineno = PyFrame_GetLineNumber(frame);
@@ -182,7 +181,6 @@ convertException(const EnterThreadToken & threadToken,
                 PyObject *filename = code->co_filename;
                 const char * fn = PyUnicode_AsUTF8(filename);
                 const char * func = PyUnicode_AsUTF8(code->co_name);
-
 
                 ScriptStackFrame sframe;
                 sframe.scriptUri = fn;
@@ -196,17 +194,16 @@ convertException(const EnterThreadToken & threadToken,
             }
         }
 
-        if (result.type == "SyntaxError" && hval) {
+        if (result.type == "SyntaxError" && val) {
             // Extra fixups required to parse the syntax error fields
-            object oval(hval);
-            result.lineNumber = boost::python::extract<long>(oval.attr("lineno"));
-            result.scriptUri = boost::python::extract<std::string>(oval.attr("filename"));
-            if (oval.attr("text")) {
-                result.lineContents = boost::python::extract<std::string>(oval.attr("text"));
+            result.lineNumber = nanobind::cast<long>(val.attr("lineno"));
+            result.scriptUri = nanobind::cast<std::string>(val.attr("filename"));
+            if (nanobind::hasattr(val, "text")) {
+                result.lineContents = nanobind::cast<std::string>(val.attr("text"));
             }
             
-            result.columnStart = boost::python::extract<long>(oval.attr("offset"));
-            PyObject * str = PyObject_Str(val);
+            result.columnStart = nanobind::cast<long>(val.attr("offset"));
+            PyObject * str = PyObject_Str(val.ptr());
             Scope_Exit(Py_DECREF(str));
             result.message = PyUnicode_AsUTF8(str);
         }
@@ -220,7 +217,7 @@ convertException(const EnterThreadToken & threadToken,
         result.context = {context};
 
         return result;
-    } catch (const boost::python::error_already_set & exc) {
+    } catch (const nanobind::python_error & exc) {
         PyErr_Print();
         throw;
     }
@@ -356,15 +353,15 @@ MldbPythonInterpreter::
 runPythonScript(const EnterThreadToken & threadToken,
                 Utf8String scriptSource,
                 Utf8String scriptUri,
-                boost::python::object globals,
-                boost::python::object locals)
+                nanobind::object globals,
+                nanobind::object locals)
 {
     ScriptOutput result;
 
     try {
         MLDB_TRACE_EXCEPTIONS(false);
         
-        boost::python::object obj =
+        nanobind::object obj =
             PythonThread
             ::exec(threadToken,
                    scriptSource,
@@ -374,7 +371,7 @@ runPythonScript(const EnterThreadToken & threadToken,
         
         getOutputFromPy(threadToken, result);
     }
-    catch (const boost::python::error_already_set & exc) {
+    catch (const nanobind::python_error & exc) {
         ScriptException pyexc
             = convertException(threadToken, exc,
                                "Running python script");
@@ -408,18 +405,8 @@ PythonRestRequest(const RestRequest & request,
     payload = request.payload;
     contentType = request.header.contentType;
     contentLength = request.header.contentLength;
-
-    for(const std::pair<Utf8String, Utf8String> & p : request.params) {
-        boost::python::list inner_list;
-        inner_list.append(p.first);
-        inner_list.append(p.second);
-        restParams.append(inner_list);
-    }
-
-    for(auto it = request.header.headers.begin();
-            it != request.header.headers.end(); it++) {
-        headers[it->first] = it->second;
-    }
+    restParams = request.params;
+    headers = request.header.headers;
 }
 
 void
@@ -689,39 +676,11 @@ setPathOptimizationLevel(const std::string & val)
 
 Json::Value
 MldbPythonContext::
-perform2(const std::string & verb,
-         const std::string & resource)
-{
-    return perform(verb, resource);
-}
-
-
-Json::Value
-MldbPythonContext::
-perform3(const std::string & verb,
-         const std::string & resource,
-         const RestParams & params)
-{
-    return perform(verb, resource, params);
-}
-
-Json::Value
-MldbPythonContext::
-perform4(const std::string & verb,
-         const std::string & resource,
-         const RestParams & params,
-         Json::Value payload)
-{
-    return perform(verb, resource, params, payload);
-}
-
-Json::Value
-MldbPythonContext::
 perform(const std::string & verb,
         const std::string & resource,
-        const RestParams & params,
+        const RestParamsBase & params,
         Json::Value payload,
-        const RestParams & headers)
+        const RestParamsBase & headers)
 {
     HttpHeader header;
     header.verb = verb;
@@ -759,13 +718,6 @@ perform(const std::string & verb,
         result["response"] = connection->response();
 
     return result;
-}
-
-Json::Value
-MldbPythonContext::
-readLines1(const std::string & path)
-{
-    return readLines(path);
 }
 
 Json::Value

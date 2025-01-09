@@ -12,9 +12,7 @@
 #include <signal.h>
 
 // Python includes aren't ready for c++17 which doesn't support register
-#define register 
 #include <Python.h>
-#undef register
 
 #include "python_interpreter.h"
 #include "mldb/base/scope.h"
@@ -202,13 +200,13 @@ exitThread(EnterThreadToken * token)
 // license.  Copyright Stefan Seefeld 2005
 // http://www.boost.org/LICENSE_1_0.txt
 
-boost::python::object
+nanobind::object
 PythonThread::
 exec(const EnterThreadToken & threadToken,
      const Utf8String & code,
      const Utf8String & filename,
-     boost::python::object global,
-     boost::python::object local)
+     nanobind::object global,
+     nanobind::object local)
 {
     // We create a pipe so that we don't need to open a temporary
     // file.  Unfortunately Python only allows us to pass a filename
@@ -307,13 +305,13 @@ exec(const EnterThreadToken & threadToken,
     Scope_Exit(::fclose(file));
     fds[0] = -1;  // stop the fd guard from closing it, since now we have a guard
 
-    using namespace boost::python;
+    using namespace nanobind;
     // From here on in is copied from the Boost version
     // Set suitable default values for global and local dicts.
     object none;
     if (global.ptr() == none.ptr()) {
         if (PyObject *g = PyEval_GetGlobals())
-            global = object(boost::python::detail::borrowed_reference(g));
+            global = object(nanobind::borrow(g));
         else
             global = dict();
     }
@@ -333,8 +331,10 @@ exec(const EnterThreadToken & threadToken,
     if (t.joinable())
         t.join();
 
-    if (!result) throw_error_already_set();
-    return boost::python::object(boost::python::detail::new_reference(result));
+    if (!result) {
+        raise_python_error();
+    }
+    return object(nanobind::steal(result));
 }
 
 

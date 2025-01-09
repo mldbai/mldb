@@ -7,9 +7,8 @@
 
 #pragma once
 
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
 #include <memory>
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
 #include "mldb/types/string.h"
 #include "mldb/compiler/compiler.h"
 
@@ -126,12 +125,12 @@ struct PythonThread {
         enable the provider of the code to have full control over the
         MLDB process.
     */
-    static boost::python::object
+    static nanobind::object
     exec(const EnterThreadToken & threadToken,
          const Utf8String & code,
          const Utf8String & filename,
-         boost::python::object global = boost::python::object(),
-         boost::python::object local = boost::python::object());
+         nanobind::object global = nanobind::object(),
+         nanobind::object local = nanobind::object());
     
 private:
     std::shared_ptr<PyThreadState> st_;

@@ -6,13 +6,17 @@ MLDB_PYTHON_ADDON_SOURCES := \
 
 MLDB_PYTHON_ADDON_LINK := \
 	$(PYTHON_LIBRARY) \
-	$(BOOST_PYTHON_LIBRARY) \
 	mldb_python_plugin \
 	arch \
+	base \
+	types \
+	value_description \
+	nanobind \
+
 
 $(eval $(call python_addon,_mldb,$(MLDB_PYTHON_ADDON_SOURCES),$(MLDB_PYTHON_ADDON_LINK)))
 
-$(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH)))
+$(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH) -I$(NANOBIND_INCLUDE_PATH)))
 
 $(eval $(call python_module,mldb,$(notdir $(wildcard $(CWD)/*.py)),_mldb))
 

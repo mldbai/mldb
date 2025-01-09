@@ -28,7 +28,7 @@ class PythonConverterTest(unittest.TestCase):
         self.assertEqual(tester.getVectorString(val), val)
 
     def test_pair_string_int(self):
-        val = ["a", 45]
+        val = ("a", 45)
         self.assertEqual(tester.getPairStringInt(val), val)
 
     def test_json_val_to_cpp(self):

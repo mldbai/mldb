@@ -13,20 +13,19 @@
 
 #pragma once
 
-#define BOOST_BIND_GLOBAL_PLACEHOLDERS
-
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
 #include "mldb/types/date.h"
 #include <vector>
 #include <memory>
 #include "mldb/base/exc_check.h"
 #include "mldb/ext/jsoncpp/value.h"
-#include "pointer_fix.h"
+#include "mldb/types/string.h"
 
 namespace MLDB {
 
 namespace Python {
 
+#if 0
 /******************************************************************************/
 /*   PAIR CONVERTER                                                           */
 /******************************************************************************/
@@ -41,25 +40,25 @@ template<typename T1, typename T2>
 struct PairConverter
 {
 
-    typedef boost::python::list PyTuple;
+    typedef nanobind::list PyTuple;
 
     /** PyTuple ?-> std::pair<T1, T2> */
     static void* convertible(PyObject* obj)
     { 
         //std::cout << "convertible called" << std::endl;
-        boost::python::extract<PyTuple> tupleExtract(obj);
+        nanobind::cast<PyTuple> tupleExtract(obj);
         if (!tupleExtract.check()) return nullptr;
         PyTuple tuple = tupleExtract();
-        if (boost::python::len(tuple) != 2) return nullptr;
+        if (nanobind::len(tuple) != 2) return nullptr;
 
         // We may also want to make sure that every element is convertible.
         // Otherwise we can just let it fail during construction.
-        boost::python::extract<T1> extract1(tuple[0]);
+        nanobind::cast<T1> extract1(tuple[0]);
         if (!extract1.check())
         {
             return nullptr;
         }
-        boost::python::extract<T2> extract2(tuple[1]);
+        nanobind::cast<T2> extract2(tuple[1]);
         if (!extract2.check())
         {
             return nullptr;
@@ -73,11 +72,11 @@ struct PairConverter
     static void construct(PyObject* obj, void* storage)
     {
         //std::cout << "construct called" << std::endl;
-        PyTuple tuple = boost::python::extract<PyTuple>(obj)();
+        PyTuple tuple = nanobind::cast<PyTuple>(obj)();
         std::pair<T1, T2>* p = new (storage) std::pair<T1, T2>();
 
-        p->first = boost::python::extract<T1>(tuple[0])();
-        p->second = boost::python::extract<T2>(tuple[1])();
+        p->first = nanobind::cast<T1>(tuple[0])();
+        p->second = nanobind::cast<T2>(tuple[1])();
         //std::cout << "construct returning" << std::endl;
     }
 
@@ -90,7 +89,7 @@ struct PairConverter
         tuple->append(p.first);
         tuple->append(p.second);
 
-        return boost::python::incref(tuple->ptr());
+        return nanobind::incref(tuple->ptr());
     }
 };
 
@@ -111,30 +110,30 @@ template<typename T1, typename T2, typename T3>
 struct Tuple3ElemConverter
 {
 
-    typedef boost::python::list PyTuple;
+    typedef nanobind::list PyTuple;
 
     /** PyTuple ?-> std::tuple<T1, T2, T3> */
     static void* convertible(PyObject* obj)
     { 
         //std::cout << "tuple convertible called" << std::endl;
-        boost::python::extract<PyTuple> tupleExtract(obj);
+        nanobind::cast<PyTuple> tupleExtract(obj);
         if (!tupleExtract.check()) return nullptr;
         PyTuple tuple = tupleExtract();
-        if (boost::python::len(tuple) != 3) return nullptr;
+        if (nanobind::len(tuple) != 3) return nullptr;
 
         // We may also want to make sure that every element is convertible.
         // Otherwise we can just let it fail during construction.
-        boost::python::extract<T1> extract1(tuple[0]);
+        nanobind::cast<T1> extract1(tuple[0]);
         if (!extract1.check())
         {
             return nullptr;
         }
-        boost::python::extract<T2> extract2(tuple[1]);
+        nanobind::cast<T2> extract2(tuple[1]);
         if (!extract2.check())
         {
             return nullptr;
         }
-        boost::python::extract<T3> extract3(tuple[2]);
+        nanobind::cast<T3> extract3(tuple[2]);
         if (!extract3.check())
         {
             return nullptr;
@@ -148,12 +147,12 @@ struct Tuple3ElemConverter
     static void construct(PyObject* obj, void* storage)
     {
         //std::cout << "construct called" << std::endl;
-        PyTuple tuple = boost::python::extract<PyTuple>(obj)();
+        PyTuple tuple = nanobind::cast<PyTuple>(obj)();
         std::tuple<T1, T2, T3>* p = new (storage) std::tuple<T1, T2, T3>();
 
-        std::get<0>(*p) = boost::python::extract<T1>(tuple[0])();
-        std::get<1>(*p) = boost::python::extract<T2>(tuple[1])();
-        std::get<2>(*p) = boost::python::extract<T3>(tuple[2])();
+        std::get<0>(*p) = nanobind::cast<T1>(tuple[0])();
+        std::get<1>(*p) = nanobind::cast<T2>(tuple[1])();
+        std::get<2>(*p) = nanobind::cast<T3>(tuple[2])();
         //std::cout << "construct returning" << std::endl;
     }
 
@@ -167,7 +166,7 @@ struct Tuple3ElemConverter
         tuple->append(std::get<1>(p));
         tuple->append(std::get<2>(p));
 
-        return boost::python::incref(tuple->ptr());
+        return nanobind::incref(tuple->ptr());
     }
 };
 
@@ -185,23 +184,23 @@ template<typename T, bool safe = false>
 struct VectorConverter
 {
 
-    typedef boost::python::list PyList;
+    typedef nanobind::list PyList;
 
     /** PyList ?-> std::vector<T> */
     static void* convertible(PyObject* obj)
     {
         //std::cout << "vector convertible called" << std::endl;
-        boost::python::extract<PyList> listExtract(obj);
+        nanobind::cast<PyList> listExtract(obj);
         if (!listExtract.check()) return nullptr;
 
         // We may also want to make sure that every element is convertible.
         // Otherwise we can just let it fail during construction.
         if (safe) {
             PyList pyList = listExtract();
-            boost::python::ssize_t n = boost::python::len(pyList);
+            nanobind::ssize_t n = nanobind::len(pyList);
 
-            for (boost::python::ssize_t i = 0; i < n; ++i) {
-                boost::python::extract<T> eleExtract(pyList[i]);
+            for (nanobind::ssize_t i = 0; i < n; ++i) {
+                nanobind::cast<T> eleExtract(pyList[i]);
                 if (!eleExtract.check())
                 {
                     return nullptr;
@@ -216,14 +215,14 @@ struct VectorConverter
     static void construct(PyObject* obj, void* storage)
     {
         //std::cout << "vector construct" << std::endl;
-        PyList pyList = boost::python::extract<PyList>(obj)();
+        PyList pyList = nanobind::cast<PyList>(obj)();
         std::vector<T>* vec = new (storage) std::vector<T>();
 
-        boost::python::ssize_t n = boost::python::len(pyList);
+        nanobind::ssize_t n = nanobind::len(pyList);
         vec->reserve(n);
 
-        for (boost::python::ssize_t i = 0; i < n; ++i)
-            vec->push_back(boost::python::extract<T>(pyList[i])());
+        for (nanobind::ssize_t i = 0; i < n; ++i)
+            vec->push_back(nanobind::cast<T>(pyList[i])());
     }
 
 
@@ -236,10 +235,9 @@ struct VectorConverter
             list->append(element);
 
         // incref because of: https://misspent.wordpress.com/2009/09/27/how-to-write-boost-python-converters/
-        return boost::python::incref(list->ptr());
+        return nanobind::incref(list->ptr());
     }
 };
-
 
 /******************************************************************************/
 /* DATE TO DATE TIME                                                          */
@@ -272,7 +270,7 @@ struct DateFromPython
 template<class T>
 struct IntToPyLong
 #ifndef BOOST_PYTHON_NO_PY_SIGNATURES
-    : boost::python::converter::to_python_target_type<T>  //inherits get_pytype
+    : nanobind::converter::to_python_target_type<T>  //inherits get_pytype
 #endif
 {
     static PyObject* convert(const T& intwrap)
@@ -317,10 +315,10 @@ struct StrConstructableIdFromPython
         using std::to_string;
         std::string id;
         if (PyLong_Check(obj_ptr)) {
-            id = to_string(boost::python::extract<long>(obj_ptr)());
+            id = to_string(nanobind::cast<long>(obj_ptr)());
         }
         else if (PyFloat_Check(obj_ptr)) {
-            id = to_string(boost::python::extract<double>(obj_ptr)());
+            id = to_string(nanobind::cast<double>(obj_ptr)());
         }
         else if (PyUnicode_Check(obj_ptr) || PyBytes_Check(obj_ptr)) {
             if (PyUnicode_Check(obj_ptr)) {
@@ -328,7 +326,7 @@ struct StrConstructableIdFromPython
                 ExcCheck(obj_ptr!=nullptr,
                         "Error converting unicode to ASCII");
             }
-            id = boost::python::extract<std::string>(obj_ptr)();
+            id = nanobind::cast<std::string>(obj_ptr)();
         } else {
             throw MLDB::Exception("StrConstructableIdFromPython: "
                                 "Failed to convert value to id");
@@ -354,7 +352,7 @@ struct IndexFromPython
 
     static void construct(PyObject* obj_ptr, void* storage)
     {
-        new (storage) IndexT(boost::python::extract<long>(obj_ptr)());
+        new (storage) IndexT(nanobind::cast<long>(obj_ptr)());
     }
 };
 
@@ -374,34 +372,60 @@ struct Utf8StringPyConverter
     /** Json::Value -> PyDict */
     static PyObject* convert(const Utf8String & str);
 };
+#endif
 
+/******************************************************************************/
+/* Utf8String CONVERTER                                                       */
+/******************************************************************************/
+
+bool from_python(nanobind::handle src, uint8_t flags, nanobind::detail::cleanup_list *cleanup, Utf8String * result) noexcept;
+nanobind::handle from_cpp(const Utf8String & value, nanobind::rv_policy policy, nanobind::detail::cleanup_list *cleanup);
 
 /******************************************************************************/
 /* Json::Value CONVERTER                                                      */
 /******************************************************************************/
 
-/**
- * To and from convertion of Json::Value to PythonDict
- */
-struct JsonValueConverter
-{
-    typedef boost::python::dict PyDict;
-
-    /** PyDict ?-> Json::Value */
-    static void* convertible(PyObject* obj);
-
-    static Json::Value construct_recur(PyObject * pyObj);
-
-    /** PyDict -> Json::Value */
-    static void construct(PyObject* obj, void* storage);
-
-    static boost::python::object* convert_recur(const Json::Value & js);
-
-    /** Json::Value -> PyDict */
-    static PyObject* convert(const Json::Value & js);
-};
-
+bool from_python(nanobind::handle src, uint8_t flags, nanobind::detail::cleanup_list *cleanup, Json::Value * result) noexcept;
+nanobind::handle from_cpp(const Json::Value & value, nanobind::rv_policy policy, nanobind::detail::cleanup_list *cleanup);
 
 } // namespace Python
-
 } // namespace MLDB
+
+
+NAMESPACE_BEGIN(NB_NAMESPACE)
+NAMESPACE_BEGIN(detail)
+
+template<> struct type_caster<Json::Value> {
+    NB_TYPE_CASTER(Json::Value, const_name("json"));
+
+    /// Python -> C++ caster, populates cast_value upon success
+    bool from_python(handle src, uint8_t flags, cleanup_list *cleanup) noexcept
+    {
+        return MLDB::Python::from_python(src, flags, cleanup, &value);
+    }
+
+    // C++ to Python
+    static handle from_cpp(const Json::Value & value, rv_policy policy, cleanup_list *cleanup)
+    {
+        return MLDB::Python::from_cpp(value, policy, cleanup);
+    }
+};
+
+template<> struct type_caster<MLDB::Utf8String> {
+    NB_TYPE_CASTER(MLDB::Utf8String, const_name("utf8"));
+
+    /// Python -> C++ caster, populates cast_value upon success
+    bool from_python(handle src, uint8_t flags, cleanup_list *cleanup) noexcept
+    {
+        return MLDB::Python::from_python(src, flags, cleanup, &value);
+    }
+
+    // C++ to Python
+    static handle from_cpp(const MLDB::Utf8String & value, rv_policy policy, cleanup_list *cleanup)
+    {
+        return MLDB::Python::from_cpp(value, policy, cleanup);
+    }
+};
+
+NAMESPACE_END(detail)
+NAMESPACE_END(NB_NAMESPACE)

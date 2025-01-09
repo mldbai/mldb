@@ -7,7 +7,7 @@ set(MLDB_PYTHON_ADDON_SOURCES
 # Define the libraries required for linking
 set(MLDB_PYTHON_ADDON_LINK 
     ${PYTHON_LIBRARY}
-    ${BOOST_PYTHON_LIBRARY}
+    nanobind
     mldb_python_plugin
     arch)
 

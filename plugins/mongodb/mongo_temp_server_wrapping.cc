@@ -4,11 +4,11 @@
  * This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
  **/
 
-#include <boost/python.hpp>
+#include "nanobind/nanobind.h"
 #include "mongo_temporary_server.h"
 
 using namespace std;
-using namespace boost::python;
+using namespace nanobind;
 using namespace MLDB;
 
 using namespace Mongo;
@@ -32,9 +32,8 @@ struct MongoTemporaryServerPtr {
     }
 };
 
-BOOST_PYTHON_MODULE(python_mongo_temp_server_wrapping) {
-    class_<MongoTemporaryServerPtr>("MongoTemporaryServerPtr",
-                                    init<std::string, int>())
+NB_MODULE(python_mongo_temp_server_wrapping) {
+    class_<MongoTemporaryServerPtr>(m, "MongoTemporaryServerPtr")
         .def("test_connection", &MongoTemporaryServerPtr::testConnection)
         .def("get_port_num", &MongoTemporaryServerPtr::getPortNum);
 }
