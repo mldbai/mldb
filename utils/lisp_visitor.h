@@ -8,7 +8,7 @@
 #pragma once
 
 #include "lisp_value.h"
-#include "mldb/types/is_visitable.h"
+#include "mldb/utils/is_visitable.h"
 #include <utility>
 #include <iostream>
 
