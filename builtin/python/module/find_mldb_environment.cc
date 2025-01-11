@@ -20,11 +20,13 @@
 */
 
 #include <Python.h>
+#include "datetime.h"
 #include "nanobind/nanobind.h"
 #include "nanobind/stl/shared_ptr.h"
 #include "nanobind/stl/string.h"
 #include "nanobind/stl/vector.h"
 #include "nanobind/stl/pair.h"
+#include "nanobind/stl/tuple.h"
 #include "mldb/builtin/python/python_converters.h"
 #include <dlfcn.h>
 
@@ -84,7 +86,7 @@ findEnvironmentImpl() MLDB_WEAK_FN;
 std::shared_ptr<MldbPythonContext>
 findEnvironmentImpl()
 {
-    cerr << "findEnvironmentImpl weak version" << endl;
+    //cerr << "findEnvironmentImpl weak version" << endl;
     return nullptr;
 }
 
@@ -172,26 +174,20 @@ std::string pyObjectToString(PyObject * pyObj)
 };
 #endif
 
-nanobind::object
-logArgs(nanobind::tuple args, nanobind::dict kwargs)
+void logArgs(nanobind::args args, nanobind::kwargs kwargs)
 {
-    MLDB_THROW_UNIMPLEMENTED();
-#if 0    
-    if(len(args) < 1) {
-        return nanobind::object();
+    if(nanobind::len(args) < 1) {
+        return;
     }
     
-    string str_accum; 
-    for(int i = 1; i < len(args); ++i) {
+    Utf8String str_accum; 
+    for(int i = 1; i < nanobind::len(args); ++i) {
         if(i > 1) str_accum += " ";
-        str_accum += pyObjectToString(nanobind::object(args[i]).ptr());
+        str_accum += nanobind::str(args[i]).c_str();
     }
 
-    MldbPythonContext* pymldb = nanobind::cast<MldbPythonContext*>(nanobind::object(args[0]).ptr());
-    pymldb->log(str_accum);
-
-    return nanobind::object();
-#endif
+    MldbPythonContext* pymldb = nanobind::cast<MldbPythonContext*>(args[0]);
+    pymldb->logUnicode(str_accum);
 }
 
 } // file scope
@@ -199,20 +195,25 @@ logArgs(nanobind::tuple args, nanobind::dict kwargs)
 NB_MODULE(_mldb, m) {
     namespace nb = nanobind;
     using namespace nb::literals;
-    cerr << "initializing MLDB module" << endl;
     nanobind::class_<MldbPythonContext>(m, "Mldb")
         .def("log", logArgs)
-        .def("log", &MldbPythonContext::logUnicode)
-        .def("log", &MldbPythonContext::logJsVal)
-        .def("perform", &MldbPythonContext::perform, "verb"_a, "resource"_a,
-             nb::arg("params") = RestParamsBase(), nb::arg("payload").none() = Json::Value(), nb::arg("header") = RestParamsBase())
-        .def("read_lines", &MldbPythonContext::readLines, "path"_a, nb::arg("max_lines") = -1)
+        .def("log", &MldbPythonContext::logUnicode, "message"_a)
+        .def("log", &MldbPythonContext::logJsVal, "message"_a)
+        .def("perform", &MldbPythonContext::perform,
+            "verb"_a, "resource"_a,
+             nb::arg("params").none() = RestParams(),
+             nb::arg("payload").none() = Json::Value(),
+             nb::arg("header").none() = RestParams())
+        .def("read_lines", &MldbPythonContext::readLines,
+             "path"_a, nb::arg("max_lines") = -1)
         .def("ls", &MldbPythonContext::ls)
         .def("get_http_bound_address", &MldbPythonContext::getHttpBoundAddress)
         .def("get_python_executable", &MldbPythonContext::getPythonExecutable)
         .def("create_dataset", &DatasetPy::createDataset)
         .def("create_procedure", &PythonProcedure::createPythonProcedure)
         .def("create_function", &PythonFunction::createPythonFunction)
+        .def_prop_ro("plugin", &MldbPythonContext::getPlugin)
+        .def_prop_ro("script", &MldbPythonContext::getScript)
         .def("debugSetPathOptimizationLevel", &MldbPythonContext::setPathOptimizationLevel)
         ;
 
@@ -225,8 +226,7 @@ NB_MODULE(_mldb, m) {
         .def_ro("content_type", &PythonRestRequest::contentType)
         .def_ro("content_length", &PythonRestRequest::contentLength)
         .def_ro("headers", &PythonRestRequest::headers)
-        .def("set_return", &PythonRestRequest::setReturnValue)
-        .def("set_return", &PythonRestRequest::setReturnValue1)
+        .def("set_return", &PythonRestRequest::setReturnValue, nb::arg("return_val").none(), nb::arg("return_code") = 200)
         ;
 
     nanobind::class_<PythonPluginContext>(m, "Plugin")
@@ -241,6 +241,13 @@ NB_MODULE(_mldb, m) {
         ;
 
     m.def("find_mldb_environment", findEnvironment);
+
+    nanobind::class_<DatasetPy>(m, "Dataset")
+        .def("record_row", &DatasetPy::recordRow)
+        .def("record_rows", &DatasetPy::recordRows)
+        .def("record_column", &DatasetPy::recordColumn)
+        .def("record_columns", &DatasetPy::recordColumns)
+        .def("commit", &DatasetPy::commit);
 }
 
 } // namespace MLDB

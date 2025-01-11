@@ -22,7 +22,9 @@ class Utf8String; // All methods that implement this are defined in the types
 class Exception : public std::exception {
 public:
     Exception(const std::string & msg);
-    Exception(const Utf8String & msg);
+    Exception(std::string && msg);
+    Exception(const Utf8String & msg);  // implemented in types
+    Exception(Utf8String && msg);  // implemented in types
     Exception(const char * msg, ...);
     Exception(const char * msg, va_list ap);
     Exception(int errnum, const std::string & msg, const char * function = 0);
@@ -63,25 +65,45 @@ struct AssertionFailure: public Exception {
                       int line);
 };
 
-/*****************************************************************************/
-/* UNIMPLEMENTED EXCEPTION                                                   */
-/*****************************************************************************/
+// Apply the macro to all of the exception classes; if we want another one,
+// we add it to this list
+#define MLDB_FOR_EACH_EXCEPTION_CLASS(macro) \
+    macro(UnimplementedException) \
+    macro(RuntimeError) \
+    macro(LogicError) \
+    macro(BadAlloc) \
+    macro(RangeError) \
 
-/** Exception thrown when something is unimplemented. */
+#define MLDB_DEFINE_EXCEPTION_CLASS(Name)   \
+struct Name: public Exception {             \
+    Name(const std::string & message);      \
+    Name(const char * function,             \
+         const char * file,                 \
+         int line);                         \
+    Name(const char * function,             \
+         const char * file,                 \
+         int line,                          \
+         const char * msg,                  \
+         ...);                              \
+    Name(const char * function,             \
+         const char * file,                 \
+         int line,                          \
+         const std::string msg,             \
+         ...);                              \
+};                                          \
+[[noreturn]] void throw##Name(const char * function, const char * file, int line, const char * msg = nullptr, ...); \
+[[noreturn]] void throw##Name(const char * function, const char * file, int line, const std::string msg, ...); \
+[[noreturn]] void throw##Name(const char * function, const char * file, int line, const Utf8String msg, ...);
+[[noreturn]] void throwUnimplementedException(const std::type_info & thisType, const char * function, const char * file, int line, const std::string msg, ...);
 
-struct UnimplementedException: public Exception {
-    UnimplementedException(const char * function,
-                           const char * file,
-                           int line);
-    UnimplementedException(const char * function,
-                           const char * file,
-                           int line,
-                           const char * msg,
-                           ...);
-};
+MLDB_FOR_EACH_EXCEPTION_CLASS(MLDB_DEFINE_EXCEPTION_CLASS)
 
-#define MLDB_THROW_UNIMPLEMENTED(...) do { throw UnimplementedException(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
-
+#define MLDB_THROW_UNIMPLEMENTED(...) do { throwUnimplementedException(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
+#define MLDB_THROW_UNIMPLEMENTED_ON_THIS(...) do { throwUnimplementedException(typeid(*this), __PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
+#define MLDB_THROW_LOGIC_ERROR(...) do { throwLogicError(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
+#define MLDB_THROW_RUNTIME_ERROR(...) do { throwRuntimeError(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
+#define MLDB_THROW_BAD_ALLOC(...) do { throwBadAlloc(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
+#define MLDB_THROW_RANGE_ERROR(...) do { throwRangeError(__PRETTY_FUNCTION__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__); } while (false)
 
 
 } // namespace MLDB

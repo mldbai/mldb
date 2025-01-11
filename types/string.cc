@@ -31,6 +31,11 @@ Exception::Exception(const Utf8String & msg)
 {
 }
 
+Exception::Exception(Utf8String && msg)
+    : message(msg.stealRawString())
+{
+}
+
 Exception::
 Exception(int errnum, const Utf8String & msg, const char * function)
 : Exception(errnum, msg.rawString(), function)
@@ -410,12 +415,13 @@ doCheck() const
 {
     // Check if we find an invalid encoding
     string::const_iterator end_it = utf8::find_invalid(data_.begin(), data_.end());
-    if (end_it != data_.end())
-        {
-            throw MLDB::Exception("Invalid sequence within utf-8 string: pos "
-                                  + std::to_string(end_it - data_.begin())
-                                  + " chars: " + std::to_string((int)*end_it));
-        }
+    if (end_it != data_.end()) {
+        cerr << "invalid data is " << data_ << endl;
+        cerr << "before is " << string(data_.begin(), end_it) << endl;
+        throw MLDB::Exception("Invalid sequence within utf-8 string: pos "
+                                + std::to_string(end_it - data_.begin())
+                                + " chars: " + std::to_string((int)*end_it));
+    }
 }
 
 Utf8String::iterator

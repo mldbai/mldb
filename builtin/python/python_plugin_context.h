@@ -120,7 +120,7 @@ struct PythonRestRequest {
     Utf8String remaining;
     std::string verb;
     std::string resource;
-    std::vector<std::pair<Utf8String, Utf8String>> restParams;
+    RestParams restParams;
     Json::Value payload;
     std::string contentType;
     int contentLength;
@@ -129,9 +129,6 @@ struct PythonRestRequest {
     // Must hold GIL; only called from Python so automatically true
     void setReturnValue(const Json::Value & rtnVal, unsigned returnCode=200);
 
-    // Must hold GIL; only called from Python so automatically true
-    void setReturnValue1(const Json::Value & rtnVal);
-    
     // These two are protected by the GIL
     Json::Value returnValue;
     int returnCode = -1;
@@ -147,10 +144,10 @@ struct PythonContext {
 
     virtual ~PythonContext();
     
-    void log(const std::string & message);
+    void log(const Utf8String & message);
 
     void logToStream(const char * stream,
-                     const std::string & message);
+                     const Utf8String & message);
     
     std::mutex logMutex;  /// protects the categories below
     Logging::Category category, loader, stdout, stderr;
@@ -222,7 +219,6 @@ struct MldbPythonContext {
     std::shared_ptr<PythonPluginContext> getPlugin();
     std::shared_ptr<PythonScriptContext> getScript();
 
-    void log(const std::string & message);
     void logJsVal(const Json::Value & jsVal);
     void logUnicode(const Utf8String & msg);
 
@@ -237,9 +233,9 @@ struct MldbPythonContext {
     Json::Value
     perform(const std::string & verb,
             const std::string & resource,
-            const RestParamsBase & params=RestParamsBase(),
+            const RestParams & params=RestParams(),
             Json::Value payload=Json::Value(),
-            const RestParamsBase & header=RestParamsBase());
+            const RestParams & header=RestParams());
 
     Json::Value
     readLines(const std::string & path,

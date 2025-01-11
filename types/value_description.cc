@@ -527,9 +527,9 @@ parseJson(void * output, JsonParsingContext & context) const
         auto onMember = [&] ()
             {
                 try {
-                    auto n = context.fieldNamePtr();
+                    auto n = context.fieldName(); // TODO: use FieldNameView
 
-                    auto it = fields.find(n);
+                    auto it = fields.find(n.c_str());
                     if (it == fields.end()) {
                         context.onUnknownField(owner);
                     }

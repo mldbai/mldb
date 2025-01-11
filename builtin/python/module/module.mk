@@ -12,7 +12,7 @@ MLDB_PYTHON_ADDON_LINK := \
 	types \
 	value_description \
 	nanobind \
-
+	sql_types \
 
 $(eval $(call python_addon,_mldb,$(MLDB_PYTHON_ADDON_SOURCES),$(MLDB_PYTHON_ADDON_LINK)))
 

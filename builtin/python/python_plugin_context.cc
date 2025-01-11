@@ -35,7 +35,7 @@ namespace MLDB {
 std::shared_ptr<MldbPythonContext>
 findEnvironmentImpl()
 {
-    cerr << "findEnvironmentImpl strong version" << endl;
+    //cerr << "findEnvironmentImpl strong version" << endl;
     return MldbPythonInterpreter::findEnvironment();
 }
 
@@ -51,13 +51,13 @@ std::shared_ptr<MldbPythonContext>
 MldbPythonInterpreter::
 findEnvironment()
 {
-    cerr << "findEnvironment" << endl;
+    //cerr << "findEnvironment" << endl;
     PyThreadState * st = PyThreadState_Get();
     ExcAssert(st);
 
     PyInterpreterState * interp = st->interp;
 
-    cerr << "looking for interpreter in " << environments.size() << " environments" << endl;
+    //cerr << "looking for interpreter in " << environments.size() << " environments" << endl;
     auto it = environments.find(interp);
     if (it == environments.end())
         return nullptr;
@@ -147,12 +147,8 @@ convertException(const EnterThreadToken & threadToken,
 
 
         auto val = exc.value();
-        cerr << "val is " << nanobind::repr(val).c_str() << endl;
-        if(val && PyUnicode_Check(val.ptr())) {
-            result.message = Utf8String(nanobind::cast<string>(val));
-        }
-        else {
-            result.message = "Cannot extract exception message from non-unicode Python string";
+        if (val) {
+            result.message = nanobind::str(val).c_str();
         }
 
         // Attempt to extract the type name
@@ -417,13 +413,6 @@ setReturnValue(const Json::Value & rtnVal, unsigned returnCode)
     this->returnCode = returnCode;
 }
 
-void
-PythonRestRequest::
-setReturnValue1(const Json::Value & rtnVal)
-{
-    setReturnValue(rtnVal, 200);
-}
-
 
 /****************************************************************************/
 /* PYTHON CONTEXT                                                           */
@@ -447,7 +436,7 @@ PythonContext::
 
 void
 PythonContext::
-log(const std::string & message)
+log(const Utf8String & message)
 {
     std::unique_lock<std::mutex> guard(logMutex);
     LOG(category) << message << endl;
@@ -457,7 +446,7 @@ log(const std::string & message)
 void
 PythonContext::
 logToStream(const char * stream,
-            const std::string & message)
+            const Utf8String & message)
 {
     std::unique_lock<std::mutex> guard(logMutex);
     if (strcmp(stream, "stdout")) {
@@ -588,13 +577,6 @@ MldbPythonContext(std::shared_ptr<PythonContext> context)
 
 void
 MldbPythonContext::
-log(const std::string & message)
-{
-    getPyContext()->log(message);
-}
-
-void
-MldbPythonContext::
 logJsVal(const Json::Value & jsVal)
 {
     if(jsVal.isObject() || jsVal.isArray()) {
@@ -678,9 +660,9 @@ Json::Value
 MldbPythonContext::
 perform(const std::string & verb,
         const std::string & resource,
-        const RestParamsBase & params,
+        const RestParams & params,
         Json::Value payload,
-        const RestParamsBase & headers)
+        const RestParams & headers)
 {
     HttpHeader header;
     header.verb = verb;

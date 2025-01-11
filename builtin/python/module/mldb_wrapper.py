@@ -93,7 +93,6 @@ class mldb_wrapper(object):
 
     class wrap(object):
         def __init__(self, mldb):
-            print("wrapping mldb", repr(mldb))
             self._mldb = mldb
             import functools
             self.post = functools.partial(self._post_put, 'POST')
@@ -120,11 +119,6 @@ class mldb_wrapper(object):
             return response
 
         def _perform(self, method, url, *args, **kwargs):
-            print("self", repr(self))
-            print("method", repr(method))
-            print("url", repr(url))
-            print("args", repr(args))
-            print("kwargs", repr(kwargs))
             raw_res = self._mldb.perform(method, url, *args, **kwargs)
             response = mldb_wrapper.Response(url, raw_res)
             if response.status_code < 200 or response.status_code >= 400:

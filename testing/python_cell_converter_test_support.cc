@@ -63,6 +63,7 @@ NB_MODULE(py_cell_conv_test_module, m) {
 #endif
 
     class_<Tester>(m, "Tester")
+        .def(nanobind::init<>())
         .def("cellValueToCpp",&Tester::gotToCpp<CellValue>)
         .def("getRestParams",&Tester::getAndReturn<RestParams>)
         .def("getRestParamsFromCpp", &Tester::getRestParamsFromCpp)

@@ -11,7 +11,10 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <string_view>
 #include "json_fwd.h"
+#include "string.h"
+#include <any>
 
 namespace MLDB {
 
@@ -38,6 +41,11 @@ struct JsonNumber {
         long long sgn;
         double fp;
     };    
+
+    Json::Value toJson() const;
+    bool isExactUnsigned() const;
+    bool isExactSigned() const;
+    bool isNegative() const;
 };
 
 bool expectJsonBool(ParseContext & context);
@@ -91,7 +99,8 @@ bool
 matchJsonObject(ParseContext & context,
                 const std::function<bool (const std::string &, ParseContext &)> & onEntry);
 
-void skipJsonWhitespace(ParseContext & context);
+/// Skip the whitespace.  Returns true if a newline was skipped.
+bool skipJsonWhitespace(ParseContext & context);
 
 Json::Value expectJson(ParseContext & context);
 
@@ -113,10 +122,10 @@ struct JsonPathEntry {
     JsonPathEntry(int index);
     
     /// Construct to hold an element name.  Key must be UTF-8 encoded.
-    JsonPathEntry(const std::string & key);
+    JsonPathEntry(std::string key);
     
     /// Construct to hold an element name.  Key must be UTF-8 encoded.
-    JsonPathEntry(const char * keyPtr);
+    JsonPathEntry(std::string_view key);
 
     /// Move constructor
     JsonPathEntry(JsonPathEntry && other) noexcept;
@@ -129,6 +138,7 @@ struct JsonPathEntry {
     int index;            ///< For an array index, the index, otherwise -1
     std::string * keyStr; ///< Owned string version of the key
     const char * keyPtr;  ///< Pointer to owned const char * of key
+    uint32_t keyLength;   ///< Length of key when keyPtr is used
     int fieldNumber;      ///< Field number in owning structure
 
     /// Return the name of the field.  Throws if it's an array index
@@ -136,7 +146,7 @@ struct JsonPathEntry {
 
     /// Return a zero-allocation name of the field.  Throws if it's an array
     /// index.  String is owned by this and reference must not outlive it.
-    const char * fieldNamePtr() const;
+    std::string_view fieldNameView() const;
 };
 
 struct JsonPath;
@@ -153,8 +163,6 @@ struct JsonPath;
 */
 
 struct JsonParsingContext {
-
-
     JsonParsingContext();
     ~JsonParsingContext();
 
@@ -177,7 +185,16 @@ struct JsonParsingContext {
     /// Return the outermost field name.  Throws if currently in an array or
     /// at the root.  Zero allocation but string is only valid until path is
     /// modified.
-    const char * fieldNamePtr() const;
+    std::string_view fieldNameView() const;
+
+    /// Checks if we're in a field with the given name
+    bool inField(const char * fieldName);
+
+    /// Checks if we're in a field with the given name
+    bool inField(const std::string & fieldName);
+
+    /// Checks if we're in a field with the given name
+    bool inField(const Utf8String & fieldName);
 
     /// Returns the outermost array index.  Throws if not currently in an
     /// array.
@@ -205,13 +222,17 @@ struct JsonParsingContext {
 
     /// Format an exception with the current context within the object so that
     /// a reasonable error message can be provided to the user.
-    virtual void exception(const std::string & message) const = 0;
+    virtual void exception(const Utf8String & message) const = 0;
 
     /** Return a string that gives the context of where the parsing is
         at, for example line number and column.
     */
     virtual Utf8String getContext() const = 0;
     
+    /// Expect a number of any kind at the current position and return it.
+    /// Throws if not found
+    virtual JsonNumber expectNumber() = 0;
+
     /// Expect an integer at the current position and consume and return it.
     /// Throws if not found or overflow.
     virtual int expectInt() = 0;
@@ -353,6 +374,13 @@ struct JsonParsingContext {
     /// Expect that we are at an EOF position, or throw an exception if not.
     /// Default uses eof() and exception().
     virtual void expectEof() const;
+
+    /// Save the current position to the token, which allows it to later be
+    /// reset.
+    virtual std::any savePosition() = 0;
+
+    /// Restore the current position from the saved token.
+    virtual void restorePosition(const std::any & token) = 0;
 };
 
 
@@ -416,6 +444,14 @@ struct StreamingJsonParsingContext
     ParseContext * context;
     std::unique_ptr<ParseContext> ownedContext;
 
+    /// Will be set to true wherever there are embedded newlines in the parsed text.
+    /// This can be used to figure out if optimizations to look for JSON record
+    /// boundaries on newlines can be used.
+    mutable bool hasEmbeddedNewlines = false;
+
+    /// Skip the whitespace
+    void skipJsonWhitespace() const;
+
     template<typename Fn>
     void forEachMember(const Fn & fn)
     {
@@ -425,7 +461,7 @@ struct StreamingJsonParsingContext
         // path entry.  It will make sure the member is always
         // popped no matter what.  Out of line here for clang 3.4.
         struct PathPusher {
-        PathPusher(const char * memberName,
+        PathPusher(std::string_view memberName,
                    int memberNum,
                    StreamingJsonParsingContext * context)
         : context(context)
@@ -441,7 +477,7 @@ struct StreamingJsonParsingContext
             StreamingJsonParsingContext * const context;
         };
 
-        auto onMember = [&] (const char * memberName, size_t nameLen)
+        auto onMember = [&] (std::string_view memberName)
             {
                 PathPusher pusher(memberName, memberNum++, this);
                 fn();
@@ -450,7 +486,7 @@ struct StreamingJsonParsingContext
         expectJsonObjectUtf8(onMember);
     }
 
-    virtual void forEachMember(const std::function<void ()> & fn);
+    virtual void forEachMember(const std::function<void ()> & fn) override;
 
     template<typename Fn>
     void forEachElement(const Fn & fn)
@@ -474,71 +510,77 @@ struct StreamingJsonParsingContext
             popPath();
     }
 
-    virtual void forEachElement(const std::function<void ()> & fn);
+    virtual void forEachElement(const std::function<void ()> & fn) override;
 
-    virtual void skip();
+    virtual void skip() override;
 
-    virtual int expectInt();
+    virtual JsonNumber expectNumber() override;
 
-    virtual unsigned int expectUnsignedInt();
+    virtual int expectInt() override;
 
-    virtual long expectLong();
+    virtual unsigned int expectUnsignedInt() override;
 
-    virtual unsigned long expectUnsignedLong();
+    virtual long expectLong() override;
 
-    virtual long long expectLongLong();
+    virtual unsigned long expectUnsignedLong() override;
 
-    virtual unsigned long long expectUnsignedLongLong();
+    virtual long long expectLongLong() override;
 
-    virtual float expectFloat();
+    virtual unsigned long long expectUnsignedLongLong() override;
 
-    virtual double expectDouble();
+    virtual float expectFloat() override;
 
-    virtual bool expectBool();
+    virtual double expectDouble() override;
 
-    virtual void expectNull();
+    virtual bool expectBool() override;
 
-    virtual bool matchUnsignedLongLong(unsigned long long & val);
+    virtual void expectNull() override;
 
-    virtual bool matchLongLong(long long & val);
+    virtual bool matchUnsignedLongLong(unsigned long long & val) override;
 
-    virtual bool matchDouble(double & val);
+    virtual bool matchLongLong(long long & val) override;
 
-    virtual std::string expectStringAscii();
+    virtual bool matchDouble(double & val) override;
 
-    virtual ssize_t expectStringAscii(char * value, size_t maxLen);
+    virtual std::string expectStringAscii() override;
 
-    virtual Utf8String expectStringUtf8();
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) override;
 
-    virtual ssize_t expectStringUtf8(char * value, size_t maxLen);
+    virtual Utf8String expectStringUtf8() override;
 
-    virtual bool isObject() const;
+    virtual ssize_t expectStringUtf8(char * value, size_t maxLen) override;
 
-    virtual bool isString() const;
+    virtual bool isObject() const override;
 
-    virtual bool isArray() const;
+    virtual bool isString() const override;
 
-    virtual bool isBool() const;
+    virtual bool isArray() const override;
 
-    virtual bool isInt() const;
+    virtual bool isBool() const override;
+
+    virtual bool isInt() const override;
     
-    virtual bool isUnsigned() const;
+    virtual bool isUnsigned() const override;
     
-    virtual bool isNumber() const;
+    virtual bool isNumber() const override;
 
-    virtual bool isNull() const;
+    virtual bool isNull() const override;
 
-    virtual void exception(const std::string & message) const;
+    virtual void exception(const Utf8String & message) const override;
 
-    virtual Utf8String getContext() const;
+    virtual Utf8String getContext() const override;
 
-    virtual Json::Value expectJson();
+    virtual Json::Value expectJson() override;
 
-    virtual std::string printCurrent();
+    virtual std::string printCurrent() override;
 
-    void expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry);
+    void expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry);
 
-    virtual bool eof() const;
+    virtual bool eof() const override;
+
+    virtual std::any savePosition() override;
+
+    virtual void restorePosition(const std::any & token) override;
 };
 
 
@@ -556,71 +598,79 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
     const Json::Value * current = nullptr;
     const Json::Value * top = nullptr;
 
-    virtual void exception(const std::string & message) const;
+    void reset(const Json::Value & val);
+
+    virtual void exception(const Utf8String & message) const override;
     
-    virtual Utf8String getContext() const;
+    virtual Utf8String getContext() const override;
 
-    virtual int expectInt();
+    virtual JsonNumber expectNumber() override;
 
-    virtual unsigned int expectUnsignedInt();
+    virtual int expectInt() override;
 
-    virtual long expectLong();
+    virtual unsigned int expectUnsignedInt() override;
 
-    virtual unsigned long expectUnsignedLong();
+    virtual long expectLong() override;
 
-    virtual long long expectLongLong();
+    virtual unsigned long expectUnsignedLong() override;
 
-    virtual unsigned long long expectUnsignedLongLong();
+    virtual long long expectLongLong() override;
 
-    virtual float expectFloat();
+    virtual unsigned long long expectUnsignedLongLong() override;
 
-    virtual double expectDouble();
+    virtual float expectFloat() override;
 
-    virtual bool expectBool();
+    virtual double expectDouble() override;
 
-    virtual void expectNull();
+    virtual bool expectBool() override;
 
-    virtual bool matchUnsignedLongLong(unsigned long long & val);
+    virtual void expectNull() override;
 
-    virtual bool matchLongLong(long long & val);
+    virtual bool matchUnsignedLongLong(unsigned long long & val) override;
 
-    virtual bool matchDouble(double & val);
+    virtual bool matchLongLong(long long & val) override;
 
-    virtual std::string expectStringAscii();
+    virtual bool matchDouble(double & val) override;
 
-    virtual ssize_t expectStringAscii(char * value, size_t maxLen);
+    virtual std::string expectStringAscii() override;
 
-    virtual Utf8String expectStringUtf8();
+    virtual ssize_t expectStringAscii(char * value, size_t maxLen) override;
 
-    virtual ssize_t expectStringUtf8(char * value, size_t maxLen);
+    virtual Utf8String expectStringUtf8() override;
 
-    virtual Json::Value expectJson();
+    virtual ssize_t expectStringUtf8(char * value, size_t maxLen) override;
 
-    virtual bool isObject() const;
+    virtual Json::Value expectJson() override;
 
-    virtual bool isString() const;
+    virtual bool isObject() const override;
 
-    virtual bool isArray() const;
+    virtual bool isString() const override;
 
-    virtual bool isBool() const;
+    virtual bool isArray() const override;
 
-    virtual bool isInt() const;
+    virtual bool isBool() const override;
 
-    virtual bool isUnsigned() const;
+    virtual bool isInt() const override;
 
-    virtual bool isNumber() const;
+    virtual bool isUnsigned() const override;
 
-    virtual bool isNull() const;
+    virtual bool isNumber() const override;
 
-    virtual void skip();
+    virtual bool isNull() const override;
 
-    virtual void forEachMember(const std::function<void ()> & fn);
+    virtual void skip() override;
 
-    virtual void forEachElement(const std::function<void ()> & fn);
+    virtual void forEachMember(const std::function<void ()> & fn) override;
 
-    virtual std::string printCurrent();
+    virtual void forEachElement(const std::function<void ()> & fn) override;
 
-    virtual bool eof() const;
+    virtual std::string printCurrent() override;
+
+    virtual bool eof() const override;
+
+    virtual std::any savePosition() override;
+
+    virtual void restorePosition(const std::any & token) override;
 };
 
 
@@ -631,16 +681,19 @@ struct StructuredJsonParsingContext: public JsonParsingContext {
 struct StringJsonParsingContext
     : public StreamingJsonParsingContext  {
 
+    StringJsonParsingContext(Utf8String str_,
+                             const Utf8String & filename = "<<internal>>");
+
     StringJsonParsingContext(std::string str_,
-                             const std::string & filename = "<<internal>>");
+                             const Utf8String & filename = "<<internal>>");
 
     // Note: str must outlive this object
     StringJsonParsingContext(const char * str,
                              size_t len,
-                             const std::string & filename = "<<internal>>");
+                             const Utf8String & filename = "<<internal>>");
 
 private:
-    // Holds the data, when initialized form a string
+    // Holds the data, when initialized form a string. UTF8 encoded.
     std::string str;
 };
 

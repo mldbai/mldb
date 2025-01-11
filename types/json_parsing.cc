@@ -13,6 +13,8 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/ext/jsoncpp/json.h"
 #include "mldb/types/string.h"
+#include "mldb/base/scope.h"
+#include "mldb/utils/safe_clamp.h"
 #include <errno.h>
 
 using namespace std;
@@ -80,25 +82,97 @@ JsonNumber expectJsonNumber(ParseContext & context);
 /** Match a JSON number. */
 bool matchJsonNumber(ParseContext & context, JsonNumber & num);
 
+/*****************************************************************************/
+/* JSON NUMBER                                                               */
+/*****************************************************************************/
+
+Json::Value JsonNumber::toJson() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return uns;
+    case JsonNumber::SIGNED_INT:
+        return sgn;
+    case JsonNumber::FLOATING_POINT:
+        return fp;
+    default:
+        throw MLDB::Exception("logic error in expectJson");
+    }
+}
+
+bool JsonNumber::isExactUnsigned() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return true;
+    case JsonNumber::SIGNED_INT:
+        return sgn >= 0;
+    case JsonNumber::FLOATING_POINT:
+        return safe_clamp<uint64_t>(fp) == fp;
+    default:
+        MLDB_THROW_LOGIC_ERROR();
+    }
+
+}
+
+bool JsonNumber::isExactSigned() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return sgn <= std::numeric_limits<int64_t>::max();
+    case JsonNumber::SIGNED_INT:
+        return true;
+    case JsonNumber::FLOATING_POINT:
+        return safe_clamp<int64_t>(fp) == fp;
+    default:
+        MLDB_THROW_LOGIC_ERROR();
+    }
+}
+
+bool JsonNumber::isNegative() const
+{
+    switch (type) {
+    case JsonNumber::UNSIGNED_INT:
+        return false;
+    case JsonNumber::SIGNED_INT:
+        return std::signbit(sgn);
+    case JsonNumber::FLOATING_POINT:
+        return std::signbit(fp);
+    default:
+        MLDB_THROW_LOGIC_ERROR();
+    }
+}
+
 
 /*****************************************************************************/
 /* JSON UTILITIES                                                            */
 /*****************************************************************************/
 
-void skipJsonWhitespace(ParseContext & context)
+bool skipJsonWhitespace(ParseContext & context)
 {
     // Fast-path for the usual case for not EOF and no whitespace
     if (MLDB_LIKELY(!context.eof())) {
         char c = *context;
         if (c > ' ') {
-            return;
+            return false;
         }
         if (c != ' ' && c != '\t' && c != '\n' && c != '\r')
-            return;
+            return false;
     }
 
-    while (!context.eof()
-           && (context.match_whitespace() || context.match_eol()));
+    bool result = false;
+    while (!context.eof()) {
+        if (*context == '\n')
+            result = true;
+
+        if (context.match_whitespace() || context.match_eol())
+            continue;
+        break;
+    }
+
+    ExcAssert(context.eof() || !isspace(*context));
+
+    return result;
 }
 
 bool matchJsonString(ParseContext & context, std::string & str)
@@ -158,6 +232,7 @@ std::string expectJsonStringAsciiPermissive(ParseContext & context, char sub)
     char * buffer = internalBuffer;
     size_t bufferSize = 4096;
     size_t pos = 0;
+    Scope_Exit(if (buffer != internalBuffer) delete[] buffer);
 
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
@@ -196,10 +271,7 @@ std::string expectJsonStringAsciiPermissive(ParseContext & context, char sub)
         buffer[pos++] = c;
     }
 
-    string result(buffer, buffer + pos);
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
+    string result(buffer, buffer + pos);    
     return result;
 }
 
@@ -260,6 +332,7 @@ std::string expectJsonStringAscii(ParseContext & context)
     char * buffer = internalBuffer;
     size_t bufferSize = 4096;
     size_t pos = 0;
+    Scope_Exit(if (buffer != internalBuffer) delete[] buffer);
 
     // Try multiple times to make it fit
     while (!context.match_literal('"')) {
@@ -311,14 +384,11 @@ std::string expectJsonStringAscii(ParseContext & context)
         buffer[pos++] = c;
     }
     
-    string result(buffer, buffer + pos);
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
+    string result(buffer, buffer + pos);    
     return result;
 }
 
-inline int getEscapedJsonCharacterPointUtf8(ParseContext & context)
+int getEscapedJsonCharacterPointUtf8(ParseContext & context)
 {
     int c = *context++;
 
@@ -368,6 +438,7 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
     char * buffer = internalBuffer;
     size_t bufferSize = 4096;
     size_t pos = 0;
+    Scope_Exit(if (buffer != internalBuffer) delete[] buffer);
 
     // Keep expanding until it fits
     while (!context.match_literal('"')) {
@@ -388,8 +459,9 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
 
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(context);
+            c = context.expect_utf8_code_point();
 
+            // 3.  Write the decoded character to the buffer
             char * p1 = buffer + pos;
             char * p2 = p1;
             pos += utf8::append(c, p2) - p1;
@@ -410,10 +482,7 @@ Utf8String expectJsonStringUtf8(ParseContext & context)
         else buffer[pos++] = c;
     }
 
-    Utf8String result(string(buffer, buffer + pos));
-    if (buffer != internalBuffer)
-        delete[] buffer;
-    
+    Utf8String result(string(buffer, buffer + pos));    
     return result;
 }
 
@@ -706,6 +775,146 @@ JsonNumber expectJsonNumber(ParseContext & context)
     return result;
 }
 
+bool matchJsonNumber(ParseContext & context, JsonNumber & result)
+{
+    result = JsonNumber();
+    ParseContext::Revert_Token token(context);
+
+    std::string number;
+    number.reserve(32);
+
+    bool negative = false;
+    bool doublePrecision = false;
+
+    if (context.match_literal('-')) {
+        number += '-';
+        negative = true;
+    }
+
+    // EXTENSION: accept NaN and positive or negative infinity
+    if (context.match_literal('N')) {
+        if (!context.match_literal("aN"))
+            return false;
+        result.fp = negative ? -NAN : NAN;
+        result.type = JsonNumber::FLOATING_POINT;
+        token.ignore();
+        return true;
+    }
+    else if (context.match_literal('n')) {
+        if (!context.match_literal("an"))
+            return false;
+        result.fp = negative ? -NAN : NAN;
+        result.type = JsonNumber::FLOATING_POINT;
+        token.ignore();
+        return true;
+    }
+    else if (context.match_literal('I') || context.match_literal('i')) {
+        if (!context.match_literal("nf"))
+            return false;
+        result.fp = negative ? -INFINITY : INFINITY;
+        result.type = JsonNumber::FLOATING_POINT;
+        token.ignore();
+        return true;
+    }
+
+    while (context && isdigit(*context)) {
+        number += *context++;
+    }
+
+    if (context.match_literal('.')) {
+        doublePrecision = true;
+        number += '.';
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+    }
+
+    char sci = context ? *context : '\0';
+    if (sci == 'e' || sci == 'E') {
+        if (number.empty() || (number.size() == 1 && number[0] == '.')) {
+            return false;
+        }
+        doublePrecision = true;
+        if (!context)
+            return false;
+        if (!context)
+            return false;
+        number += *context++;
+
+        char sign = context ? *context : '\0';
+        if (sign == '+' || sign == '-') {
+            if (!context)
+                return false;
+            number += *context++;
+        }
+
+        while (context && isdigit(*context)) {
+            number += *context++;
+        }
+    }
+
+    auto parseAsDouble = [&] () -> bool
+        {
+            char * endptr = 0;
+            errno = 0;
+            result.fp = strtod(number.c_str(), &endptr);
+            if ((errno && errno != ERANGE) || endptr != number.c_str() + number.length())
+                return false;
+            result.type = JsonNumber::FLOATING_POINT;
+            token.ignore();
+            return true;
+        };
+
+    if (number.empty())
+        return false;
+
+    if (doublePrecision) {
+        return parseAsDouble();
+    } else if (negative) {
+        char * endptr = 0;
+        errno = 0;
+        result.sgn = strtoll(number.c_str(), &endptr, 10);
+        if (errno == ERANGE && endptr == number.c_str() + number.length()) {
+            return parseAsDouble();
+        }
+        else if (errno || endptr != number.c_str() + number.length()) {
+            return false;
+        }
+        result.type = JsonNumber::SIGNED_INT;
+    } else {
+        char * endptr = 0;
+        errno = 0;
+        result.uns = strtoull(number.c_str(), &endptr, 10);
+        if (errno == ERANGE && endptr == number.c_str() + number.length()) {
+            return parseAsDouble();
+        }
+        else if (errno || endptr != number.c_str() + number.length())
+            return false;
+        result.type = JsonNumber::UNSIGNED_INT;
+    }
+
+    token.ignore();
+    return true;
+}
+
+#if 0
+/** Match a JSON number. */
+bool matchJsonNumber(ParseContext & context, JsonNumber & num)
+{
+    ParseContext::Revert_Token token(context);
+    try {
+        MLDB_TRACE_EXCEPTIONS(false);
+        auto res = expectJsonNumber(context);
+        token.ignore();
+        num = res;
+        return true;
+    }
+    MLDB_CATCH_ALL {
+        return false;
+    }
+}
+#endif
 
 /*****************************************************************************/
 /* JSON PATH ENTRY                                                           */
@@ -713,20 +922,21 @@ JsonNumber expectJsonNumber(ParseContext & context)
 
 JsonPathEntry::
 JsonPathEntry(int index)
-    : index(index), keyStr(0), keyPtr(0), fieldNumber(0)
+    : index(index), keyStr(0), keyPtr(0), keyLength(0), fieldNumber(0)
 {
 }
     
 JsonPathEntry::
-JsonPathEntry(const std::string & key)
-    : index(-1), keyStr(new std::string(key)), keyPtr(keyStr->c_str()),
+JsonPathEntry(std::string key)
+    : index(-1), keyStr(new std::string(std::move(key))), keyPtr(keyStr->c_str()),
+      keyLength(keyStr->size()), fieldNumber(0)
+{
+}
+    
+JsonPathEntry::
+JsonPathEntry(std::string_view keyView)
+    : index(-1), keyStr(nullptr), keyPtr(keyView.data()), keyLength(keyView.length()),
       fieldNumber(0)
-{
-}
-    
-JsonPathEntry::
-JsonPathEntry(const char * keyPtr)
-    : index(-1), keyStr(nullptr), keyPtr(keyPtr), fieldNumber(0)
 {
 }
 
@@ -743,6 +953,7 @@ operator = (JsonPathEntry && other) noexcept
     index = other.index;
     keyPtr = other.keyPtr;
     keyStr = other.keyStr;
+    keyLength = other.keyLength;
     fieldNumber = other.fieldNumber;
     other.keyStr = nullptr;
     other.keyPtr = nullptr;
@@ -760,14 +971,14 @@ std::string
 JsonPathEntry::
 fieldName() const
 {
-    return keyStr ? *keyStr : std::string(keyPtr);
+    return keyStr ? *keyStr : string(fieldNameView());
 }
 
-const char *
+std::string_view
 JsonPathEntry::
-fieldNamePtr() const
+fieldNameView() const
 {
-    return keyPtr;
+    return {keyPtr, keyLength};
 }
 
 
@@ -803,11 +1014,11 @@ fieldName() const
     return this->back().fieldName();
 }
 
-const char *
+std::string_view
 JsonPath::
-fieldNamePtr() const
+fieldNameView() const
 {
-    return this->back().fieldNamePtr();
+    return this->back().fieldNameView();
 }
 
 int
@@ -885,11 +1096,11 @@ fieldName() const
     return path->fieldName();
 }
 
-const char *
+std::string_view
 JsonParsingContext::
-fieldNamePtr() const
+fieldNameView() const
 {
-    return path->fieldNamePtr();
+    return path->fieldNameView();
 }
 
 int
@@ -898,6 +1109,28 @@ fieldNumber() const
 {
     return path->fieldNumber();
 }
+
+bool
+JsonParsingContext::
+inField(const char * fieldName)
+{
+    return fieldNameView() == fieldName;    
+}
+
+bool
+JsonParsingContext::
+inField(const std::string & fieldName)
+{
+    return fieldNameView() == fieldName;    
+}
+
+bool
+JsonParsingContext::
+inField(const Utf8String & fieldName)
+{
+    return fieldNameView() == fieldName.c_str();
+}
+
 
 void
 JsonParsingContext::
@@ -1043,6 +1276,14 @@ init(const Utf8String & filename, std::istream & stream,
 
 void
 StreamingJsonParsingContext::
+skipJsonWhitespace() const
+{
+    bool newNewlines = MLDB::skipJsonWhitespace(*context);
+    hasEmbeddedNewlines = hasEmbeddedNewlines || newNewlines;
+}
+
+void
+StreamingJsonParsingContext::
 forEachMember(const std::function<void ()> & fn)
 {
     return forEachMember<std::function<void ()> >(fn);
@@ -1171,7 +1412,7 @@ bool
 StreamingJsonParsingContext::
 isObject() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == '{';
 }
@@ -1180,7 +1421,7 @@ bool
 StreamingJsonParsingContext::
 isString() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == '\"';
 }
@@ -1189,7 +1430,7 @@ bool
 StreamingJsonParsingContext::
 isArray() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == '[';
 }
@@ -1198,7 +1439,7 @@ bool
 StreamingJsonParsingContext::
 isBool() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     char c = *(*context);
     return c == 't' || c == 'f';
         
@@ -1208,7 +1449,7 @@ bool
 StreamingJsonParsingContext::
 isInt() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     // Short circuit for EOF or not a digit or negative sign
     if (!context || (!isdigit(*context) && (char(*context) != '-')))
@@ -1237,7 +1478,7 @@ bool
 StreamingJsonParsingContext::
 isUnsigned() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     // Find the offset at which an integer finishes
     size_t offset1;
@@ -1262,7 +1503,7 @@ bool
 StreamingJsonParsingContext::
 isNumber() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     ParseContext::Revert_Token token(*context);
     double d;
     if (context->match_double(d))
@@ -1270,11 +1511,18 @@ isNumber() const
     return false;
 }
 
+JsonNumber
+StreamingJsonParsingContext::
+expectNumber()
+{
+    return expectJsonNumber(*context);
+}
+
 bool
 StreamingJsonParsingContext::
 isNull() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     ParseContext::Revert_Token token(*context);
     if (context->match_literal("null"))
         return true;
@@ -1299,7 +1547,7 @@ isNumber() const
 
 void
 StreamingJsonParsingContext::
-exception(const std::string & message) const
+exception(const Utf8String & message) const
 {
     context->exception("at " + printPath() + ": " + message);
 }
@@ -1337,7 +1585,7 @@ expectStringUtf8(char * buffer, size_t maxLen)
 {
     ParseContext::Revert_Token token(*context);
 
-    skipJsonWhitespace((*context));
+    skipJsonWhitespace();
     context->expect_literal('"');
 
     size_t pos = 0;
@@ -1354,7 +1602,7 @@ expectStringUtf8(char * buffer, size_t maxLen)
 
         if (c < 0 || c > 127) {
             // Unicode
-            c = utf8::unchecked::next(*context);
+            c = context->expect_utf8_code_point();
 
             char * p1 = buffer + pos;
             char * p2 = p1;
@@ -1393,55 +1641,54 @@ expectStringUtf8()
 
 void
 StreamingJsonParsingContext::
-expectJsonObjectUtf8(const std::function<void (const char *, size_t)> & onEntry)
+expectJsonObjectUtf8(const std::function<void (std::string_view)> & onEntry)
 {
-    MLDB::skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     if (context->match_literal("null"))
         return;
 
     context->expect_literal('{');
 
-    MLDB::skipJsonWhitespace(*context);
+    skipJsonWhitespace();
 
     if (context->match_literal('}')) return;
 
     for (;;) {
-        MLDB::skipJsonWhitespace(*context);
+        skipJsonWhitespace();
 
         char keyBuffer[1024];
-
         ssize_t done = expectStringUtf8(keyBuffer, 1024);
+
         if (done != -1) {
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
 
             context->expect_literal(':');
 
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
 
-            onEntry(keyBuffer, done);
+            onEntry(string_view{keyBuffer, (size_t)done});
 
-            skipJsonWhitespace(*context);
-
+            skipJsonWhitespace();
         }
         else {
             Utf8String name = expectStringUtf8();
             
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
             
             context->expect_literal(':');
             
-            skipJsonWhitespace(*context);
+            skipJsonWhitespace();
 
-            onEntry(name.rawData(), name.rawLength());
+            onEntry(string_view{name.rawData(), name.rawLength()});
         }
 
-        skipJsonWhitespace(*context);
+        skipJsonWhitespace();
 
         if (!context->match_literal(',')) break;
     }
 
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     context->expect_literal('}');
 }
 
@@ -1449,14 +1696,32 @@ bool
 StreamingJsonParsingContext::
 eof() const
 {
-    skipJsonWhitespace(*context);
+    skipJsonWhitespace();
     return context->eof();
+}
+
+std::any
+StreamingJsonParsingContext::
+savePosition()
+{
+    auto token = std::make_shared<ParseContext::Rewind_Token>(*context);
+    return token;
+}
+
+void
+StreamingJsonParsingContext::
+restorePosition(const std::any & atoken)
+{
+    cerr << "streaming token type is " << demangle(atoken.type().name()) << endl;
+    auto token = std::any_cast<std::shared_ptr<ParseContext::Rewind_Token>>(atoken);
+    ExcAssert(token);
+    token->apply();
 }
 
 Json::Value
 expectJson(ParseContext & context)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
     if (*context == '"')
         return expectJsonStringUtf8(context);
     else if (context.match_literal("null"))
@@ -1483,59 +1748,197 @@ expectJson(ParseContext & context)
         return result;
     } else {
         JsonNumber number = expectJsonNumber(context);
-        switch (number.type) {
-        case JsonNumber::UNSIGNED_INT:
-            return number.uns;
-        case JsonNumber::SIGNED_INT:
-            return number.sgn;
-        case JsonNumber::FLOATING_POINT:
-            return number.fp;
-        default:
-            throw MLDB::Exception("logic error in expectJson");
+        return number.toJson();
+    }
+}
+
+// Returns true if there was a valid record, or false if there wasn't
+bool skipJson(ParseContext & context);
+
+bool skipJsonNumber(ParseContext & context)
+{
+    if (context.match_literal('-')) {
+    }
+
+    if (context.match_literal('N')) {
+        if (!context.match_literal("aN"))
+            return false;
+        return true;
+    }
+    else if (context.match_literal('n')) {
+        if (!context.match_literal("an"))
+            return false;
+        return true;
+    }
+    else if (context.match_literal('I') || context.match_literal('i')) {
+        if (!context.match_literal("nf"))
+            return false;
+        return true;
+    }
+
+    bool hasDigit = false;
+    while (context && isdigit(*context)) {
+        context++;
+        hasDigit = true;
+    }
+
+    if (context.match_literal('.')) {
+        while (context && isdigit(*context)) {
+            context++;
+            hasDigit = true;
+        }
+    }
+
+    if (!hasDigit)
+        return false;
+
+    char sci = context ? *context : '\0';
+    if (sci == 'e' || sci == 'E') {
+        context++;
+
+        char sign = context ? *context : '\0';
+        if (sign == '+' || sign == '-') {
+            context++;
+        }
+
+        while (context && isdigit(*context)) {
+            context++;
+        }
+    }
+
+    return true;
+}
+
+inline bool skipEscapedJsonCharacterPointUtf8(ParseContext & context)
+{
+    if (!context)
+        return false;
+
+    int c = *context++;
+
+    switch (c) {
+    case 't':
+    case 'n':
+    case 'r':
+    case 'f':
+    case 'b':
+    case '/':
+    case '\\':
+    case '"':
+        return true;
+    case 'u':
+        return context.match_hex4(c);
+    default:
+        return false;
+    }
+
+    return true;
+    return c;
+}
+
+bool skipJsonStringUtf8(ParseContext & context)
+{
+    skipJsonWhitespace(context);
+    if (!context.match_literal('"'))
+        return false;
+
+    for (;;) {
+        if (!context)
+            return false;
+        if (context.match_literal('"'))
+            return true;
+
+        int c = *context;
+        if (c < 0 || c > 127) {
+            // Unicode
+            context.expect_utf8_code_point();
+            continue;
+        }
+        ++context;
+
+        if (c == '\\') {
+            if (!skipEscapedJsonCharacterPointUtf8(context))
+                return false;
         }
     }
 }
 
-Json::Value
+bool skipJsonArray(ParseContext & context)
+{
+    skipJsonWhitespace(context);
+    if (context.match_literal("null"))
+        return true;
+    if (!context.match_literal('['))
+        return false;
+    skipJsonWhitespace(context);
+    if (context.match_literal(']')) return true;
+
+    for (;;) {
+        skipJsonWhitespace(context);
+        if (!skipJson(context))
+            return false;
+        skipJsonWhitespace(context);
+
+        if (!context.match_literal(',')) break;
+    }
+
+    skipJsonWhitespace(context);
+    return context.match_literal(']');
+}
+
+bool
+skipJsonObject(ParseContext & context)
+{
+    skipJsonWhitespace(context);
+
+    if (context.match_literal("null"))
+        return true;
+
+    if (!context.match_literal('{'))
+        return false;
+
+    skipJsonWhitespace(context);
+
+    if (context.match_literal('}')) return true;
+
+    for (;;) {
+        skipJsonWhitespace(context);
+        if (!skipJsonStringUtf8(context))
+            return false;
+        skipJsonWhitespace(context);
+        if (!context.match_literal(':'))
+            return false;
+        skipJsonWhitespace(context);
+        if (!skipJson(context))
+            return false;
+        skipJsonWhitespace(context);
+        if (!context.match_literal(',')) break;
+    }
+
+    skipJsonWhitespace(context);
+    return context.match_literal('}');
+}
+
+bool
 skipJson(ParseContext & context)
 {
-    context.skip_whitespace();
+    skipJsonWhitespace(context);
+    if (!context)
+        return false;
     if (*context == '"')
-        return expectJsonStringUtf8(context);
+        return skipJsonStringUtf8(context);
     else if (context.match_literal("null"))
-        return Json::Value();
+        return true;
     else if (context.match_literal("true"))
-        return Json::Value(true);
+        return true;
     else if (context.match_literal("false"))
-        return Json::Value(false);
+        return true;
     else if (*context == '[') {
-        Json::Value result(Json::arrayValue);
-        expectJsonArray(context,
-                        [&] (int i, ParseContext & context)
-                        {
-                            result[i] = expectJson(context);
-                        });
-        return result;
+        return skipJsonArray(context);
     } else if (*context == '{') {
-        Json::Value result(Json::objectValue);
-        expectJsonObject(context,
-                         [&] (const std::string & key, ParseContext & context)
-                         {
-                             result[key] = expectJson(context);
-                         });
-        return result;
+        return skipJsonObject(context);
     } else {
-        JsonNumber number = expectJsonNumber(context);
-        switch (number.type) {
-        case JsonNumber::UNSIGNED_INT:
-            return number.uns;
-        case JsonNumber::SIGNED_INT:
-            return number.sgn;
-        case JsonNumber::FLOATING_POINT:
-            return number.fp;
-        default:
-            throw MLDB::Exception("logic error in expectJson");
-        }
+        return skipJsonNumber(context);
     }
 }
 
@@ -1595,7 +1998,16 @@ StructuredJsonParsingContext(const Json::Value & val)
 
 void
 StructuredJsonParsingContext::
-exception(const std::string & message) const
+reset(const Json::Value & val)
+{
+    current = &val;
+    top = &val;
+    path.reset(new JsonPath());
+}
+
+void
+StructuredJsonParsingContext::
+exception(const Utf8String & message) const
 {
     //using namespace std;
     //cerr << *current << endl;
@@ -1827,14 +2239,14 @@ bool
 StructuredJsonParsingContext::
 isInt() const
 {
-    return current->isIntegral();
+    return current->isIntegral() && current->isConvertibleTo(Json::intValue);
 }
 
 bool
 StructuredJsonParsingContext::
 isUnsigned() const
 {
-    return current->isUInt();
+    return current->isIntegral() && current->isConvertibleTo(Json::uintValue);
 }
 
 bool
@@ -1843,6 +2255,27 @@ isNumber() const
 {
     return current->isNumeric();
 }
+
+JsonNumber
+StructuredJsonParsingContext::
+expectNumber()
+{
+    JsonNumber result;
+    if (current->isInt()) {
+        result.type = JsonNumber::SIGNED_INT;
+        result.sgn = current->asInt();
+    }
+    else if (current->isUInt()) {
+        result.type = JsonNumber::UNSIGNED_INT;
+        result.uns = current->asUInt();
+    }
+    else {
+        result.type = JsonNumber::FLOATING_POINT;
+        result.fp = current->asDouble();
+    }
+    return result;
+}
+
 
 bool
 StructuredJsonParsingContext::
@@ -1937,14 +2370,39 @@ eof() const
     return current == nullptr;
 }
 
+std::any
+StructuredJsonParsingContext::
+savePosition()
+{
+    return std::tuple<const Json::Value *, const Json::Value *>(top, current);
+}
+
+void
+StructuredJsonParsingContext::
+restorePosition(const std::any & atoken)
+{
+    cerr << "structured token type is " << demangle(atoken.type().name()) << endl;
+    auto [newTop, newCurrent] = std::any_cast<std::tuple<const Json::Value *, const Json::Value *>>(atoken);
+    ExcAssertEqual(top, newTop);
+    current = newCurrent;
+}
+
 
 /*****************************************************************************/
 /* STRING JSON PARSING CONTEXT                                               */
 /*****************************************************************************/
 
 StringJsonParsingContext::
+StringJsonParsingContext(Utf8String str_,
+                         const Utf8String & filename)
+    : str(str_.stealRawString())
+{
+    init(filename, str.c_str(), str.c_str() + str.size());
+}
+
+StringJsonParsingContext::
 StringJsonParsingContext(std::string str_,
-                         const std::string & filename)
+                         const Utf8String & filename)
     : str(std::move(str_))
 {
     init(filename, str.c_str(), str.c_str() + str.size());
@@ -1953,7 +2411,7 @@ StringJsonParsingContext(std::string str_,
 StringJsonParsingContext::
 StringJsonParsingContext(const char * str,
                          size_t len,
-                         const std::string & filename)
+                         const Utf8String & filename)
 {
     init(filename, str, len);
 }
