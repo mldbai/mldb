@@ -137,10 +137,7 @@ struct MutableIntegerTable {
     FrozenIntegerTable freeze(MappedSerializer & serializer);
 
     std::pair<FrozenIntegerTable, std::vector<uint32_t>>
-    freezeRemapped(MappedSerializer & serializer)
-    {
-        return { freeze(serializer), {} };
-    }
+    freezeRemapped(MappedSerializer & serializer);
 
     void serialize(StructuredSerializer & serializer) const;
     void reconstitute(StructuredReconstituter & reconstituter);
@@ -516,10 +513,7 @@ struct MutableCellValueTable {
     freeze(MappedSerializer & serializer);
 
     std::pair<FrozenCellValueTable, std::vector<uint32_t>>
-    freezeRemapped(MappedSerializer & serializer)
-    {
-        return { freeze(serializer), {} };
-    }
+    freezeRemapped(MappedSerializer & serializer);
 
     MutableBlobTable underlying;
 };

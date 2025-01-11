@@ -239,6 +239,13 @@ freeze(MappedSerializer & serializer)
     return result;
 }
 
+std::pair<FrozenIntegerTable, std::vector<uint32_t>>
+MutableIntegerTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    return { freeze(serializer), {} };
+}
+
 
 /*****************************************************************************/
 /* FROZEN DOUBLE TABLE                                                       */
@@ -938,6 +945,13 @@ freezeUncompressed(MappedSerializer & serializer)
     return result;
 }
 
+std::pair<FrozenBlobTable, std::vector<uint32_t>>
+MutableBlobTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    return { freeze(serializer), {} };
+}
+
 
 /*****************************************************************************/
 /* FROZEN STRING TABLE                                                       */
@@ -1243,6 +1257,13 @@ freeze(MappedSerializer & serializer)
     FrozenCellValueTable result;
     result.underlying = underlying.freeze(serializer);
     return result;
+}
+
+std::pair<FrozenCellValueTable, std::vector<uint32_t>>
+MutableCellValueTable::
+freezeRemapped(MappedSerializer & serializer)
+{
+    return { freeze(serializer), {} };
 }
 
 

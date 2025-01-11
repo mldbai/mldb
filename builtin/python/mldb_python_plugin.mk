@@ -37,6 +37,7 @@ PYTHON_PLUGIN_LINK := \
 	python_interpreter \
 	value_description \
 	arch \
+	base \
 	utils \
 	types \
 	mldb_engine \
