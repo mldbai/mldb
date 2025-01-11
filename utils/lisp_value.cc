@@ -14,6 +14,7 @@
 #include "mldb/types/structure_description.h"
 #include "mldb/types/basic_value_descriptions.h"
 #include "mldb/types/any_impl.h"
+#include "mldb/utils/lexical_cast.h"
 
 using namespace std;
 
@@ -332,10 +333,12 @@ bool
 Value::
 operator == (const Value & other) const
 {
-    //cerr << "Value::operator=: " << *this << " vs " << other << endl;
+    //cerr << "Value::operator==: " << *this << " vs " << other << endl;
 
     if (isNumeric() && other.isNumeric()) {
         //cerr << "  *** value numerical comparison" << endl;
+        //cerr << "    desc 1 = " << desc().typeName << endl;
+        //cerr << "    desc 2 = " << other.desc().typeName << endl;
         if (is<uint64_t>()) {
             uint64_t i1 = as<uint64_t>();
             if (other.is<int64_t>()) {
@@ -344,6 +347,10 @@ operator == (const Value & other) const
             }
             else if (other.is<double>()) {
                 double d2 = other.as<double>();
+                //cerr << "i1 = " << i1 << endl;
+                //cerr << "(double)i1 = " << (double)i1 << endl;
+                //cerr << "d2 = " << d2 << endl;
+                //cerr << "(double)d2 = " << (double)d2 << endl;
                 return (double)i1 == d2 && (uint64_t)d2 == i1;
             }
         }
@@ -359,6 +366,7 @@ operator == (const Value & other) const
             }
         }
         else if (is<double>()) {
+            //cerr << "  double comparison" << endl;
             int64_t d1 = as<double>();
             if (other.is<uint64_t>()) {
                 uint64_t i2 = other.as<uint64_t>();
@@ -398,7 +406,9 @@ operator == (const Value & other) const
         // ... TODO LOTS of others...
     };
 
-    return visit(visitor, *this);
+    bool result = visit(visitor, *this);
+    //cerr << "returning comparison result " << (result ? "true" : "false") << " for " << *this << " vs " << other << endl;
+    return result;
 }
 
 DEFINE_STRUCTURE_DESCRIPTION_INLINE(Symbol)
@@ -662,6 +672,8 @@ toJson(JsonPrintingContext & context) const
 
     context.startObject();
 
+    //cerr << "writing " << *this << " of type " << desc().typeName << endl;
+
     LambdaVisitor visitor {
         [&] (const Value & val) -> void // first is for unmatched values
         {
@@ -821,7 +833,7 @@ print(const std::set<MetadataType> & mdToPrint) const
         [] (bool b)               { return b ? "true" : "false"; },
         [] (int64_t i)            { return std::to_string(i); },
         [] (uint64_t i)           { return std::to_string(i); },
-        [] (double d)             { return std::to_string(d); },
+        [] (double d)             { return MLDB::lexical_cast<std::string>(d); },
         [] (const Utf8String & s) { return jsonEncodeStr(s); },
         [] (Null)                 { return "nil"; },
         [] (Wildcard)             { return "_"; },

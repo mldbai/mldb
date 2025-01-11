@@ -93,6 +93,11 @@ TEST_CASE("test-lisp-parsing", "[none]")
     RUN_TEST("_", "{\"wc\":\"_\"}");
     RUN_TEST("...", "{\"wc\":\"...\"}");
     RUN_TEST("\"hello\"", "{\"atom\":\"hello\"}");
+    RUN_TEST("50000", "\{\"atom\":50000}");
+    RUN_TEST("50000.0", "\{\"atom\":50000}");
+    RUN_TEST("50000.00", "\{\"atom\":50000}");
+    RUN_TEST("50000.01", "\{\"atom\":50000.01}");
+    RUN_TEST("50000.", "\{\"atom\":50000}");
 }
 
 TEST_CASE("test-lisp-compilation", "[none]")
@@ -314,7 +319,7 @@ TEST_CASE("test-lisp-evaluation", "[none]")
             (replace-salary-field '((Ada Lovelace) 45000.00 338519) 50000.00)
         )",
         "((Ada Lovelace) 50000.00 338519)");
-    
+
     // p163
     RUN_TEST("", "(car '(a b c))", "a");
     RUN_TEST("", "(cdr '(a b c))", "(b c)");
