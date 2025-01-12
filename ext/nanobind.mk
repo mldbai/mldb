@@ -16,8 +16,8 @@ NANOBIND_COMPILE_OPTIONS := \
     -ffunction-sections \
 	-fdata-sections \
 	-DNB_SHARED \
-	-fvisibility=hidden \
 
+#	-fvisibility=hidden \
 #	-DNDEBUG \
 #	-DNB_COMPACT_ASSERTIONS \
 

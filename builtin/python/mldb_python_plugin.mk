@@ -17,7 +17,7 @@ PYTHON_INTERPRETER_LINK := \
 	nanobind \
 
 
-$(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH) -I$(NANOBIND_INCLUDE_PATH)))
+$(eval $(call set_compile_option,$(PYTHON_INTERPRETER_SOURCES),-I$(PYTHON_INCLUDE_PATH) $(NANOBIND_COMPILE_OPTIONS)))
 
 $(eval $(call library,python_interpreter,$(PYTHON_INTERPRETER_SOURCES),$(PYTHON_INTERPRETER_LINK)))
 
@@ -54,7 +54,7 @@ PYTHON_PLUGIN_LINK := \
 
 
 # Needed so that Python plugin can find its header
-$(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH) -I$(NANOBIND_INCLUDE_PATH)))
+$(eval $(call set_compile_option,$(PYTHON_PLUGIN_SOURCES),-I$(PYTHON_INCLUDE_PATH) $(NANOBIND_COMPILE_OPTIONS)))
 
 $(eval $(call library,mldb_python_plugin,$(PYTHON_PLUGIN_SOURCES),$(PYTHON_PLUGIN_LINK)))
 

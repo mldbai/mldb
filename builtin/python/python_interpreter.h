@@ -8,6 +8,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 #include "nanobind/nanobind.h"
 #include "mldb/types/string.h"
 #include "mldb/compiler/compiler.h"
