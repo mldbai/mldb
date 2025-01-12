@@ -197,8 +197,8 @@ endef
 # $(3): libraries to link with
 
 define python_addon
-$$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH)))
-$$(eval $$(call library,$(1),$(2),$(3),$(1),$(PY_SO_EXTENSION),"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
+$$(eval $$(call set_compile_option,$(2),-I$$(PYTHON_INCLUDE_PATH) $(NANOBIND_COMPILE_OPTIONS)))
+$$(eval $$(call library,$(1),$(2),$(3) nanobind,$(1),$(PY_SO_EXTENSION),"  $(COLOR_YELLOW)[PYTHON_ADDON]$(COLOR_RESET)"))
 
 ifneq ($(PREMAKE),1)
 
