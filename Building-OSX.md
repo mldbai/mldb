@@ -169,3 +169,22 @@ I will write a script that I can run from the command-line.
 
 The documentation from an earlier version of MLDB is still available at https://docs.mldb.ai/; this will
 eventually be updated to point to the latest version.
+
+## Debugging on OSX
+
+Here are tips for debugging mldb on OSX:
+
+### Enablinb core dumping on OSX
+
+The binaries produced are ad-hoc signed with the following attribute: `com.apple.security.get-task-allow=true`
+which allows core dumping (true as of OSX Sonoma; the OSX application security model is fast-evolving and so
+that may not always be true). This entitlement is listed in the `jml-build/os/mldb.debug.entitlements.plist`
+file.
+
+For this to work, you also need to:
+
+* Make `/cores` world-writable: `sudo chmod 1777 /cores`
+* Tell the kernel to enable core-dumps: `sudo sysctl kern.coredump=1`
+* Set the ulimit to cores to non-zero: `ulimit -c unlimited`
+
+Cores should now be dumped under `core.<pid>` in that directory.
