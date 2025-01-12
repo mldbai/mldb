@@ -79,3 +79,6 @@ LIB_CoreFoundation_LINKER_OPTIONS:=-framework CoreFoundation
 LIB_CoreFoundation_HAS_NO_SHLIB:=1
 
 PYTHON_VERSION=3.12
+
+# This provides attributes allowing easier debugability including core files
+POST_LINK_COMMAND:=codesign -s - -f --entitlements $(JML_BUILD)/os/mldb.debug.entitlements.plist
