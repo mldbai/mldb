@@ -32,12 +32,6 @@ std::ostream & operator << (std::ostream & stream, const std::optional<T> & val)
 
 } // namespace std
 
-//TEST_CASE("test rank and select")
-//{
-//    CHECK(brank(0, {1U}) == 0);
-//    CHECK(brank(1, {3U}) == 1); 
-//}
-
 template<typename Str>
 void CHECK_LONGEST(const CharPrefixTrie & trie, Str&& s, uint32_t nn, uint32_t ll)
 {
@@ -69,7 +63,7 @@ TEST_CASE("test null table")
 
 TEST_CASE("test one null entry")
 {
-    std::map<std::string, uint16_t> s = { { "", 1 }};
+    std::map<std::string, uint16_t> s = { { "", 0 }};
     CharPrefixTrie trie = construct_trie(s);
     //cerr << "trie.mem.size() = " << trie.mem.size() << endl;
     //for (std::byte c: trie.mem)
@@ -81,12 +75,12 @@ TEST_CASE("test one null entry")
     CHECK(v == std::nullopt);
 
     CHECK_LONGEST(trie, "", 0, 0);
-    CHECK_NO_LONGEST(trie, " ");
+    CHECK_LONGEST(trie, " ", 0, 0); // The longest matching prefix is the empty prefix
 }
 
 TEST_CASE("test one entry")
 {
-    std::map<std::string, uint16_t> s = { { "hello", 1 }};
+    std::map<std::string, uint16_t> s = { { "hello", 0 }};
     CharPrefixTrie trie = construct_trie(s);
     cerr << "trie.mem.size() = " << trie.mem.size() << endl;
     trie.dump(cerr);
@@ -103,7 +97,7 @@ TEST_CASE("test one entry")
 
 TEST_CASE("test two entries")
 {
-    std::map<std::string, uint16_t> s = { { "hello", 1 }, { "world", 2 }};
+    std::map<std::string, uint16_t> s = { { "hello", 0 }, { "world", 1 }};
     CharPrefixTrie trie = construct_trie(s);
     cerr << "trie.mem.size() = " << trie.mem.size() << endl;
     trie.dump(cerr);

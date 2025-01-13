@@ -120,7 +120,7 @@ least_squares_impl(const MLDB::MatrixRef<Float, 2> & A, const distribution<Float
 
     MLDB::Matrix<Float, 2> A2 = A;
 
-#if 1
+#if 0
     using namespace std;
     cerr << "m = " << m << " n = " << n << " A2.dim(0) = " << A2.dim(0)
          << " A2.dim(1) = " << A2.dim(1) << endl;
@@ -146,7 +146,7 @@ least_squares_impl(const MLDB::MatrixRef<Float, 2> & A, const distribution<Float
         //if (debug_irls)
         //      (*debug_irls) << "retrying; " << res << " are too small" << endl;
     
-        cerr << "retrying least squares with res " << res << endl;
+        //cerr << "retrying least squares with res " << res << endl;
 
         /* Rank-deficient matrix.  Use the more efficient routine. */
         int rank;

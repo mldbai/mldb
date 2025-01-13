@@ -19,148 +19,33 @@
 
 namespace MLDB {
 
-/// Find how many 1 bits there are in the x first bits of the array (inclusive).
-/// So brank(0, {1}) == 1
-/// Inverse of bselect()
-template<typename Unsigned>
-inline uint32_t brank(uint32_t x, std::span<const Unsigned> mem)
-{
-    static_assert(std::is_unsigned_v<Unsigned>, "brank only works on unsigned integral types");
-    static constexpr size_t NBits = sizeof(Unsigned) * 8;
-    // Naive... to be optimized
-    // http://bitmagic.io/rank-select.html
-    size_t p = x / NBits;  // word number
-    uint32_t q = x % NBits;  // bit number within word
-    uint32_t result = 0;
-
-    if (MLDB_UNLIKELY(p >= mem.size()))
-        MLDB_THROW_RANGE_ERROR("brank");
-
-    // Scan a word at a time
-    for (size_t i = 0;  i < p;  ++i)
-        result += std::popcount(mem[i]);
-
-    // Scan the last bits
-    result += std::popcount(mem[p] << (NBits - 1 - q));
-
-    return result;
-}
-
-template<typename Container>
-inline uint32_t brank(uint32_t x, const Container & mem)
-{
-    using Unsigned = decltype(*std::data(mem));
-    return brank<Unsigned>(x, std::span<const Unsigned>(std::data(mem), std::size(mem)));
-}
-
-template<typename Unsigned>
-inline uint32_t brank(uint32_t x, const std::initializer_list<Unsigned> & mem)
-{
-    return brank<Unsigned>(x, std::span<const Unsigned>(std::data(mem), std::size(mem)));
-}
-
-struct Bitstream {
-
-    // Writes n zeros followed by a one
-    void write_n(uint32_t n)
-    {
-        auto b = leftover_bits();
-        if (n >= b) {
-            write_bits(0, b);
-            n -= b;
-            while (n >= 64) {
-                write_aligned_64_bits(0);
-                n -= 64;
-            }
-        }   
-        write_bits(0, n);
-        write_bits(1, 1);
-    }
-
-    void write_bits(uint64_t val, uint8_t nbits)
-    {
-        if (nbits == 0)
-            return;
-        uint32_t b = leftover_bits();
-        if (b == 0) {
-            bits.emplace_back(0);
-            b = 64;
-        }
-        uint32_t n = std::min<uint32_t>(b, nbits);
-        uint32_t x = len % 64;
-        uint64_t mask = (1 << n) - 1;
-        bits.back() |= (val & mask) << x;
-        len += n;
-
-        if (nbits > n) {
-            write_bits(val >> n, nbits - n);
-        }
-    }
-
-    void write_aligned_64_bits(uint64_t val)
-    {
-        ExcAssertEqual(leftover_bits(), 0);
-        bits.push_back(val);
-    }
-
-    uint32_t leftover_bits() const { uint32_t b = len % 64;  return b ? 64 - b : 0; }
-
-    std::vector<uint64_t> bits;
-    uint32_t len = 0;
-};
-
-
-
-/// Find the first position such that there are x 1 bits in the array up to and including
-/// that position.
-/// Inverse of brank()
-template<typename Unsigned>
-inline uint32_t bselect(uint32_t x, std::span<const uint64_t> mem)
-{
-    static_assert(std::is_unsigned_v<Unsigned>, "brank only works on unsigned integral types");
-    static constexpr size_t NBits = sizeof(Unsigned) * 8;
-
-    // Naive... to be optimized
-    // http://bitmagic.io/rank-select.html
-
-    // Scan a word at a time
-    size_t p = 0;  // word number
-    if (MLDB_UNLIKELY(mem.size() == 0))
-        MLDB_THROW_LOGIC_ERROR("bselect");
-
-    while (x > 0 && x >= std::popcount(mem[p])) {
-        x -= std::popcount(mem[p]);
-        ++p;
-    }
-
-    // Scan a bit at a time; q is bit number
-    for (uint32_t q = 0;  q < NBits && x > 0;  ++q) {
-        if (std::popcount(mem[p] << (NBits - 1 - q)) == x)
-            return p * 64 + q;
-    }
-
-    // Fall through: x == 0
-    return 0;
-}
-
-template<typename Container>
-inline uint32_t bselect(uint32_t x, const Container & mem)
-{
-    using Unsigned = decltype(*std::data(mem));
-    return bselect<Unsigned>(x, std::span<Unsigned>(std::data(mem), std::size(mem)));
-}
-
 // In suffix_array.h
 std::string_view commonPrefix(const std::string_view & s1, const std::string_view & s2, uint32_t maxLen);
 
+/* A trie is an associative array between strings and integers. So conceptually, it's a
+   std::map<std::string, int>. However, where the keys have prefixes in common, it's much
+   more efficient than a std::map, as the common prefixes are stored only once.
+
+   It is stored as a tree structure. For efficiency over various kinds of data structures,
+   we may store different parts in different ways. The core abstraction is a node, which:
+
+   - Is reached by removing a prefix from the string to be matched (note that usually, the prefix is
+     not stored in the node itself).
+   - May have a value, which is the value associated with the prefix
+   - May have sub-nodes, each of which is reached by a particular prefix
+
+   This implementation creates a memory-mappable, static trie from a fixed list of key/value pairs.
+   It attempts to be cache-friendly by densely packing data and minimizing linear pointer chasing.
+ */
+ 
 enum PrefixTrieNodeType: uint8_t {
-    EMPTY,
-    DENSE,
-    TAIL,
-    MULTILEAF,
-    PREFIX,
-    SPARSE,
-    SUCCINCT
+    EMPTY,        ///< Empty node (needed to store empty tries)
+    DENSE,        ///< Classic trie node; each of the 256 characters has a pointer to a sub-node
+    TAIL,         ///< Tail node where there is one value associated with a (possibly empty) prefix
+    MULTILEAF,    ///< Multiple values, each associated with a (possibly empty) prefix
+    PREFIX,       ///< A single prefix leading to another node
+    SPARSE,       ///< Sparse trie node; there are n child nodes, each associated with a different character
+    SUCCINCT      ///< (under construction): a succinct data structure with multiple leaves
 };
 
 #define MLDB_FOR_EACH_PREFIX_TRIE_NODE_TYPE(op, ...) \
@@ -182,6 +67,8 @@ MLDB_FOR_EACH_PREFIX_TRIE_NODE_TYPE(MLDB_DO_PREFIX_TRIE_TYPE_SWITCH, node, typed
 default: MLDB_THROW_LOGIC_ERROR(); \
 } 
 
+// Align a pointer to the alignment of a given type, possibly incrementing it to achieve the
+// invariant.
 template<typename N>
 inline N * aligned_to(const void * p)
 {
@@ -216,10 +103,12 @@ inline std::string toString(std::string_view s)
 std::ostream & operator << (std::ostream & stream, const std::basic_string<char8_t> & s);
 std::ostream & operator << (std::ostream & stream, const std::basic_string_view<char8_t> & s);
 
-// Allocate without a node
+// Allocate a node plus following storage for its indirect data. The mapping context is
+// informed as to where this memory came from.
 template<typename Node, typename Ch>
 Node & alloc_trie_node(MappingContext & context, std::basic_string_view<Ch> prefix, size_t extraBytes)
 {
+    // Allocate the given node, with extra space at the end, and 
     //static_assert(alignof(Node) == 1, "Only packed / byte aligned trie nodes can be allocated");
     Node & res = context.alloc_field<Node>(toString(prefix) + ".node");
     if (extraBytes)
@@ -227,6 +116,8 @@ Node & alloc_trie_node(MappingContext & context, std::basic_string_view<Ch> pref
     return res;
 }
 
+// Common header for all prefix trie nodes, so that they can be treated
+// like polymorphic objects.
 struct PrefixTrieNodeHeader {
     struct {
         uint8_t type_:3 = -1;
@@ -274,6 +165,9 @@ public:
 
     static constexpr std::pair<uint32_t, uint32_t> NO_LONGEST = { -1, 0 };
 
+    // Find the longest entry in the trie that matches a prefix of the string s.
+    // The first result is the value of the key; the second is the length of the
+    // prefix that matches that key.
     std::pair<uint32_t, uint32_t> longest(StringViewType s) const
     {
         return this->longestImpl(*atOffset<NodeHeader>(0), s);
@@ -1258,9 +1152,12 @@ inline CharPrefixTrie construct_trie(const std::map<std::string, uint16_t> & m)
                            );
     uint32_t ofs = construct_trie_node(context, std::string_view{}, m.begin(), m.end());
     ExcAssertEqual(ofs, 0);
+
+#if 0
     using namespace std;
     cerr << "allocated " << context.getOffset() << " bytes of " << toAllocate
          << " for " << m.size() << " entries with " << totalLength << " key bytes" << endl;
+#endif
     result.mem = { context.getMemory(), context.getMemory() + context.getOffset() };
     return result;
 }

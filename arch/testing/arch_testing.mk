@@ -30,6 +30,8 @@ $(eval $(call test,tick_counter_test,arch,boost))
 endif
 
 $(eval $(call test,bit_array_test,arch,boost))
+$(eval $(call test,bit_stream_writer_test,arch,catch2))
+$(eval $(call test,bit_rank_select_test,arch,catch2))
 
 
 ifeq ($(WITH_CUDA),1)

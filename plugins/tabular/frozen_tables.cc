@@ -461,7 +461,7 @@ struct FrozenBlobTable::Itl {
             }
         }
         else {
-            MLDB_THROW_UNIMPLEMENTED();
+            MLDB_THROW_UNIMPLEMENTED("for BlobTable md format %d", (int)md.format);
         }
     }
     
@@ -480,7 +480,7 @@ struct FrozenBlobTable::Itl {
 
         }
         else {
-            MLDB_THROW_UNIMPLEMENTED();
+            MLDB_THROW_UNIMPLEMENTED("for BlobTable md format %d", (int)md.format);
         }
     }
 
