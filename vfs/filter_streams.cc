@@ -32,7 +32,9 @@
 #include "mldb/base/exc_assert.h"
 #include "mldb/utils/lexical_cast.h"
 #include "mldb/utils/split.h"
+#include "mldb/arch/vm.h"
 
+#include <sys/mman.h>
 
 using namespace std;
 
@@ -72,9 +74,19 @@ UriHandler(std::streambuf * buf,
 
 struct BoostCompressor: public boost::iostreams::multichar_output_filter {
 
-    BoostCompressor(Compressor * compressor)
-        : compressor(compressor)
+    BoostCompressor(Compressor * compressor, std::streambuf & buf)
+        : compressor(compressor), buf(buf)
     {
+        // Record the start position so that once we know the actual written
+        // size we can go back and rewrite the header wiht the right size.
+        if (compressor->canFixupLength()) {
+            try {
+                MLDB_TRACE_EXCEPTIONS(false);
+                startPos = buf.pubseekoff(0, ios::cur, ios_base::in);
+            } catch (std::ios_base::failure exc) {
+                startPos = -1;
+            }
+        }
     }
 
     template<typename Sink>
@@ -86,6 +98,7 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
             
             data += written;
             size -= written;
+            bytesWritten += written;
         }
     }
 
@@ -99,19 +112,40 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
             };
         
         compressor->compress(s, n, onData);
+        bytesRead += n;
         return n;
     }
 
     template<typename Sink>
     void close(Sink& sink)
     {
+        if (alreadyClosed)
+            return;
+
         auto onData = [&] (const char * data, size_t len) -> size_t
             {
                 writeAll(sink, data, len);
                 return len;
             };
         
+        if (bytesRead == 0) {
+            compressor->notifyInputSize(0);            
+        }
         compressor->finish(onData);
+
+        if (bytesRead != 0 && startPos != -1 && compressor->canFixupLength()) {
+            std::string data = compressor->newHeaderForLength(bytesRead);
+            {
+                std::ostream stream(&buf);
+                auto oldPos = stream.tellp();
+                stream.seekp(startPos, std::ios::beg);
+                stream.write(data.data(), data.size());
+                stream.flush();
+                stream.seekp(oldPos, std::ios::beg);
+            }
+        }
+
+        alreadyClosed = true;
     }
 
     template<typename Sink>
@@ -127,6 +161,11 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
     }
 
     std::shared_ptr<Compressor> compressor;
+    std::streambuf & buf;
+    uint64_t bytesWritten = 0;
+    uint64_t bytesRead = 0;
+    int64_t startPos = -1;
+    bool alreadyClosed = false;
 };
 
 
@@ -318,7 +357,7 @@ filter_ostream::
         close();
     }
     catch (...) {
-        cerr << "~filter_ostream: ignored exception\n";
+        cerr << "~filter_ostream: ignored exception\n" + MLDB::getExceptionString() + "\n";
     }
 }
 
@@ -358,7 +397,7 @@ void addCompression(streambuf & buf,
             = Compressor::create(compression, compressionLevel);
         if (!compressor)
             throw MLDB::Exception("unknown filter compression " + compression);
-        stream.push(BoostCompressor(compressor));
+        stream.push(BoostCompressor(compressor, buf));
     }
     else {
         std::string compressionFromFilename
@@ -368,7 +407,7 @@ void addCompression(streambuf & buf,
                 = Compressor::create(compressionFromFilename, compressionLevel);
             if (!compressor)
                 throw MLDB::Exception("unknown filter compression " + compression);
-            stream.push(BoostCompressor(compressor));
+            stream.push(BoostCompressor(compressor, buf));
         }
     }
 }
@@ -631,11 +670,11 @@ close()
 {
     if (stream) {
         boost::iostreams::flush(*stream);
-        boost::iostreams::close(*stream);
+        //boost::iostreams::close(*stream);  // will be called on stream.reset();
     }
+    stream.reset();
     exceptions(ios::goodbit);
     rdbuf(0);
-    stream.reset();
     sink.reset();
     options.clear();
     if (deferredExcPtr) {
@@ -962,11 +1001,11 @@ fork(const std::map<std::string, std::string> & options) const
     return result;
 }
 
-std::pair<const char *, size_t>
+std::tuple<const char *, size_t, size_t>
 filter_istream::
 mapped() const
 {
-    return { handlerOptions.mapped, handlerOptions.mappedSize };
+    return { handlerOptions.mapped, handlerOptions.mappedSize, handlerOptions.mappedCapacity };
 }
 
 FsObjectInfo
@@ -1061,13 +1100,50 @@ struct RegisterFileHandler {
             } 
             else {
                 try {
-                    mapped_file_source source(resource.rawString());
+                    // Here is where we stick things we need to 
+                    using KeepMeAround = std::vector<std::shared_ptr<const void>>;
+                    auto keepMe = std::make_shared<KeepMeAround>();
+
+                    mapped_file_params params(resource.rawString());
+                    mapped_file_source source(params);
+
+                    //cerr << "mapped file at " << (void *)source.data() << endl;
+
+                    size_t capacity = roundUpToPageSize(info.size);
+                    if (capacity - info.size < MAPPING_EXTRA_CAPACITY) {
+                        void * hint = (void *)(source.data() + capacity);
+                        // Attempt to map a guard page
+                        std::shared_ptr<void> addr
+                            (mmap(hint, page_size,
+                                PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0),
+                            [=] (void * p) { munmap(p, page_size); });
+
+                        if (addr.get() == MAP_FAILED) {
+                            throw Exception
+                                ("Failed to open memory map file: "
+                                + string(strerror(errno)));
+                        }
+                        if (addr.get() != (source.data() + capacity)) {
+                            cerr << "addr.get() = " << (void *)addr.get() << endl;
+                            cerr << "hint = " << hint << endl;
+                            cerr << "couldn't map guard page or didn't map at the right address" << endl;
+                        }
+                        else {
+                            keepMe->emplace_back(std::move(addr));
+                            capacity += page_size;
+                        }
+                    }
+
                     shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
                 
                     UriHandlerOptions options;
                     options.mapped = source.data();
-                    options.mappedSize = source.size();
-                    return UriHandler(buf.get(), buf, info, options);
+                    options.mappedSize = info.size;
+                    options.mappedCapacity = capacity;
+
+                    keepMe->emplace_back(buf);
+
+                    return UriHandler(buf.get(), std::move(keepMe), info, options);
                 } catch (const std::exception & exc) {
                     throw MLDB::Exception("Opening file " + resource + ": "
                                         + exc.what());

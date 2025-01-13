@@ -147,3 +147,40 @@ BOOST_AUTO_TEST_CASE( test_compressed_random_access )
 {
     
 }
+
+BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
+{
+    string input_file = "mldb_test_data/reviews_Digital_Music_5.json.zstd";
+    ContentDescriptor descriptor = jsonDecode<ContentDescriptor>("file://" + input_file);
+    std::shared_ptr<ContentHandler> handler = getDecompressedContent(descriptor);
+
+    std::atomic<size_t> numBlocks{0}, totalLength{0}, numParallel{0}, maxNumParallel{0};
+
+    auto onBlock = [&] (size_t blockNum, uint64_t blockOffset,
+                        FrozenMemoryRegion block)
+    {
+        auto par = numParallel.fetch_add(1) + 1;
+        auto mnp = maxNumParallel.load();
+        while (par > mnp && !maxNumParallel.compare_exchange_weak(mnp, std::max(mnp, par)))
+            ;
+
+        numBlocks.fetch_add(1);
+        totalLength.fetch_add(block.length());
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+        //cerr << "got block " << blockNum << " from " << blockOffset << " of length " << block.length() << endl;
+
+        numParallel.fetch_sub(1);
+        return true;
+    };
+
+    handler->forEachBlockParallel(0, 1024 * 1024 /* requested block size */, 16 /* maxParallelism */, onBlock);
+
+    cerr << "maxNumParallel = " << maxNumParallel << endl;
+
+    BOOST_CHECK_EQUAL(numBlocks, 679);
+    BOOST_CHECK_EQUAL(totalLength, 88964528);
+    BOOST_CHECK_EQUAL(numParallel, 0);
+    BOOST_CHECK_GT(maxNumParallel, 1);
+}

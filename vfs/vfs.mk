@@ -14,6 +14,8 @@ LIBVFS_SOURCES := \
 	zstandard.cc \
 	snappy.cc \
 	lz4.cc \
+	compressibility.cc \
+	
 
 LIBVFS_LINK := \
 	arch \

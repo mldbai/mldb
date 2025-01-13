@@ -14,10 +14,113 @@
 #include <functional>
 #include <string>
 #include <memory>
+#include <any>
+#include <span>
+#include <cstring>
 
 namespace MLDB {
 
 struct ContentHandler;
+
+/* Structure that encapsulates logic to split a block of memory into separate
+ * chunks that can be handled in parallel.  The simplest is to split per line
+ * of text, but this interface allows state to be carried around which allows
+ * for other splitting schemes that can handle quoted or structured records
+ * like CSV and JSON.
+ */ 
+struct BlockSplitter {
+    virtual ~BlockSplitter() = default;
+    virtual std::any newState() const = 0;
+    virtual bool isStateless() const { return false; };
+    virtual size_t requiredBlockPadding() const { return 0; }
+    virtual std::pair<const char *, std::any>
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
+              bool noMoreData, const std::any & state) const = 0;
+    virtual std::span<const char> fixupBlock(std::span<const char> block) const;
+};
+
+/* BlockSplitter with a specific state type. */
+template<typename State>
+struct BlockSplitterT: public BlockSplitter {
+    virtual ~BlockSplitterT() = default;
+    virtual State newStateT() const { return State(); }
+    virtual std::pair<const char *, State>
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               bool noMoreData, const State & state) const = 0;
+    virtual std::any newState() const override
+    {
+        return newStateT();
+    }
+    virtual std::pair<const char *, std::any>
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
+              bool noMoreData, const std::any & state) const override
+    {
+        const State & stateT = std::any_cast<State>(state);
+        auto [newPos, newState] = nextBlockT(block1, n1, block2, n2, noMoreData, stateT);
+        return { newPos, std::move(newState) };
+    };
+};
+
+/* BlockSplitter with no state. */
+template<>
+struct BlockSplitterT<void>: public BlockSplitter {
+    virtual ~BlockSplitterT() = default;
+    virtual std::any newState() const override
+    {
+        return {};
+    }
+    virtual bool isStateless() const override { return true; };
+    virtual const char *
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               bool noMoreData) const = 0;
+    virtual std::pair<const char *, std::any>
+    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
+              bool noMoreData, const std::any & state) const override
+    {
+        auto newPos = nextBlockT(block1, n1, block2, n2, noMoreData);
+        return { newPos, {} };
+    };
+};
+
+/* BlockSplitter that splits on the newline character. */
+struct NewlineSplitter: public BlockSplitterT<void> {
+    virtual const char *
+    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
+               bool noMoreData) const override
+    {
+        auto result = (const char *)memchr(block1, '\n', n1);
+        if (!result && block2)
+            result = (const char *)memchr(block2, '\n', n2);
+
+        // Found a newline, skip it and return
+        if (result)
+            return result + 1;
+
+        // No newline but EOF, return up to the last character
+        if (noMoreData)
+            return n2 ? block2 + n2 : block1 + n1;
+
+        // No newline and not EOF, we need more data
+        return nullptr;
+    }
+
+    static std::span<const char> removeNewlines(std::span<const char> block)
+    {
+        const char * p = block.data();
+        const char * e = p + block.size();
+        if (e > p && e[-1] == '\n') --e;
+        if (e > p && e[-1] == '\r') --e;
+        return { p, size_t(e - p) };
+    }
+
+    virtual std::span<const char> fixupBlock(std::span<const char> block) const override
+    {
+        return removeNewlines(block);
+    }
+};
+
+/* Instance of the newline splitter that we can use for default reference arguments. */
+extern const NewlineSplitter newLineSplitter;
 
 
 /** Run the given lambda over every line read from the stream, with the
@@ -122,7 +225,8 @@ void forEachLineBlock(std::istream & stream,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock
                           = nullptr,
                       std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
-                          = nullptr);
+                          = nullptr,
+                      const BlockSplitter & splitter = newLineSplitter);
 
 /** Run the given lambda over every line read from the file, with the
     work distributed over threads each of which receive one block.  The
@@ -154,7 +258,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       std::function<bool (int64_t blockNumber,
                                           int64_t lineNumber)> endBlock
                           = nullptr,
-                      size_t blockSize = 20'000'000);
+                      size_t blockSize = 20'000'000,
+                      const BlockSplitter & splitter = newLineSplitter);
 
 /** Run the given lambda over fixed size chunks read from the stream, in parallel
     as much as possible.  If there is a smaller chunk at the end (EOF is obtained),

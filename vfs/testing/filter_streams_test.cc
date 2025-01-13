@@ -29,7 +29,10 @@
 
 #include "mldb/base/scope.h"
 #include "mldb/arch/exception_handler.h"
+#include "mldb/base/exc_assert.h"
 #include "mldb/arch/demangle.h"
+#include "mldb/base/hex_dump.h"
+#include "mldb/utils/environment.h"
 
 using namespace std;
 namespace fs = std::filesystem;
@@ -40,8 +43,8 @@ using boost::unit_test::test_suite;
 #pragma clang diagnostic ignored "-Wunknown-warning-option"
 #pragma clang diagnostic ignored "-Wvla-cxx-extension"
 
-fs::path binDir = std::string(getenv("BIN"));
-fs::path tmpDir = std::string(getenv("TMP"));
+EnvOption<fs::path> binDir("BIN", "./bin");
+EnvOption<fs::path> tmpDir("TMP", "./tmp");
 
 struct FileCleanup {
     FileCleanup(const string & filename)
@@ -72,14 +75,24 @@ void compress_using_tool(const std::string & input_file,
                          const std::string & output_file,
                          const std::string & command)
 {
-    system("cat " + input_file + " | " + command + " > " + output_file);
+    system(command + " " + input_file + " > " + output_file);
 }
 
 void decompress_using_tool(const std::string & input_file,
                            const std::string & output_file,
                            const std::string & command)
 {
-    system("cat " + input_file + " | " + command + " > " + output_file);
+    try {
+        //system("hexdump -C " + input_file + " | head -n 10");
+        system("cat " + input_file + " | " + command + " > " + output_file);
+    } catch (...) {
+        std::ifstream stream(input_file);
+        constexpr size_t BUF_SIZE = 1024;
+        char buf[BUF_SIZE];
+        size_t n = stream.readsome(buf, BUF_SIZE);
+        hex_dump(buf, n);
+        throw;
+    }
 }
 
 void compress_using_stream(const std::string & input_file,
@@ -89,7 +102,7 @@ void compress_using_stream(const std::string & input_file,
 
     filter_ostream out(output_file);
 
-    char buf[16386];
+    char buf[16384];
 
     while (in) {
         in.read(buf, 16384);
@@ -167,40 +180,40 @@ void test_compress_decompress(const std::string & input_file,
 BOOST_AUTO_TEST_CASE( test_compress_decompress_gz )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    test_compress_decompress(input_file, "gz", "gzip", "gzip -d");
+    test_compress_decompress(input_file, "gz", "gzip -c", "gzip -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_bzip2 )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    test_compress_decompress(input_file, "bz2", "bzip2", "bzip2 -d");
+    test_compress_decompress(input_file, "bz2", "bzip2 -c", "bzip2 -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_xz )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    test_compress_decompress(input_file, "xz", "xz", "xz -d");
+    test_compress_decompress(input_file, "xz", "xz -c", "xz -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4 )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    string lz4_cmd = binDir / "lz4cli";
+    string lz4_cmd = binDir.get() / "lz4cli";
     test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_lz4_content_size )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    string lz4_cmd = binDir / "lz4cli --content-size";
-    test_compress_decompress(input_file, "lz4", lz4_cmd, lz4_cmd + " -d");
+    string lz4_cmd = binDir.get() / "lz4cli -B7 -BX --content-size";
+    test_compress_decompress(input_file, "csize.lz4", lz4_cmd, lz4_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_compress_decompress_zstandard )
 {
     string input_file = "mldb/vfs/testing/filter_streams_test.cc";
-    string zstd_cmd = binDir / "zstd";
-    test_compress_decompress(input_file, "zst", zstd_cmd, zstd_cmd + " -d");
+    string zstd_cmd = binDir.get() / "zstd";
+    test_compress_decompress(input_file, "zst", zstd_cmd + " -c", zstd_cmd + " -d");
 }
 
 BOOST_AUTO_TEST_CASE( test_open_failure )
@@ -242,9 +255,9 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
 /* ensures that empty gz/bzip2/xz streams have a valid header */
 BOOST_AUTO_TEST_CASE( test_empty_gzip )
 {
-    fs::create_directories(tmpDir);
+    fs::create_directories(tmpDir.get());
 
-    string fileprefix(tmpDir / "empty.");
+    string fileprefix(tmpDir.get() / "empty.");
     vector<string> exts = { "gz", "bz2", "xz", "lz4", "zst" };
     map<string, string> compressions = {
         { "gz", "gzip" },
@@ -304,7 +317,7 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
         block[i] = i ^ (i << 8) ^ (i << 16) ^ (1 << 24);
     }
     
-    string filename = tmpDir / "badfile.xz4";
+    string filename = tmpDir.get() / "badfile.xz4";
 
     FileCleanup cleanup(filename);
         
@@ -590,8 +603,15 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
     filter_istream stream1("file://mldb/utils/testing/fixtures/hello.txt",
                            { { "mapped", "true" } });
 
-    BOOST_REQUIRE(stream1.mapped().first != nullptr);
-    BOOST_CHECK_EQUAL(strncmp(stream1.mapped().first, "hello", 5), 0);
+    const char * addr;
+    size_t size;
+    size_t capacity;
+
+    std::tie(addr, size, capacity) = stream1.mapped();
+
+    BOOST_REQUIRE(addr != nullptr);
+    BOOST_CHECK_EQUAL(strncmp(addr, "hello", 5), 0);
+    BOOST_CHECK_GE(strncmp(std::get<0>(stream1.mapped()), "hello", 5), 0);
 
     std::string str;
     getline(stream1, str);
@@ -606,6 +626,34 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 
     BOOST_CHECK_EQUAL(str, "hello");
     stream2.close();
+
+    // Verify that the mapped stream has extra space beyond the end even when it's
+    // a multiple of the page size (16kb is chosen instead of 4k because that's the
+    // page size of arm64 based macs, which have the largest pages of supported
+    // hosts for MLDB).
+    filter_istream stream3("file://mldb/utils/testing/fixtures/16kbofones.txt",
+                           { { "mapped", "true" } });
+    
+    std::tie(addr, size, capacity) = stream3.mapped();
+    cerr << "addr = " << (const void *)addr << endl;
+    cerr << "size = " << size << endl;
+    cerr << "capacity = " << capacity << endl;
+
+    BOOST_REQUIRE(addr != nullptr);
+    BOOST_REQUIRE_EQUAL(size, 16384);
+    BOOST_REQUIRE_GE(capacity, 16384 + MAPPING_EXTRA_CAPACITY);
+
+    // Verify the contents of the mapped file
+    for (size_t i = 0;  i < 16384;  ++i) {
+        BOOST_CHECK_EQUAL(addr[i], '1');
+    }
+
+    // Verify that we can read beyond the end and that it returns zeros (anything
+    // else indicates uninitialized memory which is a security risk and will trigger
+    // undefined behaviour / address sanitizer / valgrind issues).
+    for (size_t i = size;  i < capacity;  ++i) {
+        BOOST_CHECK_EQUAL(addr[i], 0);
+    }
 }
 
 BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
@@ -614,9 +662,9 @@ BOOST_AUTO_TEST_CASE(test_empty_filter_stream_mapped)
     stream.open("file://mldb/utils/testing/fixtures/empty.txt",
                 { { "mapped", "true" } });
     // we cannot map an empty file
-    auto mapped = stream.mapped();
-    BOOST_CHECK_EQUAL(mapped.first, (char *)nullptr);
-    BOOST_CHECK_EQUAL(mapped.second, 0);
+    auto [addr, size, capacity] = stream.mapped();
+    BOOST_CHECK_EQUAL(addr, (char *)nullptr);
+    BOOST_CHECK_EQUAL(size, 0);
     // but we can read it without failing
     BOOST_CHECK_EQUAL(stream.readAll(), "");
 }
