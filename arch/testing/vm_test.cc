@@ -15,6 +15,7 @@
 #include "mldb/utils/vector_utils.h"
 #include "mldb/arch/exception_handler.h"
 #include "mldb/base/scope.h"
+#include "mldb/arch/info.h"
 
 #include <boost/test/unit_test.hpp>
 #include <iostream>
@@ -29,15 +30,6 @@ using namespace MLDB;
 using namespace std;
 
 using boost::unit_test::test_suite;
-
-// Copied from utils/info.cc due to not being able to include utils lib
-size_t num_open_files()
-{
-    size_t result = 0;
-    for (auto entry: std::filesystem::directory_iterator("/proc/self/fd"))
-        ++result;
-    return result;
-}
 
 void test_function()
 {
