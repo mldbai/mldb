@@ -1,6 +1,13 @@
+default: all
+.PHONY: default
+
 exec-shell=$(if $(TRACE_SHELL_COMMANDS),$(warning executing shell command $(1)))$(shell $(1))
 
 JML_BUILD := mldb/jml-build
+BUILD   ?= build
+ifndef HOSTARCH
+HOSTARCH:=$(shell uname -m)
+endif
 include mldb/jml-build/os/os.mk
 
 toolchain ?= $(DEFAULT_TOOLCHAIN)
@@ -13,43 +20,42 @@ DOCKER_REGISTRY:=quay.io/
 DOCKER_USER:=mldb/
 
 V8_LIB:=v8
-HOSTARCH    ?= $(shell uname -m)
 
 
 -include local.mk
 
 export VIRTUALENV
 
-default: all
-.PHONY: default
 
 # Define our port
 include ports.mk
 
 PWD     := $(shell pwd)
-BUILD   ?= build
-ARCH    ?= $(HOSTARCH)
-OBJ     := $(BUILD)/$(ARCH)/obj
-BIN     := $(BUILD)/$(ARCH)/bin
-LIB		:= $(BUILD)/$(ARCH)/lib
-TESTS   := $(BUILD)/$(ARCH)/tests
-TMPBIN	:= $(BUILD)/$(ARCH)/tmp
-INC     := $(BUILD)/$(ARCH)/include
+ifndef ARCH
+ARCH    := $(HOSTARCH)
+endif
+OBJ     := $(BUILD)/$(ARCH)-$(OSNAME)/obj
+BIN     := $(BUILD)/$(ARCH)-$(OSNAME)/bin
+LIB		:= $(BUILD)/$(ARCH)-$(OSNAME)/lib
+TESTS   := $(BUILD)/$(ARCH)-$(OSNAME)/tests
+TMPBIN	:= $(BUILD)/$(ARCH)-$(OSNAME)/tmp
+INC     := $(BUILD)/$(ARCH)-$(OSNAME)/include
 SRC     := .
-TMP     ?= $(PWD)/$(BUILD)/$(ARCH)/tmp
+TMP     ?= $(PWD)/$(BUILD)/$(ARCH)-$(OSNAME)/tmp
 
 # These are for cross-compilation, where binaries used in the build need
 # be be built for the host.
 HOSTARCH ?= $(ARCH)
-HOSTBIN ?= $(BUILD)/$(HOSTARCH)/bin
-HOSTLIB ?= $(BUILD)/$(HOSTARCH)/lib
-HOSTINC ?= $(BUILD)/$(HOSTARCH)/include
+HOSTOSNAME ?= $(OSNAME)
+HOSTBIN ?= $(BUILD)/$(HOSTARCH)-$(HOSTOSNAME)/bin
+HOSTLIB ?= $(BUILD)/$(HOSTARCH)-$(HOSTOSNAME)/lib
+HOSTINC ?= $(BUILD)/$(HOSTARCH)-$(HOSTOSNAME)/include
 
 TEST_TMP := $(TESTS)
 # Vars for configuration files or files that live outside bin and lib
 ALTROOT := $(BUILD)/$(ARCH)/altroot
 ETC     := $(ALTROOT)/etc
-PLUGINS := $(BUILD)/$(ARCH)/mldb_plugins
+PLUGINS := $(BUILD)/$(ARCH)-$(OSNAME)/mldb_plugins
 
 INCLUDE := -Imldb -Imldb/ext/include
 
