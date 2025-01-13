@@ -103,15 +103,16 @@ std::string dtoa_impl(double floatVal, int mode, int numDigits, int biasAgainstS
             toReturn.insert(2, "0");
     }
     else {
+        auto ndigits = toReturn.size();
         size_t lenScientific
-            = toReturn.size() // digits
-            + (toReturn.size() > 1 ? 1 : 0) // decimal point
+            = ndigits // digits
+            + (ndigits > 1 ? 1 : 0) // decimal point
             + 1 // e
             + std::to_string(decpt-1).size(); // exponent
 
         size_t lenNormal
             = toReturn.size() // digits
-            + (decpt > 1 ? decpt - 1 : 0); // extra zeros
+            + (decpt > 1 ? decpt - ndigits : 0); // extra zeros
 
         if (debug) {
             cerr << "working on decpt" << endl;
@@ -121,8 +122,8 @@ std::string dtoa_impl(double floatVal, int mode, int numDigits, int biasAgainstS
         }
         if (decpt > 1 && lenNormal <= lenScientific + biasAgainstScientific) {
             // If it's short enough then just add zeros, so we don't get 10 -> 1e1
-            if (debug) cerr << "appending " << decpt - 1 << " zeros" << endl;
-            toReturn.append(decpt - 1, '0');
+            if (debug) cerr << "appending " << decpt - ndigits << " zeros" << endl;
+            toReturn.append(decpt - ndigits, '0');
             ExcAssertEqual(toReturn.size(), lenNormal);
         }
         else {

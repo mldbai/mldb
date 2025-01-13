@@ -13,19 +13,17 @@
 
 namespace MLDB {
 
-
 /*****************************************************************************/
 /* ENUM DESCRIPTION                                                          */
 /*****************************************************************************/
 
-template<typename Enum>
+template<typename Enum, typename Underlying = std::underlying_type_t<Enum>>
 struct EnumDescription: public ValueDescriptionT<Enum> {
 
-    using Underlying = std::underlying_type_t<Enum>;
-
-    EnumDescription()
+    EnumDescription(std::shared_ptr<const ValueDescription> underlying = getDefaultDescriptionSharedT<Underlying>())
         : ValueDescriptionT<Enum>(ValueKind::ENUM),
-          hasDefault(false), defaultValue(Enum(0))
+          hasDefault(false), defaultValue(Enum(0)),
+          underlying(std::move(underlying))
     {
     }
 
@@ -44,11 +42,11 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     {
         auto it = print.find(e);
         if (it == print.end())
-            return std::to_string((int)e);
+            return std::to_string((Underlying)e);
         else return it->second.first;
     }
 
-    virtual void parseJsonTyped(Enum * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(Enum * val, JsonParsingContext & context) const override
     {
         if (context.isNull()) {
             context.exception("NULL value found parsing enumeration "
@@ -69,7 +67,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         *val = (Enum)context.expectInt();
     }
 
-    virtual void printJsonTyped(const Enum * val, JsonPrintingContext & context) const ATTRIBUTE_NO_SANITIZE_UNDEFINED
+    virtual void printJsonTyped(const Enum * val, JsonPrintingContext & context) const override ATTRIBUTE_NO_SANITIZE_UNDEFINED
     {
         auto it = print.find(static_cast<Underlying>(*val));
         if (it == print.end())
@@ -77,20 +75,31 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         else context.writeString(it->second.first);
     }
     
-    virtual bool isDefaultTyped(const Enum * val) const
+    virtual bool isDefaultTyped(const Enum * val) const override
     {
         if (!hasDefault)
             return false;
         return *val == defaultValue;
     }
 
-    virtual void setDefaultTyped(Enum * val) const
+    virtual void setDefaultTyped(Enum * val) const override
     {
         *val = defaultValue;
     }
 
+    virtual const ValueDescription & contained() const override
+    {
+        return *underlying;
+    }
+
+    virtual std::shared_ptr<const ValueDescription> containedPtr() const override
+    {
+        return underlying;
+    }
+
     bool hasDefault;
     Enum defaultValue;
+    std::shared_ptr<const ValueDescription> underlying;
 
     void setDefaultValue(Enum value)
     {
@@ -104,7 +113,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
             throw MLDB::Exception("double added name '" + name + "' to enum '"
                                   + this->typeName + "'");
         
-        print.insert({ value, { name, "" } });
+        print.insert({ static_cast<Underlying>(value), { name, "" } });
     }
 
     void addValue(const std::string & name, Enum value,
@@ -116,7 +125,7 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
     }
 
     virtual std::vector<std::tuple<int, std::string, std::string> >
-    getEnumValues() const
+    getEnumValues() const override
     {
         std::vector<std::tuple<int, std::string, std::string> > result;
         for (auto & v: print)
@@ -124,13 +133,23 @@ struct EnumDescription: public ValueDescriptionT<Enum> {
         return result;
     }
 
-    virtual const std::vector<std::string> getEnumKeys() const
+    virtual const std::vector<std::string> getEnumKeys() const override
     {
         std::vector<std::string> res;
         for (const auto & it: print) {
             res.push_back(it.second.first);
         }
         return res;
+    }
+
+    virtual void extractBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const override
+    {
+        underlying->extractBitField(from, to, bitOffset, bitWidth);
+    }
+
+    virtual void insertBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const override
+    {
+        underlying->insertBitField(from, to, bitOffset, bitWidth);
     }
 
     std::unordered_map<std::string, Enum> parse;

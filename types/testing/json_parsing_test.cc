@@ -72,6 +72,8 @@ BOOST_AUTO_TEST_CASE( test1 )
     testFp("1.0E-3", 1.0E-3);
     testFp("Inf", INFINITY);
     testFp("-Inf", -INFINITY);
+    testFp("45000.00", 45000.00);
+    testUnsigned("45000", 45000);
 
     testHex4("0026", 38);
     testHex4("001A", 26);
@@ -117,11 +119,16 @@ void testExpectStringUtf8(ParseContext * context)
         //cerr << "c = " << c << " " << (char)c << endl;
 
         if (c < 0 || c > 127) {
+            // Unicode
             c = context->expect_utf8_code_point();
+
+            char * p1 = buffer + pos;
+            char * p2 = p1;
+            pos += utf8::append(c, p2) - p1;
+
+            continue;
         }
-        else {
-            ++(*context);
-        }
+        ++(*context);
 
         if (c == '\\') {
             c = *(*context)++;
@@ -167,4 +174,12 @@ BOOST_AUTO_TEST_CASE(test_utf8_parsing)
     Utf8StringJsonParsingContext context(s);
 
     BOOST_CHECK_EQUAL(context.expectStringUtf8(), "hellô");
+}
+
+BOOST_AUTO_TEST_CASE(test_match_number)
+{
+    std::string s = "e";
+    ParseContext context(s, s.c_str(), s.c_str() + s.length());
+    JsonNumber num;
+    BOOST_CHECK(!matchJsonNumber(context, num));
 }

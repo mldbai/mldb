@@ -12,6 +12,7 @@
 #include "value_description.h"
 #include "utility_descriptions.h"
 #include <cstring>
+#include <string_view>
 
 namespace MLDB {
 
@@ -26,8 +27,8 @@ struct StructureDescriptionBase {
 
     StructureDescriptionBase(const std::type_info * type,
                              ValueDescription * owner,
-                             const std::string & structName = "",
-                             bool nullAccepted = false);
+                             const std::string & structName,
+                             bool nullAccepted);
 
     StructureDescriptionBase(const StructureDescriptionBase & other) = delete;
     StructureDescriptionBase(StructureDescriptionBase && other) = delete;
@@ -40,6 +41,8 @@ struct StructureDescriptionBase {
     ValueDescription * owner;
 
     int version = -1;   ///< The version number of this structure
+
+    bool hasLess = true, hasEquality = true, hasWeak = true, hasStrong = true, hasPartial = true;
 
     struct OldVersion {
         int version = -1;
@@ -62,26 +65,10 @@ struct StructureDescriptionBase {
     // in the map and so for comparisons to be done with no memory
     // allocations.
     struct StrCompare {
-        inline bool operator () (const char * s1, const char * s2) const
-        {
-            char c1 = *s1++, c2 = *s2++;
-
-            if (c1 < c2) return true;
-            if (c1 > c2) return false;
-            if (c1 == 0) return false;
-
-            c1 = *s1++; c2 = *s2++;
-            
-            if (c1 < c2) return true;
-            if (c1 > c2) return false;
-            if (c1 == 0) return false;
-
-            return std::strcmp(s1, s2) < 0;
-        }
-
+        bool operator () (const std::string_view & s1, const std::string_view & s2) const;
     };
 
-    typedef std::map<const char *, FieldDescription, StrCompare> Fields;
+    typedef std::map<std::string_view, FieldDescription, StrCompare> Fields;
     Fields fields;
 
     /* A deleter that works with buffers allocated with malloc */
@@ -108,6 +95,191 @@ struct StructureDescriptionBase {
 
     virtual bool onEntry(void * output, JsonParsingContext & context) const = 0;
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
+
+    FieldDescription &
+    addFieldDesc(std::string name,
+                 size_t offset,
+                 std::string comment,
+                 std::shared_ptr<const ValueDescription> description);
+
+    /// Add a bit field, specified by the containing field and a bit offset
+    void addBitFieldDesc(std::string name,
+                         size_t offset,
+                         std::string comment,
+                         std::shared_ptr<const ValueDescription> containingDescription,
+                         uint32_t bitOffset,
+                         uint32_t bitWidth);
+
+    /// Add a discriminated field, including the function used to know whether it is active
+    /// or not and a string description of that function.
+    void addDiscriminatedFieldDesc(std::string name,
+                                   size_t offset,
+                                   std::string comment,
+                                   std::shared_ptr<const ValueDescription> desc,
+                                   std::function<bool (const void *)> isActive,
+                                   std::string isActiveStr);
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const;
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const;
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const;
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const;
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const;
+
+    virtual int getVersion() const;
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) = 0;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const;
+    virtual bool compareEquality(const void * val1, const void * val2) const;
+    virtual bool hasLessThanComparison() const;
+    virtual bool compareLessThan(const void * val1, const void * val2) const;
+    virtual bool hasStrongOrderingComparison() const;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const;
+    virtual bool hasWeakOrderingComparison() const;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const;
+    virtual bool hasPartialOrderingComparison() const;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
+};
+
+
+/*****************************************************************************/
+/* GENERIC STRUCTURE DESCRIPTION                                             */
+/*****************************************************************************/
+
+struct GenericStructureDescription:
+    public ValueDescription,
+    public StructureDescriptionBase {
+
+    GenericStructureDescription(bool nullAccepted,
+                                const std::string & structName);
+
+    virtual void parseJson(void * val, JsonParsingContext & context) const override;
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override;
+    virtual bool isDefault(const void * val) const override;
+    virtual void setDefault(void * val) const override;
+    virtual void copyValue(const void * from, void * to) const override;
+    virtual void moveValue(void * from, void * to) const override;
+    virtual void swapValues(void * from, void * to) const override;
+    virtual void initializeDefault(void * mem) const override;
+    virtual void initializeCopy(void * mem, const void * other) const override;
+    virtual void initializeMove(void * mem, void * other) const override;
+    virtual void destruct(void *) const override;
+
+    virtual bool onEntry(void * output, JsonParsingContext & context) const override;
+    virtual void onExit(void * output, JsonParsingContext & context) const override;
+
+    virtual size_t getFieldCount(const void * val) const override
+    {
+        return fields.size();
+    }
+
+    virtual bool hasFixedFieldCount() const override
+    {
+        return true;
+    }
+
+    virtual size_t getFixedFieldCount() const override
+    {
+        return fields.size();
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const override
+    {
+        return StructureDescriptionBase::hasField(val, field);
+    }
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const override
+    {
+        return StructureDescriptionBase::getFieldDescription(val, field);
+    }
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const override
+    {
+        return StructureDescriptionBase::forEachField(val, onField);
+    }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const override
+    {
+        return StructureDescriptionBase::getField(field);
+    }
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const override
+    {
+        return StructureDescriptionBase::getFieldByNumber(fieldNum);
+    }
+
+    virtual int getVersion() const override
+    {
+        return StructureDescriptionBase::getVersion();
+    }
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override;
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const override
+    {
+        return StructureDescriptionBase::hasEqualityComparison();
+    }
+
+    virtual bool compareEquality(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareEquality(val1, val2);
+    }
+
+    virtual bool hasLessThanComparison() const override
+    {
+        return StructureDescriptionBase::hasLessThanComparison();
+    }
+
+    virtual bool compareLessThan(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareLessThan(val1, val2);
+    }
+
+    virtual bool hasStrongOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasStrongOrderingComparison();
+    }
+
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareStrong(val1, val2);
+    }
+
+    virtual bool hasWeakOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasWeakOrderingComparison();
+    }
+
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareWeak(val1, val2);
+    }
+
+    virtual bool hasPartialOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasPartialOrderingComparison();
+    }
+
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::comparePartial(val1, val2);
+    }
 };
 
 
@@ -124,7 +296,7 @@ struct StructureDescription
     : public ValueDescriptionT<Struct>,
       public StructureDescriptionBase {
     StructureDescription(bool nullAccepted = false,
-                         const std::string & structName = "")
+                         const std::string & structName = type_name<Struct>())
         : ValueDescriptionT<Struct>(ValueKind::STRUCTURE),
           StructureDescriptionBase(&typeid(Struct), this, structName,
                                    nullAccepted)
@@ -181,6 +353,15 @@ struct StructureDescription
         addFieldDesc(name, field, comment, getDefaultDescriptionSharedT<V>());
     }
 
+    template<typename V, typename Base1, typename Base2>
+    void addField(std::string name,
+                  Base2 Base1::* field1,
+                  V Base2::* field2,
+                  std::string comment)
+    {
+        addFieldDesc(name, field1, field2, comment, getDefaultDescriptionSharedT<V>());
+    }
+
     /** Add a field, but override the default value description to use.
         Note that description needs to be convertible to
         std::shared_ptr<const ValueDescriptionT<V> >, but GCC 5.1 is confused
@@ -192,29 +373,25 @@ struct StructureDescription
                       std::string comment,
                       std::shared_ptr<Desc> description)
     {
-        ExcAssert(description);
-
-        if (fields.count(name.c_str()))
-            throw MLDB::Exception("field '" + name + "' added twice");
-
-        fieldNames.emplace_back(::strdup(name.c_str()));
-        const char * fieldName = fieldNames.back().get();
-        
-        auto it = fields.insert
-            (Fields::value_type(fieldName, FieldDescription()))
-            .first;
-        
-        FieldDescription & fd = it->second;
-        fd.fieldName = fieldName;
-        fd.comment = comment;
-        fd.description = description;
         Struct * p = nullptr;
-        fd.offset = (size_t)&(p->*field);
-        fd.width = sizeof(V);
-        fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(it);
-        //using namespace std;
-        //cerr << "offset = " << fd.offset << endl;
+        size_t offset = (size_t)&(p->*field);
+        StructureDescriptionBase::addFieldDesc(std::move(name), offset, std::move(comment), std::move(description));
+    }
+
+    /** Add a field, which is part of a sub-structure.
+    */
+    template<typename V, typename Base1, typename Base2, typename Desc>
+    void addFieldDesc(std::string name,
+                      Base2 Base1::* field1,
+                      V Base2::* field2,
+                      std::string comment,
+                      std::shared_ptr<Desc> description)
+    {
+        Struct * p1 = nullptr;
+        Base2 * p2 = nullptr;
+        size_t offset1 = (size_t)&(p1->*field1);
+        size_t offset2 = (size_t)&(p2->*field2);
+        StructureDescriptionBase::addFieldDesc(std::move(name), offset1 + offset2, std::move(comment), std::move(description));
     }
 
     /** Add a description with a default value. */
@@ -227,27 +404,8 @@ struct StructureDescription
                   std::shared_ptr<const ValueDescriptionT<V> > baseDesc
                       = getDefaultDescriptionSharedT<V>())
     {
-        if (fields.count(name.c_str()))
-            throw MLDB::Exception("field '" + name + "' added twice");
-
-        fieldNames.emplace_back(::strdup(name.c_str()));
-        const char * fieldName = fieldNames.back().get();
-        
-        auto it = fields.insert
-            (Fields::value_type(fieldName, FieldDescription()))
-            .first;
-        
         auto desc = std::make_shared<Desc>(defaultValue, baseDesc);
-        
-        FieldDescription & fd = it->second;
-        fd.fieldName = fieldName;
-        fd.comment = comment;
-        fd.description = std::move(desc);
-        Struct * p = nullptr;
-        fd.offset = (size_t)&(p->*field);
-        fd.width = sizeof(V);
-        fd.fieldNum = fields.size() - 1;
-        orderedFields.push_back(it);
+        return addFieldDesc(std::move(name), field, std::move(comment), std::move(desc));
     }
 
     /** Add a description with an automatic default value derived
@@ -265,70 +423,127 @@ struct StructureDescription
         addField(std::move(name), field, comment, defValue, baseDesc);
     }
 
+    template<typename V, typename Base>
+    void addBitField(std::string name,
+                     V Base::* containingField,
+                     uint32_t bitStart,
+                     uint32_t bitWidth,
+                     std::function<V (const void *)> extract,
+                     std::string comment)
+    {
+        addBitFieldDesc(std::move(name), containingField, bitStart, bitWidth,
+                        std::move(extract), std::move(comment),
+                        getDefaultDescriptionSharedT<V>());
+    }
+
+    template<typename V, typename Bits, typename Base>
+    void addBitFieldCast(std::string name,
+                         Bits Base::* containingFieldBits,
+                         uint32_t bitStart,
+                         uint32_t bitWidth,
+                         std::function<V (const void *)> extract,
+                         std::string comment)
+    {
+        static_assert(sizeof(Bits) == sizeof(V));
+        typedef V Base::* ContainingField; 
+        auto containingField = (ContainingField)containingFieldBits;
+        addBitFieldDesc(std::move(name), containingField, bitStart, bitWidth,
+                        std::move(extract), std::move(comment),
+                        getDefaultDescriptionSharedT<V>());
+    }
+
+    template<typename V, typename Base>
+    void addBitField(std::string name,
+                     V Base::* containingField,
+                     uint32_t bitStart,
+                     uint32_t bitWidth,
+                     std::string comment)
+    {
+        addBitFieldCast<V>(std::move(name), containingField, bitStart, bitWidth, std::move(comment));
+    }
+
+    template<typename Field, typename V, typename Base>
+    void addBitFieldCast(std::string name,
+                         V Base::* containingFieldBits,
+                         uint32_t bitStart,
+                         uint32_t bitWidth,
+                         std::string comment)
+    {
+        static_assert(sizeof(Field) == sizeof(V));
+        typedef Field Base::* ContainingField; 
+        auto containingField = (ContainingField)containingFieldBits;
+
+        std::shared_ptr<const ValueDescription> desc = getDefaultDescriptionSharedT<Field>();
+
+        std::function<Field (const void *)> extract = [bitStart,bitWidth,containingField,desc] (const void * obj) -> Field
+        {
+            const Field * containing = &(reinterpret_cast<const Struct *>(obj)->*containingField);
+            //using namespace std;
+            //cerr << "    extract: containing = " << (uint64_t)*containing << endl;
+            Field result;
+            desc->extractBitField(containing, &result, bitStart, bitWidth);
+            //cerr << "    extract: result = " << (uint64_t)result << endl;
+            return result;
+        };
+
+        addBitFieldDesc(std::move(name), containingField, bitStart, bitWidth,
+                        std::move(extract), std::move(comment),
+                        desc);
+    }
+
+    template<typename V, typename Base, typename Desc>
+    void addBitFieldDesc(std::string name,
+                         V Base::* containingField,
+                         uint32_t bitStart,
+                         uint32_t bitWidth,
+                         std::function<V (const void *)> extract,
+                         std::string comment,
+                         std::shared_ptr<Desc> description)
+    {
+        Struct * p = nullptr;
+        size_t offset = (size_t)&(p->*containingField);
+        StructureDescriptionBase::addBitFieldDesc(std::move(name), offset, std::move(comment), std::move(description),
+                                                  bitStart, bitWidth);
+    }
+
+    template<typename V, typename Base>
+    void addDiscriminatedField(std::string name,
+                               V Base::* field,
+                               std::function<bool (const void * obj)> isActive,
+                               std::string comment,
+                               std::string isActiveComment)
+    {
+        addDiscriminatedFieldDesc(std::move(name), field, std::move(isActive),
+                                  std::move(comment),
+                                  std::move(isActiveComment),
+                                  getDefaultDescriptionSharedT<V>());
+    }
+
+    template<typename V, typename Base, typename Desc>
+    void addDiscriminatedFieldDesc(std::string name,
+                                   V Base::* field,
+                                   std::function<bool (const void *)> isActive,
+                                   std::string comment,
+                                   std::string isActiveComment,
+                                   std::shared_ptr<Desc> description)
+    {
+        Struct * p = nullptr;
+        size_t offset = (size_t)&(p->*field);
+        StructureDescriptionBase::
+        addDiscriminatedFieldDesc(std::move(name), offset, std::move(comment), std::move(description),
+                                  isActive, isActiveComment);
+    }
+
+
     using ValueDescriptionT<Struct>::parents;
 
     template<typename V>
     void addParent(ValueDescriptionT<V> * description_
                    = getDefaultDescription((V *)0));
 
-    virtual size_t getFieldCount(const void * val) const override
-    {
-        return fields.size();
-    }
-
-    virtual const FieldDescription *
-    hasField(const void * val, const std::string & field) const override
-    {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return &it->second;
-        return nullptr;
-    }
-
-    virtual const FieldDescription *
-    getFieldDescription(const void * val, const void * field) const override
-    {
-        ssize_t offset = (const char *)field - (const char *)val;
-        for (auto & f: fields) {
-            if (f.second.offset >= offset
-                && f.second.offset + f.second.width <= offset)
-                return &f.second;
-        }
-        return nullptr;
-    }
-    
-    virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const override
-    {
-        for (auto f: orderedFields) {
-            onField(f->second);
-        }
-    }
-
-    virtual const FieldDescription & 
-    getField(const std::string & field) const override
-    {
-        auto it = fields.find(field.c_str());
-        if (it != fields.end())
-            return it->second;
-        throw MLDB::Exception("structure has no field " + field);
-    }
-
-    virtual const FieldDescription & 
-    getFieldByNumber(int fieldNum) const override
-    {
-        for (auto & f: fields) {
-            if (f.second.fieldNum == fieldNum)
-                return f.second;
-        }
-
-        throw MLDB::Exception("structure has no field with given number");
-    }
-
-    virtual int getVersion() const override
-    {
-        return this->version;
-    }
+    template<typename V>
+    void addParentAsField(const std::string & name, const std::string & comment,
+                          std::shared_ptr<const ValueDescriptionT<V>> description_ = getDefaultDescriptionSharedT<V>());
 
     virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
@@ -338,6 +553,56 @@ struct StructureDescription
     virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         return StructureDescriptionBase::printJson(val, context);
+    }
+
+    virtual size_t getFieldCount(const void * val) const override
+    {
+        return fields.size();
+    }
+
+    virtual bool hasFixedFieldCount() const override
+    {
+        return true;
+    }
+
+    virtual const FieldDescription *
+    hasField(const void * val, const std::string & field) const override
+    {
+        return StructureDescriptionBase::hasField(val, field);
+    }
+
+    virtual size_t getFixedFieldCount() const override
+    {
+        return fields.size();
+    }
+
+    virtual const FieldDescription *
+    getFieldDescription(const void * val, const void * field) const override
+    {
+        return StructureDescriptionBase::getFieldDescription(val, field);
+    }
+    
+    virtual void forEachField(const void * val,
+                              const std::function<void (const FieldDescription &)> & onField) const override
+    {
+        return StructureDescriptionBase::forEachField(val, onField);
+    }
+
+    virtual const FieldDescription & 
+    getField(const std::string & field) const override
+    {
+        return StructureDescriptionBase::getField(field);
+    }
+
+    virtual const FieldDescription & 
+    getFieldByNumber(int fieldNum) const override
+    {
+        return StructureDescriptionBase::getFieldByNumber(fieldNum);
+    }
+
+    virtual int getVersion() const override
+    {
+        return StructureDescriptionBase::getVersion();
     }
 
     void collectUnparseableJson(Json::Value Struct::* member)
@@ -356,6 +621,63 @@ struct StructureDescription
 
                 getEntry(0, obj->*member) = context.expectJson();
             };
+    }
+
+    virtual void fixupAlign(size_t knownWidth, size_t knownAlign) override
+    {
+        ExcAssertLessEqual(knownWidth, this->width);
+        ExcAssertLessEqual(knownAlign, this->align);
+    }
+
+    // Comparisons
+    virtual bool hasEqualityComparison() const override
+    {
+        return StructureDescriptionBase::hasEqualityComparison();
+    }
+
+    virtual bool compareEquality(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareEquality(val1, val2);
+    }
+
+    virtual bool hasLessThanComparison() const override
+    {
+        return StructureDescriptionBase::hasLessThanComparison();
+    }
+
+    virtual bool compareLessThan(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareLessThan(val1, val2);
+    }
+
+    virtual bool hasStrongOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasStrongOrderingComparison();
+    }
+
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareStrong(val1, val2);
+    }
+
+    virtual bool hasWeakOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasWeakOrderingComparison();
+    }
+
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::compareWeak(val1, val2);
+    }
+
+    virtual bool hasPartialOrderingComparison() const override
+    {
+        return StructureDescriptionBase::hasPartialOrderingComparison();
+    }
+
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override
+    {
+        return StructureDescriptionBase::comparePartial(val1, val2);
     }
 };
 
@@ -382,6 +704,15 @@ RegisterValueDescriptionI<Struct, Impl>
 StructureDescriptionImpl<Struct, Impl>::
 regme;
 
+template<typename Struct, typename Parent>
+/*constexpr*/ size_t getParentOffset()
+{
+    constexpr size_t BASE = 0x1000;  // can't use a null pointer
+    Struct * p = reinterpret_cast<Struct *>(BASE);
+    Parent * p2 = static_cast<Parent *>(p);
+    size_t ofs = reinterpret_cast<size_t>(p2) - BASE;
+    return ofs;
+}
 
 template<typename Struct>
 template<typename V>
@@ -394,18 +725,15 @@ addParent(ValueDescriptionT<V> * description_)
     StructureDescription<V> * desc2
         = dynamic_cast<StructureDescription<V> *>(description_);
     if (!desc2) {
+        auto name = type_name(*description_);
         delete description_;
-        throw MLDB::Exception("parent description is not a structure");
+        throw MLDB::Exception("parent description is not a structure: it is " + name);
     }
 
     std::shared_ptr<StructureDescription<V> > description(desc2);
     parents.push_back(description);
 
-    constexpr size_t BASE = 0x1000;  // can't use a null pointer
-    Struct * p = reinterpret_cast<Struct *>(BASE);
-    V * p2 = static_cast<V *>(p);
-
-    size_t ofs = reinterpret_cast<size_t>(p2) - BASE;
+    size_t ofs = getParentOffset<Struct, V>();
 
     //using namespace std;
     //cerr << "parent " << description_->typeName << " of " << this->typeName << " is at offset " << ofs << endl;
@@ -432,8 +760,29 @@ addParent(ValueDescriptionT<V> * description_)
         fd.offset = ofd.offset + ofs;
         fd.width = ofd.width;
         fd.fieldNum = fields.size() - 1;
+
+        if (ofd.isActive) {
+            fd.isActive = ofd.isActive;
+            //MLDB_THROW_UNIMPLEMENTED("TODO: copy isActive");
+        }
+        fd.isActiveStr = ofd.isActiveStr;
+
+        if (ofd.bitField.has_value()) {
+            fd.bitField = *ofd.bitField;
+            //MLDB_THROW_UNIMPLEMENTED("TODO: copy bitfield");
+        }
+
         orderedFields.push_back(it);
     }
+}
+
+template<typename Struct>
+template<typename V>
+void StructureDescription<Struct>::
+addParentAsField(const std::string & name, const std::string & comment,
+                 std::shared_ptr<const ValueDescriptionT<V>> description)
+{
+    StructureDescriptionBase::addFieldDesc(name, getParentOffset<Struct, V>(), comment, description);
 }
 
 } // namespace MLDB

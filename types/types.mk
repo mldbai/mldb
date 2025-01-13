@@ -14,6 +14,7 @@ JSONCPP_SOURCES := \
 
 LIBVALUE_DESCRIPTION_SOURCES := \
 	value_description.cc \
+	structure_description.cc \
 	basic_value_descriptions.cc \
 	libc_value_descriptions.cc \
 	json_parsing.cc \
@@ -22,7 +23,8 @@ LIBVALUE_DESCRIPTION_SOURCES := \
 	dtoa_impl.cc \
 	meta_value_description.cc \
 	distribution_description.cc \
-#	string.cc \
+	generic_array_description.cc \
+	generic_atom_description.cc \
 
 LIBVALUE_DESCRIPTION_LINK := \
 	arch base icui18n icuuc icudata
@@ -45,7 +47,8 @@ LIBTYPES_SOURCES := \
 	regex.cc \
 	periodic_utils_value_descriptions.cc \
 	path.cc \
-	annotated_exception.cc
+	exception_description.cc \
+	annotated_exception.cc \
 
 
 LIBTYPES_LINK := \
