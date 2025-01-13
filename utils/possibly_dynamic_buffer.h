@@ -7,6 +7,7 @@
 #pragma once
 
 #include <memory>
+#include <span>
 
 namespace MLDB {
 
@@ -37,13 +38,16 @@ struct PossiblyDynamicBuffer {
         }
     }
 
-    size_t size_;
-
     bool onStack() const { return size_ <= MAX_STACK_ENTRIES; }
 
     T * data() { return onStack() ? stackEntries: heapEntries; }
     const T * data() const { return onStack() ? stackEntries: heapEntries; }
     size_t size() const { return size_; }
+
+    operator std::span<T> () const { return { data(), size() }; }
+
+    const T * begin() const { return data(); }
+    const T * end() const { return data() + size(); }
     T * begin() { return data(); }
     T * end() { return data() + size(); }
 
@@ -58,6 +62,8 @@ struct PossiblyDynamicBuffer {
     {
         return data()[el];
     }
+
+    size_t size_;
 
     union {
         T stackEntries[MAX_STACK_ENTRIES];
