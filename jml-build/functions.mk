@@ -588,7 +588,7 @@ $(TESTS)/$(1).passed:	$(TESTS)/$(1)
 	$$(if $(verbose_build),@echo '$$(TEST_$(1)_COMMAND)',@echo "                 $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $(TESTS)/$(1).timing`$(COLOR_RESET)	$(COLOR_GREEN)$(1) passed $(COLOR_RESET)")
 
 $(1):	$(TESTS)/$(1)
-	$(call TEST_PRE_PRE_OPTIONS,$(3))$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1)
+	$(call TEST_PRE_PRE_OPTIONS,$(3))$(call TEST_PRE_OPTIONS,$(3))$(TESTS)/$(1) $(ARGS)
 
 .PHONY: $(1)
 
