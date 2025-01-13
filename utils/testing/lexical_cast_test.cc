@@ -116,6 +116,10 @@ TEST_CASE("to string")
         CHECK(do_lexical_cast<std::string>(123.456) == "123.456");
         CHECK(do_lexical_cast<std::string>(-123.456) == "-123.456");
         CHECK(do_lexical_cast<std::string>(1.234567890123456789) == "1.2345678901234567");
+        CHECK(do_lexical_cast<std::string>(45000.0) == "45000");
+        CHECK(   lexical_cast<std::string>(45678.90) == "45678.9");
+        CHECK(   lexical_cast<std::string>(0.00045) == "0.00045");
+        CHECK(   lexical_cast<std::string>(1.00045) == "1.00045");
         CHECK(do_lexical_cast<std::string>(INFINITY) == "inf");
         CHECK(do_lexical_cast<std::string>(-INFINITY) == "-inf");
         CHECK(do_lexical_cast<std::string>(NAN) == "nan");
@@ -144,6 +148,7 @@ TEST_CASE("to string")
         CHECK(   lexical_cast<std::string>(123.456f) == "123.456");
         CHECK(   lexical_cast<std::string>(-123.456f) == "-123.456");
         CHECK(   lexical_cast<std::string>(1.234567890123456789f) == "1.2345679");
+        CHECK(do_lexical_cast<std::string>(45000.0f) == "45000");
         CHECK(do_lexical_cast<std::string>(float(INFINITY)) == "inf");
         CHECK(do_lexical_cast<std::string>(float(-INFINITY)) == "-inf");
         CHECK(do_lexical_cast<std::string>(float(NAN)) == "nan");
