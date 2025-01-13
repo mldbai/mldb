@@ -26,6 +26,7 @@ LIBARCH_SOURCES := \
 		wakeup_fd.cc \
 		thread_specific.cc \
 	ansi.cc \
+	missing_typeids.cc \
 
 ifeq ($(ARCH),x86_64)
 LIBARCH_SOURCES += simd_vector_avx.cc
