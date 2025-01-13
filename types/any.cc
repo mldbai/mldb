@@ -22,6 +22,51 @@ namespace MLDB {
 /* ANY                                                                       */
 /*****************************************************************************/
 
+namespace {
+
+std::shared_ptr<void>
+initAnyFromJson(JsonParsingContext & context,
+                const ValueDescription * desc)
+{
+    ExcAssert(desc);
+
+    void * ptr = nullptr;
+    if (desc->align < alignof(void *)) {
+        ptr = malloc(desc->width);
+        if (!ptr)
+            throw MLDB::Exception(errno, "malloc");
+    }
+    else {
+        int res = posix_memalign(&ptr, desc->align, desc->width);
+        if (res != 0)
+            throw MLDB::Exception(res, "posix_memalign");
+    }
+
+    try {
+        desc->initializeDefault(ptr);
+    } MLDB_CATCH_ALL {
+        free(ptr);
+        throw;
+    }
+
+    auto destruct = [desc] (void * ptr)
+    {
+        try {
+            desc->destruct(ptr);
+        } MLDB_CATCH_ALL {
+            free(ptr);
+            throw;
+        }
+        free(ptr);
+    };
+
+    std::shared_ptr<void> result(ptr, std::move(destruct));
+    desc->parseJson(result.get(), context);
+    return result;
+}
+
+} // file scope
+
 /** Construct directly from Json, with a known type */
 Any::
 Any(const Json::Value & val,
@@ -30,8 +75,7 @@ Any(const Json::Value & val,
       desc_(desc)
 {
     StructuredJsonParsingContext context(val);
-    obj_.reset(desc->constructDefault(), [=] (void * obj) { desc->destroy(obj); });
-    desc_->parseJson(obj_.get(), context);
+    obj_ = initAnyFromJson(context, desc);
 }
 
 Any::
@@ -42,8 +86,7 @@ Any(const std::string & jsonValString,
 {
     std::istringstream stream(jsonValString);
     StreamingJsonParsingContext context(jsonValString, stream);
-    obj_.reset(desc->constructDefault(), [=] (void * obj) { desc->destroy(obj); });
-    desc_->parseJson(obj_.get(), context);
+    obj_ = initAnyFromJson(context, desc);
 }
 
 /** Get it as JSON */
@@ -175,13 +218,29 @@ throwNoValueDescription() const
     throw MLDB::Exception("Any had no type attached");
 }
 
+std::span<const std::byte>
+Any::
+asBytes() const
+{
+    return { (const std::byte *)obj_.get(), desc().width };
+}
+
 bool operator==(const Any & lhs, const Any & rhs)
 {
     if (!lhs.desc_ || !rhs.desc_) {
         // we have no way to interpret the value - the best we can do is compare pointers
         return lhs.obj_ == rhs.obj_;
     }
-    else return lhs.asJsonStr() == rhs.asJsonStr();
+    else if (lhs.desc_->type != rhs.desc_->type) {
+        // Cannot compare values if value descriptions are different
+        return false;
+    }
+    else if (lhs.desc_->hasEqualityComparison()) {
+        return lhs.desc_->compareEquality(lhs.obj_.get(), rhs.obj_.get());
+    }
+    else {
+        return lhs.asJsonStr() == rhs.asJsonStr();
+    }
 }
 
 struct AnyRep {
@@ -235,13 +294,11 @@ parseJsonTyped(Any * val,
     // Get the default description for the type
     auto desc = ValueDescription::get(rep.typeName);
 
-    std::shared_ptr<void> obj(desc->constructDefault(),
-                              [=] (void * val) { desc->destroy(val); });
-        
+    // Parse the payload
     StreamingJsonParsingContext pcontext(rep.payload,
                                          rep.payload.c_str(),
                                          rep.payload.size());
-    desc->parseJson(obj.get(), pcontext);
+    auto obj = initAnyFromJson(pcontext, desc.get());
 
     val->obj_ = std::move(obj);
     val->desc_ = desc.get();

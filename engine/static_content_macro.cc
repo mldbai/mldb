@@ -19,6 +19,7 @@
 #include "mldb/utils/string_functions.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/annotated_exception.h"
+#include "mldb/types/meta_value_description.h"
 
 using namespace std;
 
@@ -97,18 +98,15 @@ static std::string getTypeName(const ValueDescription & description,
     }
 }
 
-static std::string getDefaultValue(const ValueDescription & description)
+static std::string getDefaultValueStr(const ValueDescription & description)
 {
-    void * val = description.constructDefault();
-    std::ostringstream stream;
-    StreamJsonPrintingContext context(stream);
-    description.printJson(val, context);
-    description.destroy(val);
+    auto jval = getDefaultValue(description);
+    std::string str = jval.toStringNoNewLine();
+    if (str == "null" || str == "\"\"" || str == "[]" || str == "{}") {
+        str = "";
+    }
 
-    if (stream.str() == "null" || stream.str() == "\"\"" || stream.str() == "[]" || stream.str() == "{}")
-        return "";
-
-    return stream.str();
+    return str;
 }
 
 static void renderType(MacroContext & context,
@@ -150,7 +148,7 @@ static void renderType(MacroContext & context,
                     context.writeHtml(MLDB::format("<tr><td align='right'><p><strong>%s</strong> <br/> <nobr>%s</nobr> <br/> <code>%s</code></p></td><td>%s</td></tr>\n",
                                          fd.fieldName.c_str(),
                                          getTypeName(*fd.description, context.engine).c_str(),
-                                         getDefaultValue(*fd.description).c_str(),
+                                         getDefaultValueStr(*fd.description).c_str(),
                                                    renderMarkdown(fd.comment.c_str(), context).rawString()));
                 };
             vd->forEachField(nullptr, onField);

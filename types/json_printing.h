@@ -24,6 +24,12 @@ void jsonEscape(const std::string & str, std::ostream & out);
 
 void jsonEscape(const std::string & str, std::string & out);
 
+void jsonEscape(const char * str, size_t len, std::ostream & out);
+
+void jsonEscape(const char * str, size_t len, std::string & out);
+
+std::string jsonEscape(const char * str, size_t len);
+
 bool isJsonValidAscii(char c);
 
 /*****************************************************************************/
@@ -244,10 +250,12 @@ struct Utf8StringJsonPrintingContext
 struct StructuredJsonPrintingContext
     : public JsonPrintingContext {
 
-    Json::Value & output;
+    Json::Value * outputPtr;
     Json::Value * current;
 
     StructuredJsonPrintingContext(Json::Value & output);
+
+    void reset(Json::Value & newOutput);
 
     std::vector<Json::Value *> path;
 

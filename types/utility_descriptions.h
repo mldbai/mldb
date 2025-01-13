@@ -31,13 +31,26 @@ struct BridgedValueDescription: public ValueDescription {
     virtual void copyValue(const void * from, void * to) const override;
     virtual void moveValue(void * from, void * to) const override;
     virtual void swapValues(void * from, void * to) const override;
-    virtual void * constructDefault() const override;
-    virtual void * constructCopy(const void * from) const override;
-    virtual void * constructMove(void * from) const override;
-    virtual void destroy(void *) const override;
+    virtual void initializeDefault(void * mem) const override;
+    virtual void initializeCopy(void * mem, const void * from) const override;
+    virtual void initializeMove(void * mem, void * from) const override;
+    virtual void destruct(void * obj) const override;
+    virtual bool hasEqualityComparison() const override;
+    virtual bool compareEquality(const void * val1, const void * val2) const override;
+    virtual bool hasLessThanComparison() const override;
+    virtual bool compareLessThan(const void * val1, const void * val2) const override;
+    virtual bool hasStrongOrderingComparison() const override;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const override;
+    virtual bool hasWeakOrderingComparison() const override;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const override;
+    virtual bool hasPartialOrderingComparison() const override;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const override;
     virtual void * optionalMakeValue(void * val) const override;
     virtual const void * optionalGetValue(const void * val) const override;
+    virtual size_t getArrayFixedLength() const override;
     virtual size_t getArrayLength(void * val) const override;
+    virtual LengthModel getArrayLengthModel() const override;
+    virtual OwnershipModel getArrayIndirectionModel() const override;
     virtual void * getArrayElement(void * val, uint32_t element) const override;
     virtual const void * getArrayElement(const void * val, uint32_t element) const override;
     virtual const ValueDescription &
@@ -50,6 +63,7 @@ struct BridgedValueDescription: public ValueDescription {
     virtual const ValueDescription & contained() const override;
     virtual OwnershipModel getOwnershipModel() const override;
     virtual void* getLink(void* obj) const override;
+    virtual const void* getConstLink(const void* obj) const override;
     virtual void set(void* obj, void* value, const ValueDescription* valueDesc) const override;
     virtual void convertAndCopy(const void * from,
                                 const ValueDescription & fromDesc,
@@ -80,20 +94,20 @@ struct PureValueDescription : public ValueDescriptionT<T> {
         ValueDescriptionT<T>(ValueKind::ATOM) {
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const {};
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    virtual void parseJson(void * val, JsonParsingContext & context) const override {};
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         context.writeNull();
     };
-    virtual bool isDefault(const void * val) const { return false; }
-    virtual void setDefault(void * val) const {}
-    virtual void copyValue(const void * from, void * to) const {}
-    virtual void moveValue(void * from, void * to) const {}
-    virtual void swapValues(void * from, void * to) const {}
-    virtual void * constructDefault() const {return nullptr;}
-    virtual void * constructCopy(const void *) const {return nullptr;}
-    virtual void * constructMove(void *) const {return nullptr;}
-    virtual void destroy(void *) const {}
+    virtual bool isDefault(const void * val) const override { return false; }
+    virtual void setDefault(void * val) const override {}
+    virtual void copyValue(const void * from, void * to) const override {}
+    virtual void moveValue(void * from, void * to) const override {}
+    virtual void swapValues(void * from, void * to) const override {}
+    virtual void initializeDefault(void * mem) const override {}
+    virtual void initializeCopy(void * mem, const void *) const override {}
+    virtual void initializeMove(void * mem, void *) const override {}
+    virtual void destruct(void *) const override {}
 
 };
 
@@ -127,9 +141,9 @@ struct ValueDescriptionWithDefault : public BridgedValueDescription {
         *val = defaultValue;
     }
 
-    virtual void * constructDefault() const override
+    virtual void initializeDefault(void * mem) const override
     {
-        return new T(defaultValue);
+        new (mem) T(defaultValue);
     }
 
     T defaultValue;
@@ -180,57 +194,72 @@ struct DescriptionFromBase
         return addOffset(ptr, offset());
     }
 
-    virtual void parseJson(void * val, JsonParsingContext & context) const
+    virtual void parseJson(void * val, JsonParsingContext & context) const override
     {
         inner->parseJson(fixPtr(val), context);
     }
 
-    virtual void parseJsonTyped(T * val, JsonParsingContext & context) const
+    virtual void parseJsonTyped(T * val, JsonParsingContext & context) const override
     {
         inner->parseJson(fixPtr(val), context);
     }
 
-    virtual void printJson(const void * val, JsonPrintingContext & context) const
+    virtual void printJson(const void * val, JsonPrintingContext & context) const override
     {
         inner->printJson(fixPtr(val), context);
     }
 
-    virtual void printJsonTyped(const T * val, JsonPrintingContext & context) const
+    virtual void printJsonTyped(const T * val, JsonPrintingContext & context) const override
     {
         inner->printJson(fixPtr(val), context);
     }
 
-    virtual bool isDefault(const void * val) const
+    virtual bool isDefault(const void * val) const override
     {
         return inner->isDefault(fixPtr(val));
     }
 
-    virtual bool isDefaultTyped(const T * val) const
+    virtual bool isDefaultTyped(const T * val) const override
     {
         return inner->isDefault(fixPtr(val));
     }
 
-    virtual size_t getArrayLength(void * val) const
+    virtual size_t getArrayLength(void * val) const override
     {
         return inner->getArrayLength(fixPtr(val));
     }
 
-    virtual void * getArrayElement(void * val, uint32_t element) const
+    virtual size_t getArrayFixedLength() const override
+    {
+        return inner->getArrayFixedLength();
+    }
+
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return inner->getArrayLengthModel();
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return inner->getArrayIndirectionModel();
+    }
+
+    virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         return inner->getArrayElement(fixPtr(val), element);
     }
 
-    virtual const void * getArrayElement(const void * val, uint32_t element) const
+    virtual const void * getArrayElement(const void * val, uint32_t element) const override
     {
         return inner->getArrayElement(fixPtr(val), element);
     }
 
-    virtual void setArrayLength(void * val, size_t newLength) const
+    virtual void setArrayLength(void * val, size_t newLength) const override
     {
         inner->setArrayLength(fixPtr(val), newLength);
     }
     
-    virtual const ValueDescription & contained() const
+    virtual const ValueDescription & contained() const override
     {
         return inner->contained();
     }

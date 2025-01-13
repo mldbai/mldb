@@ -105,6 +105,6 @@ struct PairDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(PairDescription, std::pair, typename, T1, typename, T2);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(PairDescription, std::pair, typename, T1, typename, T2, (MLDB::all_have_default_descriptions<T1, T2>::value));
 
 } // namespace MLDB

@@ -23,6 +23,8 @@
 #include "json_printing.h"
 #include "mldb/ext/jsoncpp/value.h"
 #include "mldb/types/string.h"
+#include <compare>
+#include <optional>
 
 namespace MLDB {
 
@@ -40,12 +42,16 @@ namespace MLDB {
 struct ValueDescription {
     ValueDescription(ValueKind kind,
                      const std::type_info * type,
+                     uint32_t width,
+                     uint32_t align,
                      const std::string & typeName = "");
 
     virtual ~ValueDescription();
     
     ValueKind kind;
     const std::type_info * type;
+    uint32_t width;
+    uint32_t align;
     std::string typeName;
     std::string documentationUri;
 
@@ -60,16 +66,30 @@ struct ValueDescription {
     virtual void copyValue(const void * from, void * to) const = 0;
     virtual void moveValue(void * from, void * to) const = 0;
     virtual void swapValues(void * from, void * to) const = 0;
-    virtual void * constructDefault() const = 0;
-    virtual void * constructCopy(const void * other) const = 0;
-    virtual void * constructMove(void * other) const = 0;
-    virtual void destroy(void *) const = 0;
+    virtual void initializeDefault(void * obj) const = 0;
+    virtual void initializeCopy(void * obj, const void * other) const = 0;
+    virtual void initializeMove(void * obj, void * other) const = 0;
+    virtual void destruct(void *) const = 0;
 
-    
+    // Comparisons
+    virtual bool hasEqualityComparison() const;
+    virtual bool compareEquality(const void * val1, const void * val2) const;
+    virtual bool hasLessThanComparison() const;
+    virtual bool compareLessThan(const void * val1, const void * val2) const;
+    virtual bool hasStrongOrderingComparison() const;
+    virtual std::strong_ordering compareStrong(const void * val1, const void * val2) const;
+    virtual bool hasWeakOrderingComparison() const;
+    virtual std::weak_ordering compareWeak(const void * val1, const void * val2) const;
+    virtual bool hasPartialOrderingComparison() const;
+    virtual std::partial_ordering comparePartial(const void * val1, const void * val2) const;
+
     virtual void * optionalMakeValue(void * val) const;
     virtual const void * optionalGetValue(const void * val) const;
 
+    virtual size_t getArrayFixedLength() const;
     virtual size_t getArrayLength(void * val) const;
+    virtual LengthModel getArrayLengthModel() const;
+    virtual OwnershipModel getArrayIndirectionModel() const;  // NONE = inline, SHARED = external, shared, UNIQUE = external, unique
     virtual void * getArrayElement(void * val, uint32_t element) const;
     virtual const void * getArrayElement(const void * val, uint32_t element) const;
 
@@ -100,6 +120,7 @@ struct ValueDescription {
     virtual OwnershipModel getOwnershipModel() const;
 
     virtual void* getLink(void* obj) const;
+    virtual const void* getConstLink(const void* obj) const;
 
     virtual void set(void* obj, void* value, const ValueDescription* valueDesc) const;
 
@@ -110,6 +131,22 @@ struct ValueDescription {
                                 const ValueDescription & fromDesc,
                                 void * to) const;
 
+    // Extract the bit range.  From points to an initialized object from this
+    // ValueDescription, to points to an initialized object of the same type.
+    virtual void extractBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const;
+
+    // Extract the bit range.  From points to an initialized object from this
+    // ValueDescription to insert into, to points to an initialized object of the same type into
+    // which the value should be inserted.
+    virtual void insertBitField(const void * from, void * to, uint32_t bitOffset, uint32_t bitWidth) const;
+
+    struct BitFieldDescription {
+        uint32_t startBit;
+        uint32_t bitWidth;
+        //std::function<void (const void * obj, void * resultStorage)> extract;
+        //std::function<void (void * obj, const void * newValue)> insert;
+    };
+
     struct FieldDescription {
         std::string fieldName;
         std::string comment;
@@ -117,6 +154,13 @@ struct ValueDescription {
         int offset;
         int width;
         int fieldNum;
+
+        /// For unions: return whether the field is active or not based upon the
+        /// state of the object.
+        std::function<bool (const void * obj)> isActive;
+
+        /// String version of active condition
+        std::string isActiveStr;
 
         void* getFieldPtr(void* obj) const
         {
@@ -127,9 +171,15 @@ struct ValueDescription {
         {
             return ((const char*) obj) + offset;
         }
+
+        std::optional<BitFieldDescription> bitField;
     };
 
     virtual size_t getFieldCount(const void * val) const;
+
+    virtual bool hasFixedFieldCount() const;
+
+    virtual size_t getFixedFieldCount() const;
 
     virtual const FieldDescription *
     hasField(const void * val, const std::string & name) const;
@@ -236,6 +286,19 @@ void registerValueDescriptionFunctions(const std::type_info & type,
                               void (*initialize) (ValueDescription &),
                               bool isDefault);
 
+/** Register an alias to a pre-existing type.  This allows non-C++ names to be used
+    whilst maintaining the ability to find the equivalent C++ type.
+*/
+void registerValueDescriptionAlias(const std::type_info & type, const std::string & alias);
+
+// Return the aliases for this type
+std::vector<std::string> getValueDescriptionAliases(const std::type_info & type);
+
+// Register a foreign value description (for a type that doesn't have a C++ equivalent)
+void registerForeignValueDescription(const std::string & typeName,
+                                     std::shared_ptr<const ValueDescription> desc,
+                                     const std::vector<std::string> & aliases = {});
+
 template<typename T>
 struct RegisterValueDescription {
     static ValueDescription * create() { return getDefaultDescription((T*)0); }
@@ -262,6 +325,11 @@ struct RegisterValueDescriptionI {
     static const RegisterValueDescription<type> registerValueDescription##type; \
     }
 
+#define REGISTER_VALUE_DESCRIPTION_ALIAS_NAMED(type, name) \
+namespace { static const struct DoRegisterAlias##type##name { DoRegisterAlias##type##name() { MLDB::registerValueDescriptionAlias(typeid(type), #name); }} doRegisterAlias##type##name; }
+
+#define REGISTER_VALUE_DESCRIPTION_ALIAS(type) REGISTER_VALUE_DESCRIPTION_ALIAS_NAMED(type, type)
+
 template<typename T1, typename T2>
 void doSwap(T1 & t1, T2 & t2)
 {
@@ -281,7 +349,7 @@ template<typename T>
 struct ValueDescriptionT : public ValueDescription {
 
     ValueDescriptionT(ValueKind kind = ValueKind::ATOM)
-        : ValueDescription(kind, &typeid(T))
+        : ValueDescription(kind, &typeid(T), sizeof(T), alignof(T))
     {
     }
 
@@ -336,7 +404,7 @@ struct ValueDescriptionT : public ValueDescription {
 
     virtual void setDefaultTyped(T * val) const
     {
-        *val = T();
+        return setDefault(val, typename std::is_default_constructible<T>::type());
     }
 
     virtual void copyValue(const void * from, void * to) const override
@@ -359,24 +427,24 @@ struct ValueDescriptionT : public ValueDescription {
         doSwap(*from2, *to2);
     }
 
-    virtual void * constructDefault() const override
+    virtual void initializeDefault(void * obj) const override
     {
-        return constructDefault(typename std::is_default_constructible<T>::type());
+        return initializeDefault(obj, typename std::is_default_constructible<T>::type());
     }
 
-    virtual void * constructCopy(const void * val) const override
+    virtual void initializeCopy(void * obj, const void * val) const override
     {
-        return constructCopy(val, typename std::is_copy_constructible<T>::type());
+        return initializeCopy(obj, val, typename std::is_copy_constructible<T>::type());
     }
 
-    virtual void * constructMove(void * val) const override
+    virtual void initializeMove(void * obj, void * val) const override
     {
-        return constructMove(val, typename std::is_move_constructible<T>::type());
+        return initializeMove(obj, val, typename std::is_move_constructible<T>::type());
     }
 
-    virtual void destroy(void * val) const override
+    virtual void destruct(void * val) const override
     {
-        delete (T*)val;
+        ((T*)val)->~T();
     }
 
     virtual void set(
@@ -467,23 +535,54 @@ private:
     {
         throw MLDB::Exception("type is not move constructible");
     }
-};
 
-template<typename T, typename Enable = void>
-struct GetDefaultDescriptionMaybe {
-    static std::shared_ptr<const ValueDescription> get()
+    // Template parameter so not instantiated for types that are not
+    // default constructible
+    template<typename X>
+    void setDefault(void * obj, X) const
     {
-        return nullptr;
+        *reinterpret_cast<T *>(obj) = T();
+    }
+
+    void setDefault(void * obj, std::false_type) const
+    {
+        throw MLDB::Exception("type is not default initializable");
+    }
+
+    template<typename X>
+    void initializeDefault(void * obj, X) const
+    {
+        new (obj) T();
+    }
+
+    void initializeDefault(void * obj, std::false_type) const
+    {
+        throw MLDB::Exception("type is not default initializable");
+    }
+
+    template<typename X>
+    void initializeCopy(void * obj, const void * from, X) const
+    {
+        new (obj) T(*((T*)from));
+    }
+
+    void initializeCopy(void * obj, const void *, std::false_type) const
+    {
+        throw MLDB::Exception("type is not copy initializable");
+    }
+
+    template<typename X>
+    void initializeMove(void * obj, void * from, X) const
+    {
+        new (obj) T(std::move(*((T*)from)));
+    }
+
+    void initializeMove(void * obj, void *, std::false_type) const
+    {
+        throw MLDB::Exception("type is not move initializable");
     }
 };
 
-template<typename T>
-struct GetDefaultDescriptionMaybe<T, decltype(getDefaultDescription((T *)0))> {
-    static std::shared_ptr<const ValueDescription> get()
-    {
-        return getDefaultDescriptionShared((T *)0);
-    }
-};
 
 /** Return the default description for the given type if it exists, or
     otherwise return a null pointer.
@@ -493,7 +592,7 @@ template<typename T>
 inline std::shared_ptr<const ValueDescription>
 maybeGetDefaultDescriptionShared(T * = 0)
 {
-    auto result = GetDefaultDescriptionMaybe<T>::get();
+    std::shared_ptr<const ValueDescription> result = getDefaultDescriptionSharedMaybe((T*)0);
     if (!result) {
         // Look to see if it's registered in the registry so that we can
         // get it
@@ -648,7 +747,7 @@ Json::Value jsonEncode(const T & obj)
     Json::Value output;
     StructuredJsonPrintingContext context(output);
     desc->printJson(&obj, context);
-    return std::move(context.output);
+    return std::move(*context.outputPtr);
 }
 
 // jsonEncode implementation for any type which:
@@ -703,6 +802,9 @@ extern template struct ValueDescriptionT<Utf32String>;
 extern template struct ValueDescriptionT<signed char>;
 extern template struct ValueDescriptionT<unsigned char>;
 extern template struct ValueDescriptionT<char>;
+extern template struct ValueDescriptionT<char8_t>;
+extern template struct ValueDescriptionT<char16_t>;
+extern template struct ValueDescriptionT<char32_t>;
 extern template struct ValueDescriptionT<signed short int>;
 extern template struct ValueDescriptionT<unsigned short int>;
 extern template struct ValueDescriptionT<signed int>;
