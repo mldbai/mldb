@@ -14,8 +14,6 @@
 #include <boost/program_options/positional_options.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
-#include <boost/make_shared.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
 
 #include "mldb/utils/testing/benchmarks.h"
 

@@ -7,7 +7,6 @@
 
 #include <memory>
 #include <string>
-#include <boost/iostreams/filtering_stream.hpp>
 
 #include "hdfs/hdfs.h"
 #include <errno.h>

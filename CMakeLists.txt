@@ -26,9 +26,7 @@ find_package(Boost REQUIRED COMPONENTS
     unit_test_framework
     regex
     date_time
-    python312
     system
-    iostreams
 )
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})

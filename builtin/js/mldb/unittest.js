@@ -12,6 +12,42 @@ function assertEqual(expr, val, msg)
         + " not equal to " + JSON.stringify(val);
 }
 
+assertEqual['__markdown'] = `
+### \`assertEqual\` function
+
+Asserts that the two arguments are equal.  If they are, then the function
+will return.  If they are not, the arguments will be logged and an exception
+will be thrown.
+
+`;
+
+assertEqual['__summary'] = "`assertEqual(received, expected, msg)`: Asserts that the two arguments are equal";
+
+function assertNotEqual(expr, val, msg)
+{
+    if (expr != val)
+        return;
+    if (JSON.stringify(expr) == JSON.stringify(val))
+        return;
+
+    plugin.log("expected", val);
+    plugin.log("received", expr);
+
+    throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
+        + " should not be equal to " + JSON.stringify(val);
+}
+
+assertNotEqual['__markdown'] = `
+### \`assertNotEqual\` function
+
+Asserts that the two arguments aren't equal.  If they aren't, then the function
+will return.  If they are equal, the arguments will be logged and an exception
+will be thrown.
+
+`;
+
+assertNotEqual['__summary'] = "`assertNotEqual(received, expected, msg)`: Asserts that the two arguments are not equal";
+
 function assertInSet(expr, setofvals, msg)
 {
     if (setofvals.has(expr))
@@ -28,17 +64,6 @@ function assertInSet(expr, setofvals, msg)
     throw "Assertion failure: " + msg + ": " + JSON.stringify(expr)
         + " not in value set " + JSON.stringify(setofvals);
 }
-
-assertEqual['__markdown'] = `
-### \`assertEqual\` function
-
-Asserts that the two arguments are equal.  If they are, then the function
-will return.  If they are not, the arguments will be logged and an exception
-will be thrown.
-
-`;
-
-assertEqual['__summary'] = "`assertEqual(received, expected, msg)`: Asserts that the two arguments are equal";
 
 
 function appendPath(path, key)
@@ -133,7 +158,7 @@ In the case of a difference, the function will throw an exception.
 `;
 
 
-module.exports = { assertEqual: assertEqual, assertNearlyEqual: assertNearlyEqual, assertInSet: assertInSet };
+module.exports = { assertEqual: assertEqual, assertNotEqual: assertNotEqual, assertNearlyEqual: assertNearlyEqual, assertInSet: assertInSet };
 
 module.exports['__markdown'] = `
 ## \`mldb/unittest\` module

@@ -15,34 +15,11 @@
 #include "mldb/types/value_description.h"
 #include "mldb/base/parallel_merge_sort.h"
 #include "mldb/utils/possibly_dynamic_buffer.h"
+#include "mldb/arch/atomic_min_max.h"
 
 using namespace std;
 
 namespace MLDB {
-
-template<typename T>
-void atomic_min(std::atomic<T> & val, T other)
-{
-    T current = val.load(std::memory_order_relaxed);
-    for (;;) {
-        if (other >= current)
-            return;
-        if (val.compare_exchange_weak(current, other, std::memory_order_relaxed))
-            return;
-    }
-}
-
-template<typename T>
-void atomic_max(std::atomic<T> & val, T other)
-{
-    T current = val.load(std::memory_order_relaxed);
-    for (;;) {
-        if (other <= current)
-            return;
-        if (val.compare_exchange_weak(current, other, std::memory_order_relaxed))
-            return;
-    }
-}
 
 void atomic_min(std::atomic<double> & val, Date other)
 {
