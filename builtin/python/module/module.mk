@@ -22,4 +22,4 @@ $(eval $(call python_module,mldb,$(notdir $(wildcard $(CWD)/*.py)),_mldb))
 
 
 # Our mldb_runner binary requires the plugin to be present
-$(BIN)/mldb_runner:	| $(PYTHON_mldb_DEPS)
+$(BIN)/mldb_runner:	| $(PYTHON__mldb_DEPS)

@@ -503,7 +503,7 @@ PythonInterpreter(InitializationContext context)
                 };
         }
         else {
-            cerr << "*******\n\n INITIALIZING PYTHON\n\n********" << endl;
+            //cerr << "*******\n\n INITIALIZING PYTHON\n\n********" << endl;
 
             PyConfig config;
             PyConfig_InitPythonConfig(&config);
@@ -520,13 +520,10 @@ PythonInterpreter(InitializationContext context)
 
             std::filesystem::path exe_path = get_exe_name();
 
-
-
             const char * virtualenv_path = std::getenv("MLDB_VIRTUAL_ENV");
             if (!virtualenv_path)
                 virtualenv_path = "";
 
-            // 
             std::basic_string<wchar_t> wideVirtualEnv;
             if (auto venv_path = std::getenv("MLDB_VIRTUAL_ENV")) {
                 wideVirtualEnv.append(venv_path, venv_path + strlen(venv_path));
@@ -579,8 +576,8 @@ PythonInterpreter(InitializationContext context)
                     }
                     throw MLDB::Exception("Error running Python to get path with '" + cmdlinestr + "': " + jsonEncodeStr(result));
                 }
-                cerr << "result = " << jsonEncodeStr(result) << endl;
-                cerr << "output = " << output.str() << endl;
+                //cerr << "result = " << jsonEncodeStr(result) << endl;
+                //cerr << "output = " << output.str() << endl;
                 system_python_path = MLDB::split(output.str(), ':');
             }
 

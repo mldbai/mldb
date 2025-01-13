@@ -27,6 +27,7 @@
 #include "nanobind/stl/vector.h"
 #include "nanobind/stl/pair.h"
 #include "nanobind/stl/tuple.h"
+#include "nanobind/stl/map.h"
 #include "mldb/builtin/python/python_converters.h"
 #include <dlfcn.h>
 

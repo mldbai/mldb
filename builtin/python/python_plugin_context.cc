@@ -353,6 +353,7 @@ runPythonScript(const EnterThreadToken & threadToken,
                 nanobind::object locals)
 {
     ScriptOutput result;
+    std::exception_ptr saved_exc;
 
     try {
         MLDB_TRACE_EXCEPTIONS(false);
@@ -381,6 +382,17 @@ runPythonScript(const EnterThreadToken & threadToken,
         result.exception = std::make_shared<ScriptException>(std::move(pyexc));
         result.exception->context.push_back("Executing Python script");
         result.setReturnCode(400);
+
+        // Nanobind acquires the GIL in the destructor of the python_error object,
+        // so we need to defer the exception handling to a point where the GIL is
+        // not held.
+        saved_exc = std::current_exception();
+    }
+
+    if (saved_exc) {
+        auto token = releaseGil();
+        // Run exception destructor without the GIL held
+        saved_exc = nullptr;
     }
 
     return result;

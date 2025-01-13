@@ -343,6 +343,10 @@ handleTypeRoute(RestDirectory * engine,
             // thread.
             auto enterThread = interpreter.mainThread().enter();
 
+            // Make sure that nanobind is initialized
+            nanobind::detail::init(nullptr);
+            nanobind::module_::import_("_mldb");
+
             try {
                 auto pyRestRequest = std::make_shared<PythonRestRequest>(request, context);
                 interpreter.main_namespace["request"] = pyRestRequest;
@@ -385,111 +389,6 @@ handleTypeRoute(RestDirectory * engine,
 
     return RestRequestRouter::MR_NO;
 }
-
-#if 0
-// At startup, initialize all of this fun stuff
-
-NB_MODULE(mldb, m) {
-    cerr << "loading in mldb modules from python_plugin_loader.cc" << endl;
-
-#if 0
-    nanobind::class_<MldbPythonContext>(m, "Mldb")
-        .def("log", logArgs)
-        .def("log", &MldbPythonContext::logUnicode)
-        .def("log", &MldbPythonContext::logJsVal)
-        .def("perform", &MldbPythonContext::perform) // for 5 args
-        .def("perform", &MldbPythonContext::perform4) // for 4 args
-        .def("perform", &MldbPythonContext::perform3) // for 3 args
-        .def("perform", &MldbPythonContext::perform2) // for 2 args
-        .def("read_lines", &MldbPythonContext::readLines)
-        .def("read_lines", &MldbPythonContext::readLines1)
-        .def("ls", &MldbPythonContext::ls)
-        .def("get_http_bound_address", &MldbPythonContext::getHttpBoundAddress)
-        .def("get_python_executable", &MldbPythonContext::getPythonExecutable)
-        .def("create_dataset", &DatasetPy::createDataset)
-        .def("create_procedure", &PythonProcedure::createPythonProcedure)
-        .def("create_function", &PythonFunction::createPythonFunction)
-        .def("debugSetPathOptimizationLevel", &MldbPythonContext::setPathOptimizationLevel)
-        ;
-#endif
-}
-
-void pythonLoaderInit(const EnterThreadToken & thread)
-{
-    PyDateTime_IMPORT;
-    //from_python_converter< RestParams, RestParamsConverter>();
-    //nanobind::to_python_converter< RestParams, RestParamsConverter>();
-
-#if 0
-    nanobind::class_<PythonRestRequest>(m, "rest_request")
-        .def_rw("remaining", &PythonRestRequest::remaining);
-        ;
-
-    nanobind::class_<PythonPluginContext,
-            std::shared_ptr<PythonPluginContext>,
-            /*boost::noncopyable*/>
-        plugin("Plugin", nanobind::no_init);
-    nanobind::class_<PythonScriptContext,
-            std::shared_ptr<PythonScriptContext>,
-            /*boost::noncopyable*/>
-        script("Script", nanobind::no_init);
-    nanobind::class_<MldbPythonContext,
-            std::shared_ptr<MldbPythonContext>,
-            /*boost::noncopyable*/>
-        mldb("Mldb", nanobind::no_init);
-
-    script.add_property("args", &PythonScriptContext::getArgs);
-    plugin.add_property("args", &PythonPluginContext::getArgs);
-
-    plugin.def("serve_static_folder",
-            &PythonPluginContext::serveStaticFolder);
-    plugin.def("serve_documentation_folder",
-            &PythonPluginContext::serveDocumentationFolder);
-    plugin.def("get_plugin_dir",
-            &PythonPluginContext::getPluginDirectory);
-
-    mldb.def("log", nanobind::raw_function(logArgs, 1));
-    mldb.def("log", &MldbPythonContext::logUnicode);
-    mldb.def("log", &MldbPythonContext::logJsVal);
-    mldb.def("perform", &MldbPythonContext::perform); // for 5 args
-    mldb.def("perform", &MldbPythonContext::perform4); // for 4 args
-    mldb.def("perform", &MldbPythonContext::perform3); // for 3 args
-    mldb.def("perform", &MldbPythonContext::perform2); // for 2 args
-    mldb.def("read_lines", &MldbPythonContext::readLines);
-    mldb.def("read_lines", &MldbPythonContext::readLines1);
-    mldb.def("ls", &MldbPythonContext::ls);
-    mldb.def("get_http_bound_address", &MldbPythonContext::getHttpBoundAddress);
-    mldb.def("get_python_executable", &MldbPythonContext::getPythonExecutable);
-
-
-    mldb.def("create_dataset",
-            &DatasetPy::createDataset,
-            nanobind::return_value_policy<nanobind::manage_new_object>());
-    mldb.def("create_procedure", &PythonProcedure::createPythonProcedure);
-            mldb.def("create_function", &PythonFunction::createPythonFunction);
-
-    mldb.add_property("script", &MldbPythonContext::getScript);
-    mldb.add_property("plugin", &MldbPythonContext::getPlugin);
-
-    mldb.def("debugSetPathOptimizationLevel",
-            &MldbPythonContext::setPathOptimizationLevel);
-    }
-    /****
-     *  Functions
-     *  **/
-
-#endif
-    cerr << "done loading python" << endl;
-}
-
-// Arrange for the above function to be run at the appropriate moment
-// when there is a proper python environment set up.  There is no
-// proper environment on shared initialization, so it can't be run
-// from AtInit.
-
-RegisterPythonInitializer regMe(&pythonLoaderInit);
-
-#endif
 
 struct AtInit {
     AtInit()
