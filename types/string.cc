@@ -15,17 +15,22 @@
 #include <locale>
 #include "mldb/arch/demangle.h"
 #include <cxxabi.h>
-#include <unicode/unistr.h>
 #include <clocale>
 #include <algorithm>
 #include <filesystem>
+#include <cstdarg>
 
 using namespace std;
 
 
 namespace MLDB {
 
+/*****************************************************************************/
+/* EXCEPTION UTF8STRING CONSTRUCTOR                                          */
+/*****************************************************************************/
+
 // Put this here, since it needs Utf8String to work
+
 Exception::Exception(const Utf8String & msg)
     : message(msg.rawString())
 {
@@ -38,14 +43,27 @@ Exception::Exception(Utf8String && msg)
 
 Exception::
 Exception(int errnum, const Utf8String & msg, const char * function)
-: Exception(errnum, msg.rawString(), function)
+    : Exception(errnum, msg.rawString(), function)
 {
 }
+
+namespace {
+thread_local std::va_list exception_args;
+} /* file scope */
+
+#define MLDB_IMPLEMENT_EXCEPTION_CLASS_UTF8(Name) \
+void throw##Name(const char * function, const char * file, int line, const Utf8String msg, ...) \
+{                                                                                   \
+    throw Name(format(#Name ": %s at %s:%d : ", function, file, line)               \
+                        + ((va_start(exception_args, msg), format(msg.c_str(), exception_args)))); \
+}                                                                                   \
+
+MLDB_FOR_EACH_EXCEPTION_CLASS(MLDB_IMPLEMENT_EXCEPTION_CLASS_UTF8)
 
 
 /*****************************************************************************/
 /* UTF8STRING                                                                */
-/****************************************************************************/
+/*****************************************************************************/
 
 Utf8String
 Utf8String::fromLatin1(const std::string & lat1Str)

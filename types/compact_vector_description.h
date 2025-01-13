@@ -66,6 +66,16 @@ struct CompactVectorDescription
         return val->empty();
     }
 
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::VARIABLE;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::UNIQUE;
+    }
+
     virtual size_t getArrayLength(void * val) const override
     {
         const compact_vector<T, I, S, Sf, P, A> * val2 = reinterpret_cast<const compact_vector<T, I, S, Sf, P, A> *>(val);
@@ -109,7 +119,8 @@ struct CompactVectorDescription
 
 DECLARE_TEMPLATE_VALUE_DESCRIPTION_6(CompactVectorDescription, compact_vector,
                                      typename, T, size_t, I, typename, S,
-                                     bool, Sf, typename, P, typename, A);
+                                     bool, Sf, typename, P, typename, A,
+                                     MLDB::has_default_description<T>::value);
 
 
 

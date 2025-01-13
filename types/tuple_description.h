@@ -24,11 +24,11 @@ namespace std {
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescription(tuple<T...> * = 0);
+getDefaultDescription(tuple<T...> * = 0, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> * = 0);
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescriptionUninitialized(tuple<T...> * = 0);
+getDefaultDescriptionUninitialized(tuple<T...> * = 0, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> * = 0);
 
 } // namespace std
 
@@ -148,6 +148,21 @@ struct TupleDescription
         return sizeof...(T);
     }
 
+    virtual size_t getArrayFixedLength() const override
+    {
+        return sizeof...(T);
+    }
+
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::FIXED;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::NONE;
+    }
+
     virtual void * getArrayElement(void * val, uint32_t element) const override
     {
         return ((char*) val) + elements.at(element).offset;
@@ -238,14 +253,14 @@ namespace std {
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescription(std::tuple<T...> *)
+getDefaultDescription(std::tuple<T...> *, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> *)
 {
     return new MLDB::TupleDescription<T...>();
 }
 
 template<typename... T>
 MLDB::TupleDescription<T...> *
-getDefaultDescriptionUninitialized(std::tuple<T...> *)
+getDefaultDescriptionUninitialized(std::tuple<T...> *, std::enable_if_t<MLDB::all_have_default_descriptions<T...>::value> *)
 {
     return new MLDB::TupleDescription<T...>(MLDB::constructOnly);
 }

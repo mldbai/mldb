@@ -98,10 +98,24 @@ struct ArrayDescription
         return val->empty();
     }
 
+    virtual LengthModel getArrayLengthModel() const override
+    {
+        return LengthModel::FIXED;
+    }
+
+    virtual OwnershipModel getArrayIndirectionModel() const override
+    {
+        return OwnershipModel::NONE;
+    }
+
+    virtual size_t getArrayFixedLength() const override
+    {
+        return N;
+    }
+
     virtual size_t getArrayLength(void * val) const override
     {
-        const std::array<T, N> * val2 = reinterpret_cast<const std::array<T, N> *>(val);
-        return val2->size();
+        return N;
     }
 
     virtual void *
@@ -135,6 +149,6 @@ struct ArrayDescription
 };
 
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(ArrayDescription, std::array, typename, T, size_t, N);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_2(ArrayDescription, std::array, typename, T, size_t, N, MLDB::has_default_description<T>::value);
 
 } // namespace MLDB

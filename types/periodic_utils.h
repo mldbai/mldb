@@ -143,6 +143,9 @@ struct TimePeriod {
 
     void parse(const std::string & val);
 
+    // Return the granularity mapped to a number of seconds
+    double toSeconds() const;
+
     TimePeriod operator + (const TimePeriod & other) const;
 
     TimePeriod & operator += (const TimePeriod & other)

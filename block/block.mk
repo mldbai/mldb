@@ -7,7 +7,7 @@ LIBBLOCK_SOURCES:= \
 	content_descriptor.cc \
 	content.cc \
 
-$(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any))
+$(eval $(call library,block,$(LIBBLOCK_SOURCES),vfs $(LIBARCHIVE_LIB_NAME) types arch db base value_description any watch))
 
 $(eval $(call include_sub_make,testing))
 

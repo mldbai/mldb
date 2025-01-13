@@ -199,6 +199,6 @@ struct MapDescription
     }
 };
 
-DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(MapDescription, std::map, typename, Key, typename, Value, typename, Compare, typename, Alloc);
+DECLARE_TEMPLATE_VALUE_DESCRIPTION_4(MapDescription, std::map, typename, Key, typename, Value, typename, Compare, typename, Alloc, (MLDB::all_have_default_descriptions<Key, Value>::value));
 
 } // namespace MLDB
