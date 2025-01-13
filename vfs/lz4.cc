@@ -14,6 +14,7 @@
 #include "mldb/arch/endian.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/compute_context.h"
 #include <iostream>
 #include "mldb/base/scope.h"
 #include <cstring>
@@ -159,6 +160,19 @@ struct MLDB_PACKED Header
         return sizeof(*this);
     }
 
+    std::string asString(uint64_t lengthWritten)
+    {
+        std::string result;
+        const std::function<size_t (const char *, size_t)> onData
+            = [&] (const char * data, size_t len) -> size_t
+        {
+            result.append(data, len);
+            return len;
+        };
+        write(onData, lengthWritten);
+        return result;
+    }
+
     uint8_t checksumOptions(const uint64_le & knownContentSize) const
     {
         if (contentSize()) {
@@ -200,7 +214,7 @@ struct Lz4Compressor : public Compressor {
     typedef Compressor::FlushLevel FlushLevel;
     
     Lz4Compressor(int level, uint8_t blockSizeId = 7,
-                  uint64_t contentSize = 0)
+                  uint64_t contentSize = -1)
         : head(blockSizeId,
                true /* independent blocks */,
                false /* block checksum */,
@@ -231,16 +245,30 @@ struct Lz4Compressor : public Compressor {
     virtual void notifyInputSize(uint64_t inputSize) override
     {
         if (!writeHeader) {
-            throw Exception("lz4 input size already notified");
+            throw Exception("lz4 input size notified too late");
         }
         head.setContentSize(true);
         this->contentSize = inputSize;
     }
-    
+
+    virtual bool canFixupLength() const override
+    {
+        return true;
+    }
+
+    virtual std::string newHeaderForLength(uint64_t lengthWritten) const override
+    {
+        lz4::Header fixedHeader = this->head;
+        fixedHeader.setContentSize(lengthWritten);
+        std::string result = fixedHeader.asString(lengthWritten);
+        return result;
+    }
+
     virtual void compress(const char * s, size_t n,
                           const OnData & onData) override
     {
         if (writeHeader) {
+            auto asStringDebug = head.asString(contentSize);
             head.write(onData, contentSize);
             writeHeader = false;
         }
@@ -588,10 +616,12 @@ struct Lz4Decompressor: public Decompressor {
                          const GetDataFunction & getData,
                          const ForEachBlockFunction & onBlock,
                          const Allocate & allocate,
-                         int maxParallelism) override
+                         ComputeContext & compute,
+                         const PriorityFn<int (size_t chunkNum)> & priority) override
     {
         //return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock);
-        ThreadWorkGroup tp(maxParallelism);
+
+        ComputeContext block_compute(compute);
 
         std::shared_ptr<const char> buf;
         size_t bufLen = 0;
@@ -648,14 +678,16 @@ struct Lz4Decompressor: public Decompressor {
         size_t blockNumber = 0;
         size_t blockOffset = 0;
         size_t blockSize = header.blockSize();
-
         
-        while (state != FINISHED && state != STREAM_CHECKSUM && !aborted) {
+        while (!aborted) {
             while (state != FINISHED && state != STREAM_CHECKSUM && state != BLOCK_DATA)
                 pumpState();
 
-            if (state == FINISHED || state == STREAM_CHECKSUM || aborted)
+            if (state == FINISHED || state == STREAM_CHECKSUM) {
+                if (!onBlock(blockNumber, blockOffset, nullptr, 0, true))
+                    aborted = true;
                 break;
+            }
 
             std::shared_ptr<const char> ourBlockData;
             
@@ -685,8 +717,11 @@ struct Lz4Decompressor: public Decompressor {
                                  this,
                                  &aborted,
                                  &onBlock,
-                                 &allocate] ()
+                                 &allocate,
+                                 &block_compute] ()
                 {
+                    if (block_compute.relaxed_stopped())
+                        return;
 
                     std::shared_ptr<const char> outputData;
                     size_t outputLength;
@@ -694,8 +729,7 @@ struct Lz4Decompressor: public Decompressor {
                     std::tie(outputData, outputLength)
                         = decompressBlock(std::move(ourBlockData),
                                           blockHeader, blockChecksum, allocate);
-                    if (!onBlock(blockNumber, blockOffset,
-                                 outputData, outputLength))
+                    if (!onBlock(blockNumber, blockOffset, outputData, outputLength, false /* lastBlock */))
                         aborted = true;
 
                     //if (header.streamChecksum()) {
@@ -707,15 +741,16 @@ struct Lz4Decompressor: public Decompressor {
             blockOffset += blockSize;
             
             // Finish processing in a new thread
-            if (maxParallelism > 1)
-                tp.add(std::move(processBlock));
-            else processBlock();
+            if (block_compute.single_threaded())
+                processBlock();
+            else
+                block_compute.submit(priority(blockNumber), "lz4 decompress block", std::move(processBlock));
             
             // Start of a new block again
             setCur(BLOCK_HEADER, blockHeader);
         }
 
-        tp.waitForAll();
+        block_compute.work_until_finished();
         
         return !aborted;
     }
@@ -765,8 +800,7 @@ struct Lz4Decompressor: public Decompressor {
     uint64_le knownContentSize = 0;
     uint8_t checkBits = 0;
     uint32_le blockHeader = 0;
-    uint32_t blockLength() const { return blockHeader & ~lz4::NotCompressedMask; }
-;
+    uint32_t blockLength() const { return blockHeader & ~lz4::NotCompressedMask; };
     std::shared_ptr<char> blockData;
     uint32_le blockChecksum = 0;
     uint32_le streamChecksum = 0;

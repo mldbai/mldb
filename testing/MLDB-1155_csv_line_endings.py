@@ -4,6 +4,8 @@
 # This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 #
 import gzip
+import pyzstd
+import lz4
 import unittest
 import os
 from mldb import mldb, ResponseException
@@ -230,6 +232,13 @@ class CsvLineEndingsCsv(CsvLineEndingsGeneric, unittest.TestCase):
 
 class CsvLineEndingsCsvGz(CsvLineEndingsGeneric, unittest.TestCase):
     data = {'open_fct' : gzip.open, 'ext' : '.csv.gz'}
+
+class CsvLineEndingsCsvZstd(CsvLineEndingsGeneric, unittest.TestCase):
+    data = {'open_fct' : pyzstd.open, 'ext' : '.csv.zstd'}
+
+#class CsvLineEndingsCsvLz4(CsvLineEndingsGeneric, unittest.TestCase):
+#    data = {'open_fct' : lz4.decompress, 'ext' : '.csv.lz4'}
+
 
 if __name__ == '__main__':
     mldb.run_tests()

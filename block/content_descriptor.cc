@@ -10,11 +10,12 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
-#include <boost/iostreams/stream_buffer.hpp>
 #include <mutex>
 #include "mldb/vfs/compressor.h"
 #include "mldb/watch/watch_impl.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/iostream_adaptors.h"
+#include "mldb/base/compute_context.h"
 
 
 using namespace std;
@@ -122,6 +123,15 @@ DEFINE_VALUE_DESCRIPTION_NS(ContentHashes, ContentHashesDescription);
 /*****************************************************************************/
 /* CONTENT DESCRIPTOR                                                        */
 /*****************************************************************************/
+
+
+void
+ContentDescriptor::
+addUrl(Utf8String url)
+{
+    ContentHash hash{"url", std::move(url)};
+    content.emplace_back(std::move(hash));
+}
 
 Url
 ContentDescriptor::
@@ -241,12 +251,16 @@ struct ContentInputSeekableStreambuf {
     static_assert(sizeof(char_type) == 1,
                   "content streams for single-char bytes only");
 
+    using is_source = std::true_type;
+    using is_seekable = std::true_type;
+#if 0
     struct category
         : public boost::iostreams::input_seekable,
           public boost::iostreams::device_tag,
           public boost::iostreams::closable_tag {
     };
-    
+#endif
+
     struct Impl {
         Impl(std::shared_ptr<const ContentHandler> handler__)
             : handler(std::move(handler__))
@@ -367,47 +381,68 @@ bool
 ContentHandler::
 forEachBlockParallel(uint64_t startOffset,
                      uint64_t requestedBlockSize,
-                     int maxParallelism,
-                     std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
+                     ComputeContext & compute,
+                     const PriorityFn<int (size_t chunkNum)> & priority,
+                     const OnBlockFn & onBlock) const
 {
+    constexpr bool debug = false;
+    if (debug) cerr << "ContentHandler foreachblockparallel" << endl;
     size_t offset = startOffset;
 
     std::atomic<bool> finished(false);
     
-    ThreadWorkGroup tp(maxParallelism);
+    ComputeContext block_compute(compute);
 
     size_t blockNumber = 0;
-    
-    while (!finished && !tp.hasException()) {
+
+    auto submitBlockJob = [&] (auto && block)
+    {
+        if (compute.single_threaded())
+            block();
+        else
+            block_compute.submit(priority(blockNumber), "ContentHandler::forEachBlockParallel", std::move(block));
+    };
+
+    while (!finished && !compute.relaxed_stopped()) {
         uint64_t startOffset;
         FrozenMemoryRegion region;
 
         std::tie(startOffset, region)
             = getRangeContaining(offset, requestedBlockSize);
 
-        if (!region)
+        if (debug) cerr << "startOffset = " << startOffset << " region = " << (bool)region << endl;
+
+        if (!region && !finished) {
+            // This is the last block
+            submitBlockJob([blockNumber, startOffset, &onBlock, &finished] ()
+                           {
+                               if (!onBlock(blockNumber, startOffset, FrozenMemoryRegion(), true /* lastBlock */))
+                                    finished = true;
+                           });
             break;
+        }
         
         uint64_t toSkip = startOffset - offset;
         ExcAssertEqual(toSkip, 0);
         size_t myBlockNumber = blockNumber++;
         
+        if (debug) cerr << "doing block " << myBlockNumber << " at offset "
+             << startOffset << " len " << region.length() << endl;
+
         auto processBlock
-            = [myBlockNumber, startOffset, region, &fn, &finished] ()
+            = [myBlockNumber, startOffset, region, &onBlock, &finished] ()
             {
-                if (!fn(myBlockNumber, startOffset, region))
+                if (!onBlock(myBlockNumber, startOffset, region, false /* lastBlock */)) {
                     finished = true;
+                }
             };
 
-        if (maxParallelism == 1)
-            processBlock();
-        else
-            tp.add(std::move(processBlock));
+        submitBlockJob(std::move(processBlock));
 
         offset = startOffset + region.length();
     }
 
-    tp.waitForAll();
+    block_compute.work_until_finished();
 
     return !finished;
 }
@@ -460,13 +495,22 @@ getStream(const std::map<Utf8String, Any> & options) const
     //cerr << "url = " << descriptor.getUrlStringUtf8() << " compression = "
     //     << compression << " mapped = " << isMapped << endl;
 
-    if (isMapped) {
+    while (isMapped) {  // actually an if, but now we can break out
         // Just get one single big block
         auto contentHandler = getContent(descriptor);
 
         struct Vals {
             FsObjectInfo info;
             FrozenMemoryRegion mem;
+
+#if 0
+            ~Vals()
+            {
+                cerr << endl << endl << endl;
+                cerr << "NO MORE MAPPING VALS" << endl;
+                cerr << endl << endl << endl;
+            }
+#endif
         };
 
         auto vals = std::make_shared<Vals>();
@@ -493,7 +537,10 @@ getStream(const std::map<Utf8String, Any> & options) const
                                    vals->mem.length());
 
             if (outputSize < 0) {
-                throw Exception("decompressed size unknown");
+                if (outputSize == Decompressor::LENGTH_UNKNOWN)
+                    break;  // do as an istream as we can't run the splitting algorithm
+
+                throw Exception("decompressed size unknown: %i", (int)outputSize);
             }
 
             static MemorySerializer serializer;
@@ -535,7 +582,7 @@ getStream(const std::map<Utf8String, Any> & options) const
 
         ContentInputSeekableStreambuf bufImpl(getSharedThis());
         std::streambuf * buf
-            = new boost::iostreams::stream_buffer<ContentInputSeekableStreambuf>
+            = new source_istreambuf<ContentInputSeekableStreambuf>
             (std::move(bufImpl), 1024 * 1024);
         
         UriHandler handler(buf /* streambuf */,
@@ -546,10 +593,8 @@ getStream(const std::map<Utf8String, Any> & options) const
         filter_istream stream(handler, descriptor.getUrlString(), options2);
         return stream;
     }
-    else {
-        // Not mapped.  We go block by block.
-    }
-    
+
+    // Not mapped.  We go block by block.
     filter_istream result(descriptor.getUrlStringUtf8(), options2);
     return result;
 }
@@ -639,8 +684,9 @@ struct UrlContentHandler
     {
         const char * data;
         size_t len;
+        size_t capacity;
 
-        std::tie(data, len) = stream.mapped();
+        std::tie(data, len, capacity) = stream.mapped();
         if (data && length) {
             if (length == -1)
                 length = len - offset;
@@ -819,8 +865,9 @@ struct ContentDecompressor
     virtual bool
     forEachBlockParallel(uint64_t startOffset,
                          uint64_t requestedBlockSize,
-                         int maxParallelism,
-                         std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const override
+                         ComputeContext & compute,
+                         const PriorityFn<int (size_t chunkNum)> & priority,
+                         const OnBlockFn & fn) const override
     {
         //maxParallelism = 1;
 
@@ -860,7 +907,8 @@ struct ContentDecompressor
         auto onBlock = [&] (size_t blockNumber,
                             uint64_t blockStartOffset,
                             std::shared_ptr<const char> mem,
-                            size_t length) -> bool
+                            size_t length,
+                            bool lastBlock) -> bool
             {
                 if (blockStartOffset + length < startOffset)
                     return true;
@@ -873,7 +921,7 @@ struct ContentDecompressor
                 }
 
                 FrozenMemoryRegion region(mem, mem.get(), length);
-                return fn(blockNumber, blockStartOffset, std::move(region));
+                return fn(blockNumber, blockStartOffset, std::move(region), lastBlock);
             };
 
         auto allocate = [&] (size_t len) -> std::shared_ptr<char>
@@ -882,7 +930,7 @@ struct ContentDecompressor
             };
         
         return decompressor->forEachBlockParallel(requestedBlockSize, getData, onBlock,
-                                                  allocate, maxParallelism);
+                                                  allocate, compute, priority);
     }
     
     virtual std::pair<uint64_t, FrozenMemoryRegion>

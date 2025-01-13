@@ -51,6 +51,9 @@ int numCpus()
     threads, but not being able to do much itself.  So the ability to
     handle lots of work being submitted by a given thread but not much being
     done by it is important.
+
+    It's important that pool threads not block or sleep, as this can cause
+    deadlocks.
 */
 
 struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
@@ -274,6 +277,13 @@ struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {
         // Remove any worker tasks
         for (auto & w: workers)
             w.join();
+    }
+
+    size_t numThreads() const
+    {
+        if (parent)
+            return std::min<size_t>(parent->numThreads(), maxParentJobs);
+        else return workers.size();
     }
 
     ThreadEntry & getEntry(int workerNum = -1)
@@ -714,7 +724,7 @@ size_t
 ThreadPool::
 numThreads() const
 {
-    return itl->workers.size();
+    return itl->numThreads();
 }
 
 uint64_t

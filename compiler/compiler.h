@@ -47,6 +47,10 @@
     } catch (...)
 #endif
 
+// Run the given statement, eating all non stack unwinding exceptions
+#define MLDB_EAT_EXCEPTIONS(...) \
+    try { __VA_ARGS__; } MLDB_CATCH_ALL { }
+
 #if __GNUC__ == 4
 #  if __CNUC_MINOR__ < 8
 #     define MLDB_NO_MOVE_IF_NOEXCEPT

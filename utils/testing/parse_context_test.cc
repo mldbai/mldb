@@ -33,7 +33,7 @@ using namespace std;
 
 using boost::unit_test::test_suite;
 
-#if 0
+#if 1
 
 BOOST_AUTO_TEST_CASE( test_float_parsing )
 {
@@ -615,7 +615,12 @@ BOOST_AUTO_TEST_CASE( test_csv_data )
     vector<vector<string> > reference;
 
     for (unsigned i = 0;  i < nchunk_sizes;  ++i) {
-        BOOST_CHECK_NO_THROW(test_csv_data_size(chunk_sizes[i], reference));
+        try {
+            test_csv_data_size(chunk_sizes[i], reference);
+        } catch (const std::exception & exc) {
+            cerr << "exception on chunk size: " << chunk_sizes[i] << ": " << exc.what() << endl;
+            BOOST_CHECK_EQUAL(exc.what(), "");
+        }
     }
 }
 
