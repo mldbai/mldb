@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "ostream_vector.h"
 
 namespace MLDB {
 
@@ -114,16 +115,6 @@ void make_vector_set(std::vector<T> & vec)
 } // namespace MLDB
 
 namespace std {
-
-template<class T, class A>
-std::ostream &
-operator << (std::ostream & stream, const vector<T, A> & vec)
-{
-    stream << "[";
-    for (unsigned i = 0;  i < vec.size();  ++i)
-        stream << " " << vec[i];
-    return stream << " ]";
-}
 
 template<class T, class A>
 std::string
