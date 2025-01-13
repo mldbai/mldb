@@ -63,6 +63,14 @@ inline bool from_string(const std::string & s, bool *)
     return from_string(s, (int *)0);
 }
 
+// Anything that is constructible from a string can be passed
+template<typename T>
+inline T from_string(const std::string & s, T *, decltype(T(s)) * = nullptr)
+{
+    return T(s);
+}
+
+
 /*****************************************************************************/
 /* ENV_OPTION                                                                */
 /*****************************************************************************/
