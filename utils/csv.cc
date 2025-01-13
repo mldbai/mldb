@@ -11,6 +11,7 @@
 #include "mldb/base/parse_context.h"
 #include "mldb/arch/format.h"
 #include "mldb/utils/vector_utils.h"
+#include "mldb/utils/ostream_vector.h"
 
 using namespace std;
 
