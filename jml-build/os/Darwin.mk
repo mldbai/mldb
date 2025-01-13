@@ -1,3 +1,4 @@
+
 MD5SUM:=md5
 DEFAULT_TOOLCHAIN:=clang
 GNU_TIME:=gtime
@@ -10,6 +11,8 @@ MACHINE_NAME:=$(call exec-shell, uname -n)
 READLINK:=readlink
 linker_rpath=
 SO_EXTENSION:=.dylib
+
+HAS_LOAD:=$(if $(findstring load,${.FEATURES}),1,0)
 
 VIRTUALENV ?= virtualenv-$(ARCH)-$(OSNAME)-$(PYTHON_VERSION)
 SYSTEM_PYTHON ?= python$(PYTHON_VERSION)
@@ -77,7 +80,35 @@ LIB_Cocoa_HAS_NO_SHLIB:=1
 LIB_CoreFoundation_LINKER_OPTIONS:=-framework CoreFoundation
 LIB_CoreFoundation_HAS_NO_SHLIB:=1
 
-PYTHON_VERSION=3.12
+PYTHON_VERSION:=3.12
+PYTHON_VERSION_NODOT:=$(subst .,,$(PYTHON_VERSION))
+
+LLVM_INCLUDE_PATH:=$(HOMEBREW_OPT)/llvm/include/
+LLVM_LIB_PATH:=$(HOMEBREW_OPT)/llvm/lib/
+LLVM_LIB_NAME:=LLVM-19
+LIB_$(LLVM_LIB_NAME)_LINKER_OPTIONS+=-L$(LLVM_LIB_PATH)
 
 # This provides attributes allowing easier debugability including core files
 POST_LINK_COMMAND:=codesign -s - -f --entitlements $(JML_BUILD)/os/mldb.debug.entitlements.plist
+
+# Build and load Make extentions that allow us to avoid shell execution
+ifneq ($(DONE_LOAD),1)
+#$(warning HAS_LOAD=$(HAS_LOAD))
+ifeq ($(HAS_LOAD),1)
+$(BUILD)/$(HOSTARCH)-Darwin/make_extensions$(SO_EXTENSION): mldb/jml-build/make_extensions.cc mldb/jml-build/md5.cc mldb/jml-build/md5.h
+	$(CXX) -g -O3 -shared -fPIC -Wl,-undefined,dynamic_lookup -o $@ -I $(HOMEBREW_INCLUDE) -lstdc++ $< jml-build/md5.cc
+
+-load $(BUILD)/$(HOSTARCH)-Darwin/make_extensions$(SO_EXTENSION)(mldb_make_extensions_init)
+
+$(if $(md5sum hello),$(eval HAS_BUILTIN_MD5SUM:=1))
+
+ifdef HAS_BUILTIN_MD5SUM
+#$(warning has builtin MD5SUM)
+$(if $(findstring 5d41402abc4b2a76b9719d911017c592,$(md5sum hello)),,$(warning md5sum of hello is $(md5sum hello) but should be 5d41402abc4b2a76b9719d911017c592))
+hash_command_builtin=$(eval $(1)_hash:=$(md5sum $(1)))
+HASH_COMMAND:=hash_command_builtin
+DONE_LOAD:=1
+endif # HAS_BUILTIN_MD5SUM
+
+endif # HAS_LOAD
+endif # DONE_LOAD

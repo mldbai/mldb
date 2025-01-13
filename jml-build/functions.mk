@@ -61,13 +61,17 @@ QUOTE:="
 COMMA:=$(NOTHING),$(NOTHING)
 
 
-hash_command2 = $(wordlist 1,1,$(call exec-shell, echo $(strip $(1)) | $(MD5SUM)))
+md5sum_fn=$(call exec-shell,echo $(strip $(1)) | $(MD5SUM))
+
+hash_command2 = $(wordlist 1,1,$(call md5sum_fn,$(1)))
 
 hash_command1 = $(eval HASH:=$(call hash_command2,$(1)))$(call exec-shell, echo $(1)_hash:=$(HASH) >> .make_hash_cache)$(eval $(1)_hash:=$(HASH))
 
 command_key = $(subst $(RPARAN),_,$(subst $(LPARAN),_,$(subst $(SEMICOLON),_,$(subst $(QUOTE),_,$(subst =,_,$(subst $(SPACE),_,$(subst $(DOLLAR),_,$(subst \,,$(strip $(1))))))))))
 
-hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(call hash_command1,$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
+HASH_COMMAND?=hash_command1
+#$(warning HASH_COMMAND=$(HASH_COMMAND))
+hash_command = $(eval KEY=$(call command_key,$(1)))$(if $($(KEY)_hash),,$(call $(HASH_COMMAND),$(KEY)))$(if $($(KEY)_hash),,$(error hash_command1 didnt set variable $(KEY)_hash))$($(KEY)_hash)
 
 endif
 

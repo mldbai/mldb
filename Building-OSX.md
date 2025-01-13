@@ -33,14 +33,15 @@ automatically available from the system, or installed here.  (We aim to make the
 in particular remove the dependency on `boost` eventually).
 
 ```
-brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.12 snappy v8 xz yaml-cpp libb2 sccache libgit2 catch2
+brew install gnu-time icu4c libmagic boost boost-python3 coreutils libssh2 lz4 openssl python@3.12 snappy v8 xz yaml-cpp libb2 sccache libgit2 catch2 make rust
 ```
 
-Some of the Python dependencies also require a Rust compiler to build:
+Some notes on the above:
 
-```
-brew install rust
-```
+* Some of the Python dependencies also require a Rust compiler to build (hence `brew install rust`)
+* We `brew install make` as it provides access to the GNU make (`gmake`) which allows for faster builds,
+  as the `md5sum` function can be called directly rather than via a shell (the shell can be slow due to
+  the trusted execution engine on OSX sometimes phoning home)
 
 We also need Python's `virtualenv` command, and a couple of other system-wide Python packages
 that can't easily be installed into a virtualenv for various reasons. Note that currently the MLDB server
@@ -108,7 +109,7 @@ These are installed inside MLDB's virtual environment, not system-wide, and so w
 with the rest of the Python stuff that's going on in your system.
 
 ```
-make dependencies
+gmake dependencies
 ```
 
 ## Compile MLDB
@@ -118,7 +119,7 @@ in your system; be aware however that some files require lots of memory to build
 so you also need to ensure that your machine has sufficient RAM for the compilation.
 
 ```
-make -j6 -k compile
+gmake -j6 -k compile
 ```
 
 It will take about 15 minutes on a relatively modern MacBook Pro.  You will see lots of output like this:
@@ -142,7 +143,7 @@ mldb/jml-build/python.mk:7: PYTHON_VERSION_DETECTED=3.9
 the commands that were being run.  This will allow us to determine what caused the error:
 
 ```
-make compile verbose_build=1
+gmake compile verbose_build=1
 ```
 
 ## Run the test suite
@@ -154,7 +155,7 @@ not much memory is available), or due to bugs that make them sporadically fail (
 bugs, please let us know if you find one).
 
 ```
-make -j4 -k test || make -j4 -k test
+gmake -j4 -k test || make -j4 -k test
 ```
 
 ## Doing something useful with MLDB
