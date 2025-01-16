@@ -406,7 +406,8 @@ void forEachLineBlock(std::istream & stream,
                             std::tie(current, splitterState)
                                 = splitter.nextBlock(current, end - current, nullptr, 0,
                                                      stream.eof(), splitterState);
-                            if (current && current < end) {
+                            if (current && (current < end || stream.eof())) {
+                                //cerr << "block is at " << current - block.get() << " of " << bytesRead << endl;
                                 //ExcAssertEqual(*current, '\n');
                                 if (lineOffsets.back() != current - block.get()) {
                                     lineOffsets.push_back(current - block.get());

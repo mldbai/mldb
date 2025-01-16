@@ -18,11 +18,6 @@
 #include "compressor.h"
 #include <fstream>
 #include <mutex>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/device/file.hpp>
-#include <boost/iostreams/device/file_descriptor.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
-#include <boost/version.hpp>
 #include "mldb/arch/exception.h"
 #include <errno.h>
 #include <sstream>
@@ -30,15 +25,408 @@
 #include <unordered_map>
 #include "fs_utils.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/base/scope.h"
 #include "mldb/utils/lexical_cast.h"
 #include "mldb/utils/split.h"
 #include "mldb/arch/vm.h"
 
 #include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 using namespace std;
 
 namespace MLDB {
+
+#define MLDB_ABORT_UNIMPLEMENTED() \
+    cerr << "Unimplemented: " << __FILE__ << ":" << __LINE__ << " " << __PRETTY_FUNCTION__ << endl; \
+    abort();
+
+template<typename Stream> void close_stream(Stream& stream) { stream.close(); }
+inline void close_stream(std::istream & stream) { /* nothing to do */ }
+inline void flush_stream(std::ostream & stream) { stream.flush(); }
+inline void flush_stream(std::istream & stream) { /* nothing to do */ }
+template<typename Stream> void flush_stream(Stream& stream) { MLDB_ABORT_UNIMPLEMENTED(); }
+
+template<typename Stream>
+ssize_t write_stream(std::ostream& stream, const char * data, size_t len)
+{
+    stream.write(data, len);
+    if (!stream)
+        throw Exception("unable to write data");
+    return len;
+}
+
+template<typename Stream> ssize_t write_stream(Stream& stream, const char * data, size_t len) { return stream.write(data, len); }
+template<typename Stream> ssize_t read_stream(Stream& stream, char * data, size_t len) { return stream.read(data, len); }
+
+
+/*****************************************************************************/
+/* FILTER STREAM CLASSES                                                     */
+/*****************************************************************************/
+
+// Similar interface to boost::iostreams, except that these:
+// a) don't use boost
+// b) can map extra space at the end of a memory mapped file, allowing for
+//    algorithms that require specific alignment to work efficiently
+
+struct filter_streambuf: public std::streambuf {
+    virtual ~filter_streambuf() = default;
+    virtual void close() = 0; // should ensure that nothing more is written to the output
+    void set_output(std::streambuf * sb) { output_ = sb; }
+    bool has_output() const { return output_; }
+    std::streambuf * require_output() const { ExcCheck(output_, "Attempt to use non-capped filter_streambuf"); return output_; }
+    std::streamsize write(const char* s, std::streamsize n) { return require_output()->sputn(s, n); }
+    std::streamsize read(char* s, std::streamsize n) { return require_output()->sgetn(s, n); }
+    void flush() { require_output()->pubsync(); }
+private:
+    std::streambuf * output_ = nullptr;
+};
+
+template<typename IOStream>
+struct filtering_stream: public IOStream {
+    using IOStream::rdbuf;
+    filtering_stream() : IOStream(nullptr)
+    {
+    }
+
+    virtual ~filtering_stream()
+    {
+        flush_stream((IOStream&)*this);
+        rdbuf(nullptr);
+        for (auto & filter: filters_) filter->close();
+        if (cap_) cap_->close();
+    }
+
+    void push(std::streambuf & sb) { check_not_capped(); push_streambuf(sb); }
+
+    bool empty() const { return filters_.empty() && !cap_ && !rdbuf(); }
+    bool capped() const { return rdbuf() && (filters_.empty() || filters_.back()->has_output()); }
+
+protected:
+    void check_not_capped() const { ExcCheck(!cap_, "Attempt to push a second sink into a filtering_stream"); }
+    void push_streambuf(std::streambuf & sb) { cerr << "adding streambuf " << (void *)(&sb) << " to " << filters_.size() << " filters and " << (bool)rdbuf() << "rdbuf set" << endl; if (!rdbuf()) { rdbuf(&sb); } else filters_.back()->set_output(&sb); }
+    template<typename Buf, typename Cap> void push_cap(Cap cap) { check_not_capped(); push_streambuf(*(cap_ = std::make_unique<Buf>(std::move(cap)))); }
+    template<typename Buf, typename Filter> void push_filter(Filter filter)
+    { 
+        check_not_capped();
+        filters_.emplace_back(std::make_unique<Buf>(std::move(filter)));
+        push_streambuf(*filters_.back());
+    }
+private:
+    std::vector<std::unique_ptr<filter_streambuf>> filters_;
+    std::unique_ptr<filter_streambuf> cap_;
+};
+
+
+/*****************************************************************************/
+/* FILTER OSTREAM CLASSES                                                     */
+/*****************************************************************************/
+
+struct buffered_ostreambuf: public filter_streambuf {
+    buffered_ostreambuf(size_t buffer_size = 4096) : buffer_(buffer_size) { setp(buffer_.data(), buffer_.data() + buffer_.size()); }
+protected:
+    std::vector<char> buffer_;
+};
+
+template<typename Sink>
+struct sink_ostreambuf: public buffered_ostreambuf {
+    using base_type = buffered_ostreambuf;
+    sink_ostreambuf(Sink sink, size_t buffer_size = 4096) : base_type(buffer_size), sink_(std::move(sink)) {}
+    virtual ~sink_ostreambuf() = default;
+    const Sink & sink() const { return sink_; }
+    Sink & sink() { return sink_; }
+    virtual std::streamsize xsputn(const char * s, std::streamsize n) override { return sink_.write(s, n); }
+    virtual int overflow(int c) override { if (c == EOF) MLDB_THROW_LOGIC_ERROR(); char c2 = c; return sink_.write(&c2, 1) == 1 ? 0 : -1; }
+    virtual int sync() override { sink_.flush(); return 0; }
+    virtual void close() override { sink_.close(); }
+private:
+    Sink sink_;
+};
+
+template<typename Filter>
+struct filtering_ostreambuf: public buffered_ostreambuf {
+    using base_type = buffered_ostreambuf;
+    filtering_ostreambuf(Filter filter, size_t buffer_size = 4096) : base_type(buffer_size), filter_(std::move(filter)) {}
+    virtual ~filtering_ostreambuf() = default;
+    const Filter & filter() const { return filter_; }
+    Filter & filter() { return filter_; }
+    virtual std::streamsize xsputn(const char * s, std::streamsize n) override { return filter_.write(*this, s, n); }
+    virtual int sync() override { filter_.flush(*this); return 0; }
+    virtual void close() override { filter_.close(*this); }
+private:
+    Filter filter_;
+};
+
+struct filtering_ostream: public filtering_stream<std::ostream> {
+    using filtering_stream<std::ostream>::push;
+    template<typename Sink> void push(Sink sink, typename Sink::is_sink::type = {}) { push_cap<sink_ostreambuf<Sink>>(std::move(sink)); }
+    template<typename Filter> void push(Filter filter, typename Filter::is_filter::type = {}) { push_filter<filtering_ostreambuf<Filter>>(std::move(filter)); }
+};
+
+
+/*****************************************************************************/
+/* FILTER ISTREAM CLASSES                                                     */
+/*****************************************************************************/
+
+struct buffered_istreambuf: public filter_streambuf {
+    buffered_istreambuf(size_t buffer_size = 4096) : buffer_(buffer_size) {}
+    virtual int underflow() override { cerr << "underflow()" << endl; buf_fill(); return buf_empty() ? EOF : 0; }
+    virtual std::streampos seekoff(std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode which) override
+    {
+        if (which != std::ios_base::in || way != std::ios_base::cur || off != 0) return EOF;
+        return pos_ + gptr() - eback();
+    }
+    bool eof() const { return eof_; }
+
+protected:
+    std::vector<char> buffer_;
+    ssize_t pos_ = 0;
+    bool eof_ = false;
+    bool buf_empty() const { return gptr() == egptr(); }
+    void require_empty() { ExcAssert(buf_empty()); }
+    template<typename Source, typename... Args> void do_buf_fill(Source & source, Args&&... args)
+    {
+        require_empty();
+        auto n = source.read(std::forward<Args>(args)..., buffer_.data(), buffer_.size());
+        if (n == -1) eof_ = true;
+        else {
+            setg(buffer_.data(), buffer_.data(), buffer_.data() + n);
+        }
+    }
+    virtual void buf_fill() = 0;
+};
+
+template<typename Source>
+struct source_istreambuf: public buffered_istreambuf {
+    using base_type = buffered_istreambuf;
+    source_istreambuf(Source source, size_t buffer_size = 4096) : base_type(buffer_size), source_(std::move(source)) {}
+    virtual ~source_istreambuf() = default;
+    const Source & source() const { return source_; }
+    Source & source() { return source_; }
+    virtual int underflow() override
+    {
+        buf_fill();
+        if (eof()) {
+            ExcAssert(buf_empty());
+            return EOF;
+        }
+        ExcAssert(!buf_empty());
+        return *gptr();
+    }
+    virtual void close() override {}
+
+protected:
+    virtual void buf_fill() override { do_buf_fill(source_); }
+    Source source_;
+};
+
+template<typename Filter>
+struct filtering_istreambuf: public buffered_istreambuf {
+    using base_type = buffered_istreambuf;
+    filtering_istreambuf(Filter filter, size_t buffer_size = 4096) : base_type(buffer_size), filter_(std::move(filter)) {}
+    virtual ~filtering_istreambuf() = default;
+    const Filter & filter() const { return filter_; }
+    Filter & filter() { return filter_; }
+    //virtual std::streamsize xsgetn(char * s, std::streamsize n) override { return filter_.read(*this, s, n); }
+    //virtual int sync() override { filter_.flush(*this); return 0; }
+    virtual void close() override {}
+protected:
+    virtual void buf_fill() override { do_buf_fill(filter_, *this); }
+    Filter filter_;
+};
+
+struct filtering_istream: public filtering_stream<std::istream> {
+    using filtering_stream::push;
+    template<typename Source> void push(Source source, typename Source::is_source::type = {}) { push_cap<source_istreambuf<Source>>(std::move(source)); }
+    template<typename Filter> void push(Filter filter, typename Filter::is_filter::type = {}) { push_filter<filtering_istreambuf<Filter>>(std::move(filter)); }
+};
+
+template<typename Source>
+struct stream_buffer: public source_istreambuf<Source> {
+    stream_buffer(Source source, size_t /*buffer_size*/ = 4096): source_istreambuf<Source>(std::move(source)) {}
+};
+
+struct mapped_file_params {
+    std::string filename;
+    int fd = -1;
+    size_t offset = 0;
+    ssize_t size = -1;
+    ssize_t extra_capacity = MAPPING_EXTRA_CAPACITY;
+};
+
+struct mapped_file_source {
+    using is_source = std::true_type;
+    mapped_file_source(mapped_file_params params)
+    {
+        Scope_Exit(if (params.fd != -1) ::close(params.fd));
+        if (params.fd == -1) {
+            params.fd = open(params.filename.c_str(), O_RDONLY);
+            if (params.fd == -1)
+                throw Exception(errno, "open");
+        }
+        if (params.size == -1) {
+            struct stat st;
+            if (fstat(params.fd, &st) == -1)
+                throw Exception(errno, "fstat");
+            params.size = st.st_size;
+        }
+        size_t offset = roundDownToPageSize(params.offset);
+        size_t skip = params.offset - offset;
+        size_t capacity = roundUpToPageSize(params.size + params.extra_capacity - offset);
+        size_t capacityWithoutGuardPage = roundUpToPageSize(params.size - offset);
+        cerr << "capacity = " << capacity << " capacityWithoutGuardPage = " << capacityWithoutGuardPage << endl;
+        cerr << "skip = " << skip << endl;
+        cerr << "offset = " << offset << endl;
+
+        cerr << "mapping " << capacity << " of " << params.size << " bytes from " << params.filename << " at offset " << params.offset << endl;
+        cerr << "skipping " << skip << " bytes" << endl;
+
+        auto check_mmap = [&] (void * p) {
+            if (p == MAP_FAILED)
+                throw Exception(errno, "mmap");
+        };
+
+        std::shared_ptr<void> addr;
+        if (capacity == capacityWithoutGuardPage) {
+            // No extra page
+            addr = std::shared_ptr<void>
+                (mmap(nullptr, capacity,
+                    PROT_READ, MAP_PRIVATE, params.fd, params.offset),
+                [=] (void * p) { munmap(p, page_size); });
+            check_mmap(addr.get());
+        }
+        else {
+            // Firstly, make an anonymous zero-filled mapping
+            addr = std::shared_ptr<void>
+                (mmap(nullptr, capacity, PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0),
+                [=] (void * p) { munmap(p, page_size); });
+            check_mmap(addr.get());
+            
+            // Now remap the file on all but the last page
+            void * addr2 = mmap(addr.get(), capacity - page_size, PROT_READ, MAP_PRIVATE | MAP_FIXED, params.fd, params.offset);
+            if (addr2 == MAP_FAILED)
+                throw Exception(errno, "mmap");
+            if (addr2 != addr.get())
+                throw Exception("mmap: remapped to different address");
+        }
+
+        data_ = (const char *)addr.get() + skip;
+        ptr_ = data_;
+        size_ = params.size - params.offset;
+        capacity_ = capacity - skip;
+        region_ = std::move(addr);
+
+        cerr << "data_ = " << (void *)data_ << endl;
+        cerr << "ptr_ = " << (void *)ptr_ << endl;
+        cerr << "size_ = " << size_ << endl;
+        cerr << "capacity_ = " << capacity_ << endl;
+        cerr << "region_ = " << (void *)region_.get() << endl;
+    }
+
+    const char * data() const { return data_; }
+    size_t size() const { return size_; }
+    size_t avail() const { return data_ + size_ - ptr_; }
+    size_t capacity() const { return capacity_; }
+    size_t extra_capacity() const { return capacity_ - size_; }
+
+    ssize_t read(char * s, size_t n)
+    {
+        cerr << "reading " << n << " bytes from mapped file" << endl;
+        size_t left = avail();
+        if (left == 0)
+            return EOF;
+        n = std::min(n, left);
+        memcpy(s, ptr_, n);
+        ptr_ += n;
+        cerr << "read " << n << " bytes from mapped file" << endl;
+        return n;
+    }
+
+    int fd_ = -1;
+    std::shared_ptr<const void> region_;
+    const char * data_ = nullptr;
+    const char * ptr_ = nullptr;
+    size_t size_ = 0;
+    size_t capacity_ = 0;
+};
+
+enum close_handle {
+    never_close_handle = false,
+    always_close_handle = true
+};
+struct file_descriptor_sink {
+    using is_sink = std::true_type;
+    file_descriptor_sink(int fd, close_handle close_handle = never_close_handle)
+        : fd_(fd), close_handle_(close_handle)
+    {
+        cerr << "initializing fd sink with fd " << fd << endl;
+    }
+
+    // Disable copying
+    file_descriptor_sink(const file_descriptor_sink &) = delete;
+    file_descriptor_sink & operator = (const file_descriptor_sink &) = delete;
+
+    file_descriptor_sink(file_descriptor_sink && other)
+        : fd_(other.fd_), close_handle_(other.close_handle_)
+    {
+        other.fd_ = -1;
+    }
+
+    void swap(file_descriptor_sink & other)
+    {
+        std::swap(fd_, other.fd_);
+        std::swap(close_handle_, other.close_handle_);
+    }
+
+    file_descriptor_sink & operator = (file_descriptor_sink && other)
+    {
+        swap(other);
+        return *this;
+    }
+
+    ~file_descriptor_sink()
+    {
+        cerr << "destroying fd sink" << endl;
+        close();
+    }
+
+    void close()
+    {
+        if (fd_ != -1) {
+            cerr << "closing fd " << fd_ << " with close_handle_ " << close_handle_ << endl;
+            if (close_handle_ == always_close_handle)
+                ::close(fd_);
+            fd_ = -1;
+        }
+    }
+
+    void flush()
+    {
+        cerr << "flushing fd sink" << endl;
+        // fsync?
+    }
+
+    ssize_t write(const char * data, size_t len)
+    {
+        cerr << "writing " << len << " bytes to fd sink" << endl;
+        auto res = ::write(fd_, data, len);
+        cerr << "res = " << res << endl;
+        if (res == -1)
+            throw Exception(errno, "write");
+        return res;
+    }
+
+    int fd_ = -1;
+    close_handle close_handle_ = never_close_handle;
+};
+
+
+
+/*****************************************************************************/
+/* URI HANDLING                                                              */
+/*****************************************************************************/
 
 const UriHandlerFactory &
 getUriHandler(const std::string & scheme);
@@ -67,18 +455,17 @@ UriHandler(std::streambuf * buf,
 
 
 /*****************************************************************************/
-/* BOOST COMPRESSOR                                                          */
+/* STREAM COMPRESSOR                                                         */
 /*****************************************************************************/
 
-/** Adaptor to allow boost::iostreams to be served by a compressor object. */
+struct StreamCompressor {
+    using is_filter = std::true_type;
 
-struct BoostCompressor: public boost::iostreams::multichar_output_filter {
-
-    BoostCompressor(Compressor * compressor, std::streambuf & buf)
+    StreamCompressor(Compressor * compressor, std::streambuf & buf)
         : compressor(compressor), buf(buf)
     {
         // Record the start position so that once we know the actual written
-        // size we can go back and rewrite the header wiht the right size.
+        // size we can go back and rewrite the header with the right size.
         if (compressor->canFixupLength()) {
             try {
                 MLDB_TRACE_EXCEPTIONS(false);
@@ -93,7 +480,7 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
     void writeAll(Sink& sink, const char* data, size_t size)
     {
         while (size > 0) {
-            size_t written = boost::iostreams::write(sink, data, size);
+            size_t written = write_stream(sink, data, size);
             if (!written) throw Exception("unable to write data");
             
             data += written;
@@ -170,21 +557,16 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
 
 
 /*****************************************************************************/
-/* BOOST DECOMPRESSOR                                                        */
+/* STREAM DECOMPRESSOR                                                        */
 /*****************************************************************************/
 
-/** Adaptor to allow boost::iostreams to be served by a decompressor object. */
+/** Adaptor to allow iostreams to be served by a decompressor object. */
 
-struct BoostDecompressor {
+struct StreamDecompressor {
+    using is_filter = std::true_type;
     typedef char char_type;
     
-    struct category
-        : public boost::iostreams::filter_tag,
-          public boost::iostreams::input_seekable,
-          public boost::iostreams::multichar_tag {
-    };
-
-    BoostDecompressor(Decompressor * decompressor)
+    StreamDecompressor(Decompressor * decompressor)
         : decompressor(decompressor)
     {
         inbuf.resize(4096);
@@ -211,8 +593,11 @@ struct BoostDecompressor {
             outbufPos = 0;
         }
 
-        if (n == 0)
+        if (n == 0) {
+            if (s == sBefore && eof)
+                return EOF;
             return s - sBefore;
+        }
 
         // Now, call the decompressor
 
@@ -232,9 +617,10 @@ struct BoostDecompressor {
             };
         
         while (n > 0) {
-            ssize_t numRead = boost::iostreams::read(src, inbuf.data(), inbuf.size());
+            ssize_t numRead = read_stream(src, inbuf.data(), inbuf.size());
             if (numRead <= 0) {
                 decompressor->finish(onData);
+                eof = true;
                 break;
             }
             else {
@@ -242,7 +628,7 @@ struct BoostDecompressor {
             }
         }
 
-        return s - sBefore;
+        return (s == sBefore && eof) ? EOF : s - sBefore;
     }
     
     template<typename Source>
@@ -274,7 +660,8 @@ struct BoostDecompressor {
     std::string outbuf; ///< Characters returned from decompressor but not yet written
     size_t outbufPos = 0;   ///< Position in outbuf
     uint64_t streamPos = 0;
-    
+    bool eof = false;
+
     std::shared_ptr<Decompressor> decompressor;
 };
 
@@ -382,13 +769,11 @@ operator = (filter_ostream && other)
 namespace {
 
 void addCompression(streambuf & buf,
-                    boost::iostreams::filtering_ostream & stream,
+                    filtering_ostream & stream,
                     const Utf8String & resource,
                     const std::string & compression,
                     int compressionLevel)
 {
-    using namespace boost::iostreams;
-
     if (compression == "none") {
         // nothing to do
     }
@@ -397,7 +782,7 @@ void addCompression(streambuf & buf,
             = Compressor::create(compression, compressionLevel);
         if (!compressor)
             throw MLDB::Exception("unknown filter compression " + compression);
-        stream.push(BoostCompressor(compressor, buf));
+        stream.push(StreamCompressor(compressor, buf));
     }
     else {
         std::string compressionFromFilename
@@ -407,13 +792,13 @@ void addCompression(streambuf & buf,
                 = Compressor::create(compressionFromFilename, compressionLevel);
             if (!compressor)
                 throw MLDB::Exception("unknown filter compression " + compression);
-            stream.push(BoostCompressor(compressor, buf));
+            stream.push(StreamCompressor(compressor, buf));
         }
     }
 }
 
 void addCompression(streambuf & buf,
-                    boost::iostreams::filtering_ostream & stream,
+                    filtering_ostream & stream,
                     const Utf8String & resource,
                     const std::map<std::string, std::string> & options)
 {
@@ -438,12 +823,12 @@ createOptions(std::ios_base::openmode mode,
               int compressionLevel)
 {
     /* 
-app	(append) Set the stream's position indicator to the end of the stream before each output operation.
-ate	(at end) Set the stream's position indicator to the end of the stream on opening.
-binary	(binary) Consider stream as binary rather than text.
-in	(input) Allow input operations on the stream.
-out	(output) Allow output operations on the stream.
-trunc	(truncate) Any current content is discarded, assuming a length of zero on opening.
+        app	(append) Set the stream's position indicator to the end of the stream before each output operation.
+        ate	(at end) Set the stream's position indicator to the end of the stream on opening.
+        binary	(binary) Consider stream as binary rather than text.
+        in	(input) Allow input operations on the stream.
+        out	(output) Allow output operations on the stream.
+        trunc	(truncate) Any current content is discarded, assuming a length of zero on opening.
     */
 
     string modeStr;
@@ -538,8 +923,6 @@ filter_ostream::
 open(const Utf8String & uri,
      const std::map<std::string, std::string> & options)
 {
-    using namespace boost::iostreams;
-
     auto [scheme, resource] = getScheme(uri);
 
     std::ios_base::openmode mode = getMode(options);
@@ -588,10 +971,7 @@ openFromStreambuf(std::streambuf * buf,
                   const Utf8String & resource,
                   const std::map<std::string, std::string> & options)
 {
-
     // TODO: exception safety for buf
-
-    using namespace boost::iostreams;
 
     //cerr << "buf = " << (void *)buf << endl;
     //cerr << "weOwnBuf = " << weOwnBuf << endl;
@@ -636,8 +1016,6 @@ open(int fd, std::ios_base::openmode mode,
 void filter_ostream::
 open(int fd, const std::map<std::string, std::string> & options)
 {
-    using namespace boost::iostreams;
-    
     unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
@@ -651,12 +1029,8 @@ open(int fd, const std::map<std::string, std::string> & options)
         }
     }
 
-#if (BOOST_VERSION < 104100)
-    new_stream->push(file_descriptor_sink(fd));
-#else
-    new_stream->push(file_descriptor_sink(fd,
-                                          boost::iostreams::never_close_handle));
-#endif
+    new_stream->push(file_descriptor_sink(fd, never_close_handle));
+
     stream.reset(new_stream.release());
     sink.reset();
     rdbuf(stream->rdbuf());
@@ -669,8 +1043,7 @@ filter_ostream::
 close()
 {
     if (stream) {
-        boost::iostreams::flush(*stream);
-        //boost::iostreams::close(*stream);  // will be called on stream.reset();
+        flush_stream(*stream);
     }
     stream.reset();
     exceptions(ios::goodbit);
@@ -886,20 +1259,18 @@ openFromStreambuf(std::streambuf * buf,
 {
     // TODO: exception safety for buf
 
-    using namespace boost::iostreams;
-
     unique_ptr<filtering_istream> new_stream
         (new filtering_istream());
 
     if (compression == "") {
         std::string compression = Compressor::filenameToCompression(resource);
         if (compression != "") {
-            new_stream->push(BoostDecompressor(Decompressor::create(compression)));
+            new_stream->push(StreamDecompressor(Decompressor::create(compression)));
         }
     } else if (compression == "none") {
         // no-op
     } else {
-        new_stream->push(BoostDecompressor(Decompressor::create(compression)));
+        new_stream->push(StreamDecompressor(Decompressor::create(compression)));
     }
 
     if (!new_stream->empty()) {
@@ -927,8 +1298,8 @@ filter_istream::
 close()
 {
     if (stream) {
-        boost::iostreams::flush(*stream);
-        boost::iostreams::close(*stream);
+        flush_stream(*stream);
+        close_stream(*stream);
     }
     exceptions(ios::goodbit);
     rdbuf(0);
@@ -1070,8 +1441,6 @@ struct RegisterFileHandler {
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
-        using namespace boost::iostreams;
-
         if (resource == "")
             resource = "/dev/null";
 
@@ -1107,39 +1476,14 @@ struct RegisterFileHandler {
                     mapped_file_params params(resource.rawString());
                     mapped_file_source source(params);
 
-                    //cerr << "mapped file at " << (void *)source.data() << endl;
-
-                    size_t capacity = roundUpToPageSize(info.size);
-                    if (capacity - info.size < MAPPING_EXTRA_CAPACITY) {
-                        void * hint = (void *)(source.data() + capacity);
-                        // Attempt to map a guard page
-                        std::shared_ptr<void> addr
-                            (mmap(hint, page_size,
-                                PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0),
-                            [=] (void * p) { munmap(p, page_size); });
-
-                        if (addr.get() == MAP_FAILED) {
-                            throw Exception
-                                ("Failed to open memory map file: "
-                                + string(strerror(errno)));
-                        }
-                        if (addr.get() != (source.data() + capacity)) {
-                            cerr << "addr.get() = " << (void *)addr.get() << endl;
-                            cerr << "hint = " << hint << endl;
-                            cerr << "couldn't map guard page or didn't map at the right address" << endl;
-                        }
-                        else {
-                            keepMe->emplace_back(std::move(addr));
-                            capacity += page_size;
-                        }
-                    }
-
-                    shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
+                    auto buf = std::make_shared<source_istreambuf<mapped_file_source>>(source);
                 
                     UriHandlerOptions options;
                     options.mapped = source.data();
-                    options.mappedSize = info.size;
-                    options.mappedCapacity = capacity;
+                    options.mappedSize = buf->source().size();
+                    options.mappedCapacity = buf->source().capacity();
+                    ExcCheckGreaterEqual(buf->source().extra_capacity(), MAPPING_EXTRA_CAPACITY,
+                                         "mapped file extra capacity not respected");
 
                     keepMe->emplace_back(buf);
 
@@ -1242,12 +1586,6 @@ struct MemStreamingInOut {
 };
 
 struct MemStreamingIn : public MemStreamingInOut {
-    struct category
-        : public boost::iostreams::input_seekable,
-          public boost::iostreams::device_tag,
-          public boost::iostreams::closable_tag
-    {
-    };
 
     MemStreamingIn(string & targetString)
         : MemStreamingInOut(targetString)
@@ -1272,6 +1610,12 @@ struct MemStreamingIn : public MemStreamingInOut {
         }
 
         return res;
+    }
+
+    streamsize avail()
+    {
+        unique_lock<mutex> guard(memStringsLock);
+        return targetString_.size() - pos_;
     }
 
     std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
@@ -1309,12 +1653,6 @@ struct MemStreamingIn : public MemStreamingInOut {
 };
 
 struct MemStreamingOut : public MemStreamingInOut {
-    struct category
-        : public boost::iostreams::output,
-          public boost::iostreams::device_tag,
-          public boost::iostreams::closable_tag
-    {
-    };
 
     MemStreamingOut(string & targetString)
         : MemStreamingInOut(targetString)
@@ -1332,6 +1670,8 @@ struct MemStreamingOut : public MemStreamingInOut {
 
         return n;
     }
+
+    void flush() {}
 };
 
 struct RegisterMemHandler {
@@ -1354,12 +1694,10 @@ struct RegisterMemHandler {
 
         shared_ptr<std::streambuf> streamBuf;
         if (mode == ios::in) {
-            streamBuf.reset(new boost::iostreams::stream_buffer<MemStreamingIn>(MemStreamingIn(targetString),
-                                                                                4096));
+            streamBuf.reset(new source_istreambuf<MemStreamingIn>(MemStreamingIn(targetString), 4096));
         }
         else if (mode == ios::out) {
-            streamBuf.reset(new boost::iostreams::stream_buffer<MemStreamingOut>(MemStreamingOut(targetString),
-                                                                                 4096));
+            streamBuf.reset(new sink_ostreambuf<MemStreamingOut>(MemStreamingOut(targetString), 4096));
         }
         else {
             throw MLDB::Exception("unable to create mem handler");

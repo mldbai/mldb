@@ -40,6 +40,11 @@ inline size_t roundUpToPageSize(size_t mem)
     return (mem + page_size - 1) / page_size * page_size;
 }
 
+inline size_t roundDownToPageSize(size_t mem)
+{
+    return ssize_t(mem - page_size + 1) / page_size * page_size;
+}
+
 struct Pagemap_Entry {
 
     // Note that this just looks at the pfn.  The other flags might change

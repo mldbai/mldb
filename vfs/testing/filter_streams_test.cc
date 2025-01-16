@@ -102,11 +102,12 @@ void compress_using_stream(const std::string & input_file,
 
     filter_ostream out(output_file);
 
-    char buf[16384];
+    constexpr size_t BUF_SIZE = 16384;
+    char buf[BUF_SIZE];
 
     while (in) {
-        in.read(buf, 16384);
-        int n = in.gcount();
+        in.read(buf, BUF_SIZE);
+        auto n = in.gcount();
         
         out.write(buf, n);
     }
@@ -235,8 +236,15 @@ BOOST_AUTO_TEST_CASE( test_write_failure )
     cerr << "fd = " << fd << endl;
 
     filter_ostream stream(fd);
+    BOOST_CHECK(!stream.eof());
+    BOOST_CHECK(!stream.fail());
+    BOOST_CHECK(!stream.bad());
+    BOOST_CHECK_EQUAL(stream.rdstate(), std::ios::goodbit);
 
-    stream << "hello" << std::endl;
+    BOOST_CHECK(stream.good());
+
+    stream << "hello";
+    stream << std::endl;
 
     {
         MLDB_TRACE_EXCEPTIONS(false);
@@ -596,25 +604,42 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
 
     action();
 }
-
+#endif
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 {
     filter_istream stream1("file://mldb/utils/testing/fixtures/hello.txt",
                            { { "mapped", "true" } });
 
+    BOOST_CHECK(!stream1.eof());
+    BOOST_CHECK(!stream1.fail());
+    BOOST_CHECK(!stream1.bad());
+    BOOST_CHECK_EQUAL(stream1.rdstate(), std::ios::goodbit);
+
     const char * addr;
     size_t size;
     size_t capacity;
 
     std::tie(addr, size, capacity) = stream1.mapped();
+    cerr << "addr = " << (void *)addr << endl;
+    cerr << "size = " << size << endl;
+    cerr << "capacity = " << capacity << endl;
 
     BOOST_REQUIRE(addr != nullptr);
     BOOST_CHECK_EQUAL(strncmp(addr, "hello", 5), 0);
     BOOST_CHECK_GE(strncmp(std::get<0>(stream1.mapped()), "hello", 5), 0);
 
     std::string str;
+    BOOST_CHECK(stream1.good());
     getline(stream1, str);
+    BOOST_CHECK(stream1.good());
+
+    int c = stream1.get();
+    BOOST_CHECK_EQUAL(c, '\n');
+    BOOST_CHECK(!stream1.bad());
+    BOOST_CHECK(!stream1.fail());
+    BOOST_CHECK(stream1.eof());
+
 
     BOOST_CHECK_EQUAL(str, "hello");
     stream1.close();
@@ -625,6 +650,15 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
     getline(stream2, str);
 
     BOOST_CHECK_EQUAL(str, "hello");
+    BOOST_CHECK(!stream2.fail());
+    BOOST_CHECK(!stream2.bad());
+
+    getline(stream2, str);
+
+    BOOST_CHECK_EQUAL(str, "");
+    BOOST_CHECK(stream2.eof());
+    BOOST_CHECK(stream2.fail());
+    BOOST_CHECK(!stream2.bad());
     stream2.close();
 
     // Verify that the mapped stream has extra space beyond the end even when it's

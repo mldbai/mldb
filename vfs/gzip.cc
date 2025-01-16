@@ -35,11 +35,18 @@ struct ZlibStreamCommon: public z_stream {
         opaque = nullptr;
     }
     
+    bool finished = false;
     int (*process) (z_streamp stream, int flush) = nullptr;
     
     size_t pump(const char * data, size_t len, const OnData & onData,
                 int flushLevel)
     {
+        if (finished) {
+            if (len != 0)
+                MLDB_THROW_LOGIC_ERROR("pumping data after finished");
+            return 0;
+        }
+
         constexpr size_t bufSize = 131072;
         char output[bufSize];
         next_in = (Bytef *)data;
@@ -64,6 +71,11 @@ struct ZlibStreamCommon: public z_stream {
                 result += bytesWritten;
                 break;
 
+            case Z_BUF_ERROR:
+                if (avail_in == 0)
+                    return 0; // not making progress on no input is not an error
+                throw Exception("Buffer error on zlib");
+
             case Z_STREAM_ERROR:
                 throw Exception("Stream error on zlib");
 
@@ -71,6 +83,7 @@ struct ZlibStreamCommon: public z_stream {
                 if (bytesWritten)
                     onData(output, bytesWritten);
                 result += bytesWritten;
+                finished = true;
                 return result;
 
             default:
