@@ -704,9 +704,10 @@ read_new_buffer()
     char * tmpbuf = buf.data();
     
     stream_->read(tmpbuf, chunk_size_);
-    size_t read = stream_->gcount();
+    ssize_t read = stream_->gcount();
 
-    //cerr << "read " << read << " bytes" << endl;
+    //cerr << "read " << read << " bytes" << " of " << chunk_size_ << endl;
+    ExcAssertGreaterEqual(read, 0);
 
     if (stream_->bad())
         exception("stream is bad/has failed 2");

@@ -42,8 +42,6 @@ struct ZlibStreamCommon: public z_stream {
                 int flushLevel)
     {
         if (finished) {
-            if (len != 0)
-                MLDB_THROW_LOGIC_ERROR("pumping data after finished");
             return 0;
         }
 

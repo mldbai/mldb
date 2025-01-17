@@ -65,6 +65,11 @@ ssize_t buffered_ostreambuf::sink_write_all(const char * s, size_t n)
 
 std::streamsize buffered_istreambuf::xsgetn(char * s, std::streamsize n)
 {
+    // NOTE: This function should never return EOF. If no characters are read,
+    // then it should return 0.
+
+    if (n == 0) return 0;
+
     // First get any buffered characters
     //cerr << "xsgetn of " << n << " characters" << endl;
     size_t done = std::min(n, egptr() - gptr());
@@ -78,13 +83,14 @@ std::streamsize buffered_istreambuf::xsgetn(char * s, std::streamsize n)
     }
     //cerr << "end of xsgetn: done = " << done << " eof = " << eof() << endl;
     ExcAssert(done > 0 || eof());
-    return done ? done : EOF;
+    return done;
 }
 
 std::streampos buffered_istreambuf::seekoff(std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode which)
 {
+    // pos_ represents the position of the last character in the buffer, ie egptr()
     if (which != std::ios_base::in || way != std::ios_base::cur || off != 0) return EOF;
-    return pos_ + gptr() - eback();
+    return pos_ + egptr() - gptr();
 }
 
 void buffered_istreambuf::buf_fill()

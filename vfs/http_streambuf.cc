@@ -322,7 +322,7 @@ struct HttpStreamingDownloadSource {
                 
                 dataQueue.enqueue("");
                 
-            } catch (const std::exception & exc) {
+            } MLDB_CATCH_ALL {
                 lastExc = std::current_exception();
                 dataQueue.enqueue("");
                 if (!headerSet.exchange(true)) {

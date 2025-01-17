@@ -43,10 +43,24 @@ struct has_flush {
 template<typename Stream> constexpr bool has_flush_v = has_flush<Stream>::value;
 template<typename Stream> using has_flush_t = has_flush<Stream>::type;
 
-template<typename Stream> void close_stream(Stream& stream) { stream.close(); }
-inline void close_stream(std::istream & stream) { /* nothing to do */ }
 template<typename Stream> void flush_stream(Stream& stream, std::enable_if_t<has_flush_v<Stream>> * = 0) { stream.flush(); }
 template<typename Stream> void flush_stream(Stream& stream, std::enable_if_t<!has_flush_v<Stream>> * = 0) { }
+
+
+template<typename Stream>
+struct has_close {
+    template<typename S> static auto test(int) -> decltype(std::declval<S>().close(), std::true_type());
+    template<typename S> static auto test(...) -> std::false_type;
+    using type = decltype(test<Stream>(0));
+    static constexpr bool value = type::value;
+};
+
+template<typename Stream> constexpr bool has_close_v = has_close<Stream>::value;
+template<typename Stream> using has_close_t = has_close<Stream>::type;
+
+template<typename Stream> void close_stream(Stream& stream, std::enable_if_t<has_close_v<Stream>> * = 0) { stream.close(); }
+template<typename Stream> void close_stream(Stream& stream, std::enable_if_t<!has_close_v<Stream>> * = 0) { }
+
 
 template<typename Stream>
 ssize_t write_stream(std::ostream& stream, const char * data, size_t len)
@@ -89,6 +103,8 @@ private:
     std::streambuf * output_ = nullptr;
 };
 
+inline void close_stream(std::streambuf & stream) { if (auto * buf = dynamic_cast<filter_streambuf *>(&stream)) buf->close(); }
+
 template<typename IOStream>
 struct filtering_stream: public IOStream {
     using IOStream::rdbuf;
@@ -104,7 +120,7 @@ struct filtering_stream: public IOStream {
         if (cap_) MLDB_EAT_EXCEPTIONS(cap_->close());
     }
 
-    void push(std::streambuf & sb) { check_not_capped(); push_streambuf(sb); }
+    void push(std::streambuf & sb, size_t /* buffer_size */ = 4096) { check_not_capped(); push_streambuf(sb); }
 
     bool empty() const { return filters_.empty() && !cap_ && !rdbuf(); }
     bool capped() const { return rdbuf() && (filters_.empty() || filters_.back()->has_output()); }
@@ -112,11 +128,11 @@ struct filtering_stream: public IOStream {
 protected:
     void check_not_capped() const { ExcCheck(!cap_, "Attempt to push a second sink into a filtering_stream"); }
     void push_streambuf(std::streambuf & sb) { if (!rdbuf()) { rdbuf(&sb); } else filters_.back()->set_output(&sb); }
-    template<typename Buf, typename Cap> void push_cap(Cap cap) { check_not_capped(); push_streambuf(*(cap_ = std::make_unique<Buf>(std::move(cap)))); }
-    template<typename Buf, typename Filter> void push_filter(Filter filter)
+    template<typename Buf, typename Cap> void push_cap(Cap cap, size_t buffer_size) { check_not_capped(); push_streambuf(*(cap_ = std::make_unique<Buf>(std::move(cap), buffer_size))); }
+    template<typename Buf, typename Filter> void push_filter(Filter filter, size_t buffer_size)
     { 
         check_not_capped();
-        filters_.emplace_back(std::make_unique<Buf>(std::move(filter)));
+        filters_.emplace_back(std::make_unique<Buf>(std::move(filter), buffer_size));
         push_streambuf(*filters_.back());
     }
 private:
@@ -179,8 +195,8 @@ private:
 
 struct filtering_ostream: public filtering_stream<std::ostream> {
     using filtering_stream<std::ostream>::push;
-    template<typename Sink> void push(Sink sink, typename Sink::is_sink::type = {}) { push_cap<sink_ostreambuf<Sink>>(std::move(sink)); }
-    template<typename Filter> void push(Filter filter, typename Filter::is_filter::type = {}) { push_filter<filtering_ostreambuf<Filter>>(std::move(filter)); }
+    template<typename Sink> void push(Sink sink, size_t buffer_size = 4096, typename Sink::is_sink::type = {}) { push_cap<sink_ostreambuf<Sink>>(std::move(sink), buffer_size); }
+    template<typename Filter> void push(Filter filter, size_t buffer_size = 4096, typename Filter::is_filter::type = {}) { push_filter<filtering_ostreambuf<Filter>>(std::move(filter), buffer_size); }
 };
 
 
@@ -207,7 +223,7 @@ protected:
     {
         if (eof_) return EOF;
         auto res = source.read(std::forward<Args>(args)..., s, n);
-        eof_ = res == EOF;
+        if (res == 0 || res == EOF) eof_ = true;
         pos_ += (res == EOF ? 0 : res);
         return res;
     }
@@ -220,7 +236,7 @@ struct source_istreambuf: public buffered_istreambuf {
     virtual ~source_istreambuf() = default;
     const Source & source() const { return source_; }
     Source & source() { return source_; }
-    virtual void close() override {}
+    virtual void close() override { close_stream(source_); }
 protected:
     virtual ssize_t source_read(char * s, size_t n) override { return do_source_read(s, n, source_); }
     Source source_;
@@ -233,7 +249,7 @@ struct filtering_istreambuf: public buffered_istreambuf {
     virtual ~filtering_istreambuf() = default;
     const Filter & filter() const { return filter_; }
     Filter & filter() { return filter_; }
-    virtual void close() override {}
+    virtual void close() override { close_stream(filter_); }
 protected:
     virtual ssize_t source_read(char * s, size_t n) override { return do_source_read(s, n, filter_, *this); }
     Filter filter_;
@@ -241,16 +257,29 @@ protected:
 
 struct filtering_istream: public filtering_stream<std::istream> {
     using filtering_stream::push;
-    template<typename Source> void push(Source source, typename Source::is_source::type = {}) { push_cap<source_istreambuf<Source>>(std::move(source)); }
-    template<typename Filter> void push(Filter filter, typename Filter::is_filter::type = {}) { push_filter<filtering_istreambuf<Filter>>(std::move(filter)); }
+    template<typename Source> void push(Source source, size_t buffer_size = 4096, typename Source::is_source::type = {}) { push_cap<source_istreambuf<Source>>(std::move(source), buffer_size); }
+    template<typename Filter> void push(Filter filter, size_t buffer_size = 4096, typename Filter::is_filter::type = {}) { push_filter<filtering_istreambuf<Filter>>(std::move(filter), buffer_size); }
 };
 
-#if 0
-template<typename Source>
-struct stream_buffer: public source_istreambuf<Source> {
-    stream_buffer(Source source, size_t /*buffer_size*/ = 4096): source_istreambuf<Source>(std::move(source)) {}
+
+/*****************************************************************************/
+/* NULL FILTER                                                               */
+/*****************************************************************************/
+
+// Filter which passes its data straight through; mostly for testing
+
+struct null_filter {
+    using is_filter = std::true_type;
+    template<typename Sink> void flush(Sink & sink) { flush_stream(sink); }
+    template<typename SourceOrSink> void close(SourceOrSink & s) { close_stream(s); }
+    template<typename Source> ssize_t read(Source & source, char * s, size_t n) { return source.read(s, n); }
+    template<typename Sink> ssize_t write(Sink & sink, const char * s, size_t n) { return sink.write(s, n); }
+    template<typename SourceOrSink> std::streampos seek(SourceOrSink & s, std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode which)
+    {
+        return s.seek(off, way, which);
+    }
 };
-#endif
+
 
 /*****************************************************************************/
 /* MEMORY MAPPING                                                            */

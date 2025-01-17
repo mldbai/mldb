@@ -465,7 +465,7 @@ struct ExceptionSource {
         return n;
     }
 
-    void close(ios::openmode which)
+    void close()
     {
         if (throwType_ == ThrowType::ThrowOnClose) {
             onException_(exception_ptr());
@@ -490,6 +490,18 @@ struct RegisterExcHandlers {
     }
 
     static UriHandler
+    getExceptionSink(const OnUriHandlerException & onException,
+                     ExceptionSource::ThrowType throwType)
+    {
+        shared_ptr<streambuf> handler;
+
+        handler.reset(new sink_ostreambuf<ExceptionSource>(ExceptionSource(onException, throwType), 1));
+        FsObjectInfo info;
+        info.exists = true;
+        return UriHandler(handler.get(), handler, info);
+    }
+
+    static UriHandler
     getExcOnReadHandler(const std::string & scheme,
                         const Utf8String & resource,
                         std::ios_base::openmode mode,
@@ -506,7 +518,7 @@ struct RegisterExcHandlers {
                          const std::map<std::string, std::string> & options,
                          const OnUriHandlerException & onException)
     {
-        return getExceptionSource(onException, ExceptionSource::ThrowOnWrite);
+        return getExceptionSink(onException, ExceptionSource::ThrowOnWrite);
     }
 
     static UriHandler
@@ -516,7 +528,7 @@ struct RegisterExcHandlers {
                          const std::map<std::string, std::string> & options,
                          const OnUriHandlerException & onException)
     {
-        return getExceptionSource(onException, ExceptionSource::ThrowOnClose);
+        return getExceptionSink(onException, ExceptionSource::ThrowOnClose);
     }
 
     void registerBuckets()
