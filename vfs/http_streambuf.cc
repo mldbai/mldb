@@ -6,7 +6,6 @@
 */
 
 #include <atomic>
-#include <boost/iostreams/stream_buffer.hpp>
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"
@@ -16,7 +15,7 @@
 #include <chrono>
 #include <future>
 #include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
-
+#include "mldb/base/iostream_adaptors.h"
 
 using namespace std;
 using moodycamel::BlockingConcurrentQueue;
@@ -97,6 +96,7 @@ struct HttpStreamingDownloadSource {
     }
 
     typedef char char_type;
+#if 0
     struct category
         :
         boost::iostreams::input_seekable,
@@ -104,6 +104,10 @@ struct HttpStreamingDownloadSource {
         boost::iostreams::closable_tag,
         boost::iostreams::multichar_tag
     { };
+#endif
+
+    using is_source = std::true_type;
+    using is_seekable = std::true_type;
 
     struct Impl {
         Impl(const Utf8String & urlStr,
@@ -367,7 +371,7 @@ makeHttpStreamingDownload(const Utf8String & uri,
     std::unique_ptr<std::streambuf> result;
     HttpStreamingDownloadSource source(uri, options, onException);
     const HttpHeader & header = source.getHeader();
-    result.reset(new boost::iostreams::stream_buffer<HttpStreamingDownloadSource>
+    result.reset(new source_istreambuf<HttpStreamingDownloadSource>
                  (source, 131072));
     return { std::move(result), convertHeaderToInfo(header) };
 }

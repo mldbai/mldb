@@ -19,7 +19,6 @@ LIBVFS_SOURCES := \
 
 LIBVFS_LINK := \
 	arch \
-	boost_iostreams \
 	types \
 	$(STD_FILESYSTEM_LIBNAME) \
 	http \

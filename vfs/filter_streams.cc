@@ -29,15 +29,14 @@
 #include "mldb/utils/lexical_cast.h"
 #include "mldb/utils/split.h"
 #include "mldb/arch/vm.h"
-
-#include <sys/mman.h>
+#include "mldb/base/iostream_adaptors.h"
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
 
 using namespace std;
 
 namespace MLDB {
+
+#if 0
 
 #define MLDB_ABORT_UNIMPLEMENTED() \
     cerr << "Unimplemented: " << __FILE__ << ":" << __LINE__ << " " << __PRETTY_FUNCTION__ << endl; \
@@ -93,10 +92,10 @@ struct filtering_stream: public IOStream {
 
     virtual ~filtering_stream()
     {
-        flush_stream((IOStream&)*this);
+        MLDB_EAT_EXCEPTIONS(flush_stream((IOStream&)*this));
         rdbuf(nullptr);
-        for (auto & filter: filters_) filter->close();
-        if (cap_) cap_->close();
+        for (auto & filter: filters_) MLDB_EAT_EXCEPTIONS(filter->close());
+        if (cap_) MLDB_EAT_EXCEPTIONS(cap_->close());
     }
 
     void push(std::streambuf & sb) { check_not_capped(); push_streambuf(sb); }
@@ -125,9 +124,34 @@ private:
 /*****************************************************************************/
 
 struct buffered_ostreambuf: public filter_streambuf {
-    buffered_ostreambuf(size_t buffer_size = 4096) : buffer_(buffer_size) { setp(buffer_.data(), buffer_.data() + buffer_.size()); }
+    buffered_ostreambuf(size_t buffer_size = 4096) : buffer_(buffer_size) { reset_buffer(); }
 protected:
     std::vector<char> buffer_;
+    virtual ssize_t flush_sink() = 0;
+    virtual int sync() override { return (flush_buffer() == EOF || flush_sink() == EOF) ? EOF : 0; }
+    virtual int overflow(int c) override { cerr << "overflow"; if (flush_buffer() == EOF) return EOF; return sputc(c); }
+    virtual std::streamsize xsputn(const char * s, std::streamsize n) override { cerr << "xsputn" << endl; return (flush_buffer() == EOF || sink_write_all(s, n) == EOF) ? EOF : n; }
+    ssize_t flush_buffer()
+    {
+        auto res = sink_write_all(buffer_.data(), pptr() - buffer_.data());
+        reset_buffer();
+        return res;
+    }
+    template<typename Sink, typename... Args> ssize_t sink_write_impl(const char * s, size_t n, Sink & sink, Args&&... args) { return sink.write(std::forward<Args>(args)..., s, n); }
+    virtual ssize_t sink_write(const char * s, size_t n) = 0;
+    ssize_t sink_write_all(const char * s, size_t n)
+    {
+        cerr << "writing " << n << " chars to sink in " << typeid(*this).name() << endl;
+        size_t n2 = n;
+        while (n) {
+            auto res = sink_write(s, n);
+            if (res == EOF) return EOF;
+            n -= res;
+            s += res;
+        }
+        return n2;
+    }
+    void reset_buffer() { setp(buffer_.data(), buffer_.data() + buffer_.size()); }
 };
 
 template<typename Sink>
@@ -137,10 +161,10 @@ struct sink_ostreambuf: public buffered_ostreambuf {
     virtual ~sink_ostreambuf() = default;
     const Sink & sink() const { return sink_; }
     Sink & sink() { return sink_; }
-    virtual std::streamsize xsputn(const char * s, std::streamsize n) override { return sink_.write(s, n); }
-    virtual int overflow(int c) override { if (c == EOF) MLDB_THROW_LOGIC_ERROR(); char c2 = c; return sink_.write(&c2, 1) == 1 ? 0 : -1; }
-    virtual int sync() override { sink_.flush(); return 0; }
-    virtual void close() override { sink_.close(); }
+    virtual void close() override { flush_buffer(); sink_.flush(); sink_.close(); }
+protected:
+    virtual ssize_t flush_sink() override { sink_.flush(); return 0; }
+    virtual ssize_t sink_write(const char * s, size_t n) override { return sink_write_impl(s, n, sink_); }
 private:
     Sink sink_;
 };
@@ -152,9 +176,12 @@ struct filtering_ostreambuf: public buffered_ostreambuf {
     virtual ~filtering_ostreambuf() = default;
     const Filter & filter() const { return filter_; }
     Filter & filter() { return filter_; }
-    virtual std::streamsize xsputn(const char * s, std::streamsize n) override { return filter_.write(*this, s, n); }
-    virtual int sync() override { filter_.flush(*this); return 0; }
-    virtual void close() override { filter_.close(*this); }
+    //virtual std::streamsize xsputn(const char * s, std::streamsize n) override { return filter_.write(*this, s, n); }
+    //virtual int sync() override { filter_.flush(*this); return 0; }
+    virtual void close() override { flush_buffer(); filter_.flush(*this); filter_.close(*this); }
+protected:
+    virtual ssize_t flush_sink() override { filter_.flush(*this); return 0; }
+    virtual ssize_t sink_write(const char * s, size_t n) override { return sink_write_impl(s, n, filter_, *this); }
 private:
     Filter filter_;
 };
@@ -172,7 +199,27 @@ struct filtering_ostream: public filtering_stream<std::ostream> {
 
 struct buffered_istreambuf: public filter_streambuf {
     buffered_istreambuf(size_t buffer_size = 4096) : buffer_(buffer_size) {}
-    virtual int underflow() override { cerr << "underflow()" << endl; buf_fill(); return buf_empty() ? EOF : 0; }
+    virtual int underflow() override { buf_fill(); ExcAssert((eof() && buf_empty()) || !buf_empty()); return eof() ? EOF : *gptr(); }
+
+#if 1
+    virtual std::streamsize xsgetn(char * s, std::streamsize n) override
+    {
+        // First get any buffered characters
+        cerr << "xsgetn of " << n << " characters" << endl;
+        size_t done = std::min(n, egptr() - gptr());
+        std::copy_n(gptr(), done, s);
+        gbump(done); // results in gptr() == egptr() if done == n
+        cerr << "done = " << done << endl;
+        while (!eof() && done < n) {
+            auto nread = source_read(s + done, n - done);
+            if (nread == EOF) break;
+            done += nread;
+        }
+        cerr << "end of xsgetn: done = " << done << " eof = " << eof() << endl;
+        ExcAssert(done > 0 || eof());
+        return done ? done : EOF;
+    }
+#endif
     virtual std::streampos seekoff(std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode which) override
     {
         if (which != std::ios_base::in || way != std::ios_base::cur || off != 0) return EOF;
@@ -186,16 +233,21 @@ protected:
     bool eof_ = false;
     bool buf_empty() const { return gptr() == egptr(); }
     void require_empty() { ExcAssert(buf_empty()); }
-    template<typename Source, typename... Args> void do_buf_fill(Source & source, Args&&... args)
+    void buf_fill()
     {
         require_empty();
-        auto n = source.read(std::forward<Args>(args)..., buffer_.data(), buffer_.size());
-        if (n == -1) eof_ = true;
-        else {
-            setg(buffer_.data(), buffer_.data(), buffer_.data() + n);
-        }
+        auto n = source_read(buffer_.data(), buffer_.size());
+        if (n != EOF) setg(buffer_.data(), buffer_.data(), buffer_.data() + n);
     }
-    virtual void buf_fill() = 0;
+    virtual ssize_t source_read(char * s, size_t n) = 0;
+    template<typename Source, typename... Args> ssize_t do_source_read(char * s, size_t n, Source & source, Args&&... args)
+    {
+        if (eof_) return EOF;
+        auto res = source.read(std::forward<Args>(args)..., s, n);
+        eof_ = res == EOF;
+        pos_ += (res == EOF ? 0 : res);
+        return res;
+    }
 };
 
 template<typename Source>
@@ -205,20 +257,9 @@ struct source_istreambuf: public buffered_istreambuf {
     virtual ~source_istreambuf() = default;
     const Source & source() const { return source_; }
     Source & source() { return source_; }
-    virtual int underflow() override
-    {
-        buf_fill();
-        if (eof()) {
-            ExcAssert(buf_empty());
-            return EOF;
-        }
-        ExcAssert(!buf_empty());
-        return *gptr();
-    }
     virtual void close() override {}
-
 protected:
-    virtual void buf_fill() override { do_buf_fill(source_); }
+    virtual ssize_t source_read(char * s, size_t n) override { return do_source_read(s, n, source_); }
     Source source_;
 };
 
@@ -229,11 +270,9 @@ struct filtering_istreambuf: public buffered_istreambuf {
     virtual ~filtering_istreambuf() = default;
     const Filter & filter() const { return filter_; }
     Filter & filter() { return filter_; }
-    //virtual std::streamsize xsgetn(char * s, std::streamsize n) override { return filter_.read(*this, s, n); }
-    //virtual int sync() override { filter_.flush(*this); return 0; }
     virtual void close() override {}
 protected:
-    virtual void buf_fill() override { do_buf_fill(filter_, *this); }
+    virtual ssize_t source_read(char * s, size_t n) override { return do_source_read(s, n, filter_, *this); }
     Filter filter_;
 };
 
@@ -422,7 +461,7 @@ struct file_descriptor_sink {
     close_handle close_handle_ = never_close_handle;
 };
 
-
+#endif
 
 /*****************************************************************************/
 /* URI HANDLING                                                              */
@@ -1474,6 +1513,7 @@ struct RegisterFileHandler {
                     auto keepMe = std::make_shared<KeepMeAround>();
 
                     mapped_file_params params(resource.rawString());
+                    params.extra_capacity = MAPPING_EXTRA_CAPACITY;
                     mapped_file_source source(params);
 
                     auto buf = std::make_shared<source_istreambuf<mapped_file_source>>(source);

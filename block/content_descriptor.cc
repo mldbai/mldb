@@ -10,11 +10,11 @@
 #include "mldb/types/annotated_exception.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/types/any_impl.h"
-#include <boost/iostreams/stream_buffer.hpp>
 #include <mutex>
 #include "mldb/vfs/compressor.h"
 #include "mldb/watch/watch_impl.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/iostream_adaptors.h"
 
 
 using namespace std;
@@ -241,12 +241,16 @@ struct ContentInputSeekableStreambuf {
     static_assert(sizeof(char_type) == 1,
                   "content streams for single-char bytes only");
 
+    using is_source = std::true_type;
+    using is_seekable = std::true_type;
+#if 0
     struct category
         : public boost::iostreams::input_seekable,
           public boost::iostreams::device_tag,
           public boost::iostreams::closable_tag {
     };
-    
+#endif
+
     struct Impl {
         Impl(std::shared_ptr<const ContentHandler> handler__)
             : handler(std::move(handler__))
@@ -547,7 +551,7 @@ getStream(const std::map<Utf8String, Any> & options) const
 
         ContentInputSeekableStreambuf bufImpl(getSharedThis());
         std::streambuf * buf
-            = new boost::iostreams::stream_buffer<ContentInputSeekableStreambuf>
+            = new source_istreambuf<ContentInputSeekableStreambuf>
             (std::move(bufImpl), 1024 * 1024);
         
         UriHandler handler(buf /* streambuf */,

@@ -21,7 +21,6 @@ set(LIBVFS_SOURCES
 # Define the libraries to link with the VFS library
 set(LIBVFS_LINK
     arch
-    Boost::iostreams
     types
     http
     lz4

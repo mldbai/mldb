@@ -8,7 +8,6 @@
 */
 
 #include <mutex>
-#include <boost/iostreams/stream_buffer.hpp>
 #include "mldb/vfs_handlers/sftp.h"
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,6 +30,7 @@
 #include <thread>
 #include <unordered_map>
 #include <errno.h>
+#include "mldb/base/iostream_adaptors.h"
 
 
 using namespace std;
@@ -638,12 +638,15 @@ struct SftpStreamingDownloadSource {
     }
 
     typedef char char_type;
+#if 0
     struct category
         : public boost::iostreams::input /*_seekable*/,
           public boost::iostreams::device_tag,
           public boost::iostreams::closable_tag
     { };
-    
+#endif
+    using is_source = std::true_type;
+
     struct Impl {
         Impl()
             : owner(0), offset(0), handle(0)
@@ -682,7 +685,7 @@ struct SftpStreamingDownloadSource {
 
         std::streamsize read(char_type* s, std::streamsize n)
         {
-            BOOST_STATIC_ASSERT(sizeof(char_type) == 1);
+            static_assert(sizeof(char_type) == 1, "only works for single-byte chars");
 
             ssize_t numRead = libssh2_sftp_read(handle, s, n);
             if (numRead < 0) {
@@ -733,12 +736,15 @@ struct SftpStreamingUploadSource {
     }
 
     typedef char char_type;
+#if 0
     struct category
         : public boost::iostreams::output,
           public boost::iostreams::device_tag,
           public boost::iostreams::closable_tag
     {
     };
+#endif
+    using is_source = std::true_type;
 
     struct Impl {
         Impl()
@@ -884,7 +890,7 @@ streamingUploadStreambuf(const Utf8String & path,
                          const OnUriHandlerException & onException) const
 {
     std::unique_ptr<std::streambuf> result;
-    result.reset(new boost::iostreams::stream_buffer<SftpStreamingUploadSource>
+    result.reset(new sink_ostreambuf<SftpStreamingUploadSource>
                  (SftpStreamingUploadSource(this, path, onException),
                   131072));
     return result;
@@ -906,7 +912,7 @@ SftpConnection::
 streamingDownloadStreambuf(const Utf8String & path) const
 {
     std::unique_ptr<std::streambuf> result;
-    result.reset(new boost::iostreams::stream_buffer<SftpStreamingDownloadSource>
+    result.reset(new source_istreambuf<SftpStreamingDownloadSource>
                  (SftpStreamingDownloadSource(this, path),
                   131072));
     return result;

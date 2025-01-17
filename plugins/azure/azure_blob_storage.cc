@@ -5,7 +5,6 @@
  **/
 
 #include <mutex>
-#include <boost/iostreams/stream_buffer.hpp>
 #include <fstream>
 #include <thread>
 #include <unordered_map>
