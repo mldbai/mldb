@@ -325,7 +325,7 @@ BOOST_AUTO_TEST_CASE( test_large_blocks )
         block[i] = i ^ (i << 8) ^ (i << 16) ^ (1 << 24);
     }
     
-    string filename = tmpDir.get() / "badfile.xz4";
+    string filename = tmpDir.get() / "badfile.zstd";
 
     FileCleanup cleanup(filename);
         
@@ -598,7 +598,6 @@ BOOST_AUTO_TEST_CASE(test_filter_stream_exceptions_destruction_istream)
 
     action();
 }
-#endif
 
 BOOST_AUTO_TEST_CASE(test_filter_stream_mapping)
 {
