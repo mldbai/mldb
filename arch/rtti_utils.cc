@@ -80,7 +80,8 @@ const void * is_convertible(const std::type_info & from_type,
             //cerr << "could upcast" << endl;
             return ur.dst_ptr;
         }
-        
+        return nullptr;
+
         //cerr << "couldn't upcast" << endl;
         
         //const char * adj_ptr = (const char *)obj;
