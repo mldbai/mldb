@@ -89,7 +89,7 @@ LLVM_LIB_NAME:=LLVM-19
 LIB_$(LLVM_LIB_NAME)_LINKER_OPTIONS+=-L$(LLVM_LIB_PATH)
 
 # This provides attributes allowing easier debugability including core files
-POST_LINK_COMMAND:=codesign -s - -f --entitlements $(JML_BUILD)/os/mldb.debug.entitlements.plist
+POST_LINK_COMMAND:=$(JML_BUILD)/os/osx-sign-binary.sh
 
 # Build and load Make extentions that allow us to avoid shell execution
 ifneq ($(DONE_LOAD),1)
