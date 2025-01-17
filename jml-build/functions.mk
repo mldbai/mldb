@@ -465,7 +465,7 @@ $$(LIB_$(1)_SO):	$$(dir $$(LIB_$(1)_SO))/.dir_exists $$(OBJFILES_$(1)) $$(foreac
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND2),@echo "            $(COLOR_YELLOW)[SO]$(COLOR_RESET)                      	$$(LIB_$(1)_FILENAME)")
 	@$(call write_timing_to,$$@.timing) $$(LINK_$(1)_COMMAND2)
 	$$(if $(verbose_build),,@echo "            $(COLOR_YELLOW)    $(COLOR_RESET) $(COLOR_DARK_GRAY)`awk -f mldb/jml-build/print-timing.awk $$@.timing`$(COLOR_RESET)	$$(LIB_$(1)_FILENAME)")
-	$(if $(POST_LINK_COMMAND)$(POST_LINK_COMMAND_$(1)),@$(if $(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND)) $$(LIB_$(1)_SO))
+	$(if $(POST_LINK_COMMAND)$(POST_LINK_COMMAND_$(1)),$(if $(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND)) $$(LIB_$(1)_SO))
 
 $$(tmpLIBNAME): $$(sodir)/$$(tmpLIBNAME)$$(so)
 .PHONY:	$$(tmpLIBNAME)
@@ -575,6 +575,7 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")
 	@$$(LINK_$(1)_COMMAND)
+	$(if $(POST_LINK_COMMAND)$(POST_LINK_COMMAND_$(1)),@$(if $(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND)) $$(LIB_$(1)_SO))
 
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)
