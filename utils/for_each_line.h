@@ -212,20 +212,26 @@ forEachLineStr(const std::string & filename,
     the processing thread, at the beginning and end of the block
     respectively.
 
+    Returns true if and only if it was stopped by a lambda returning false.
+    In that case, the process will be stopped once all previous lambdas
+    have finished executing without any guarantees as to which lambdas
+    will be started in the meantime.
+
     This is the second fastest way to parse a text file.
 */
 
-void forEachLineBlock(std::istream & stream,
+bool forEachLineBlock(std::istream & stream,
                       std::function<bool (const char * line,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
                       int64_t maxLines = -1,
                       int maxParallelism = 8,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> startBlock
                           = nullptr,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> endBlock
                           = nullptr,
+                      ssize_t blockSize = -1,
                       const BlockSplitter & splitter = newLineSplitter);
 
 /** Run the given lambda over every line read from the file, with the
@@ -256,7 +262,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                                           uint64_t numLines)> startBlock
                           = nullptr,
                       std::function<bool (int64_t blockNumber,
-                                          int64_t lineNumber)> endBlock
+                                          int64_t lineNumber,
+                                          uint64_t numLinesInBlock)> endBlock
                           = nullptr,
                       size_t blockSize = 20'000'000,
                       const BlockSplitter & splitter = newLineSplitter);

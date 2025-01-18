@@ -6,22 +6,21 @@
    Test for_each_line
 */
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_DYN_LINK
-
 #include <atomic>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <boost/test/unit_test.hpp>
+#include <functional>
 #include "mldb/arch/exception.h"
 #include "mldb/utils/string_functions.h"
 #include "mldb/utils/vector_utils.h"
 #include "mldb/utils/for_each_line.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/block/content_descriptor.h"
+#include "catch2/catch_all.hpp"
 
 using namespace std;
+using namespace std::placeholders;
 using namespace MLDB;
 
 
@@ -50,11 +49,11 @@ void testForEachLineBlock(const std::string & data,
     
     string url = "mem://testdata" + std::to_string(++testNumber);
 
-    cerr << endl;
-    cerr << "test " << testNumber << " with "
-         << splitLines.size() << " lines, " << startOffset << " start offset and "
-         << maxLines << " max lines" << endl;
-    cerr << "test has " << data.size() << " characters" << endl;
+    //cerr << endl;
+    //cerr << "test " << testNumber << " with "
+    //     << splitLines.size() << " lines, " << startOffset << " start offset and "
+    //     << maxLines << " max lines" << endl;
+    //cerr << "test has " << data.size() << " characters" << endl;
     
     {
         filter_ostream stream(url);
@@ -80,7 +79,7 @@ void testForEachLineBlock(const std::string & data,
             return true;
         };
 
-    auto onEndBlock = [&] (int64_t blockNumber, int64_t lineNumber) -> bool
+    auto onEndBlock = [&] (int64_t blockNumber, int64_t lineNumber, size_t numLinesInBlock) -> bool
         {
             ++numBlocksFinished;
             return true;
@@ -89,12 +88,12 @@ void testForEachLineBlock(const std::string & data,
     auto onLine = [&] (const char * line, size_t length,
                        int64_t blockNumber, int64_t lineNumber) -> bool
         {
-            BOOST_CHECK_EQUAL(lineNumber, numLines);
-            BOOST_CHECK_LT(lineNumber, splitLines.size());
+            CHECK(lineNumber == numLines);
+            CHECK(lineNumber < splitLines.size());
             if (lineNumber < splitLines.size()) {
                 if (splitLines[lineNumber] != string(line, length))
                     cerr << "error on line " << lineNumber << endl;
-                BOOST_CHECK_EQUAL(splitLines[lineNumber], string(line, length));
+                CHECK(splitLines[lineNumber] == string(line, length));
             }
             ++numLines;
             return true;
@@ -105,15 +104,15 @@ void testForEachLineBlock(const std::string & data,
     forEachLineBlock(content, startOffset, onLine, maxLines, maxParallelism,
                      onStartBlock, onEndBlock, blockSize);
 
-    BOOST_CHECK_EQUAL(numLines, splitLines.size());
+    CHECK(numLines == splitLines.size());
     if (maxLines == -1)
-        BOOST_CHECK_EQUAL(numLinesInBlockTotal, numLines);
-    BOOST_CHECK_EQUAL(numBlocksStarted, numBlocksFinished);
+        CHECK(numLinesInBlockTotal == numLines);
+    CHECK(numBlocksStarted == numBlocksFinished);
 
-    cerr << "did " << numBlocksStarted << " blocks" << endl;
+    //cerr << "did " << numBlocksStarted << " blocks" << endl;
 }
 
-BOOST_AUTO_TEST_CASE(test_forEachLineBlock)
+TEST_CASE("test_forEachLineBlock")
 {
     /* 1 */ testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */);
     /* 2 */ testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */);
@@ -147,7 +146,7 @@ vector<string> dataStrings{"line1", "line2", "", "line forty 2"};
 
 }
 
-BOOST_AUTO_TEST_CASE( test_forEachLine_data )
+TEST_CASE(" test_forEachLine_data ")
 {
     vector<string> expected(dataStrings);
     expected.emplace_back("");
@@ -165,10 +164,10 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_data )
 
     auto logger = getMldbLog("test");
     forEachLine(stream, processLine, logger);
-    BOOST_CHECK_EQUAL(result, expected);
+    CHECK(result == expected);
 }
 
-BOOST_AUTO_TEST_CASE( test_forEachLineStr_data )
+TEST_CASE(" test_forEachLineStr_data ")
 {
     vector<string> expected(dataStrings);
     expected.emplace_back("");
@@ -186,10 +185,10 @@ BOOST_AUTO_TEST_CASE( test_forEachLineStr_data )
 
     auto logger = getMldbLog("test");
     forEachLineStr(stream, processLine, logger);
-    BOOST_CHECK_EQUAL(result, expected);
+    CHECK(result == expected);
 }
 
-BOOST_AUTO_TEST_CASE( test_forEachLine_throw )
+TEST_CASE(" test_forEachLine_throw ")
 {
     string data;
     for (int i = 0; i < 1000; i++) {
@@ -206,6 +205,307 @@ BOOST_AUTO_TEST_CASE( test_forEachLine_throw )
     };
 
     auto logger = getMldbLog("test");
-    BOOST_CHECK_THROW(forEachLineStr(stream, processLine, logger), MLDB::Exception);
+    CHECK_THROWS(forEachLineStr(stream, processLine, logger));
 }
 
+TEST_CASE("split newlines")
+{
+    return;
+    const auto & splitter = newLineSplitter;
+
+    for (auto filename: { "file://mldb/testing/MLDB-1043-bucketize-data.csv"}) {
+        filter_istream stream(filename);
+
+        std::vector<std::string> lines;
+        std::string withNewLines;
+        std::string withDosNewLines;
+
+        while (stream) {
+            std::string line;
+            std::getline(stream, line);
+            lines.push_back(line);
+            withNewLines += line + "\n";
+            withDosNewLines += line + "\r\n";
+        }
+
+        // Make sure the block padding is respected
+        withNewLines.reserve(withNewLines.size() + splitter.requiredBlockPadding());
+        withDosNewLines.reserve(withDosNewLines.size() + splitter.requiredBlockPadding());
+
+        auto testSplitter = [&] (size_t blockSize, const char * data, const char * end)
+        {
+            int lineNum = 0;
+            auto checkLine = [&] (const std::string & line)
+            {
+                CHECK(line == lines[lineNum]);
+                ++lineNum;
+            };
+
+            const char * p = data;
+
+            auto currentState = splitter.newState();
+            //const char * lineStart = p;
+            //const char * blockStart = p;
+            std::string currentBlock;
+
+            for (; p < end; p += blockSize) {
+                const char * e = p + blockSize;
+                if (e > end) e = end;
+
+                std::string nextBlock(p, e);
+
+                bool isLastBlock = e == end;
+                auto [newline_pos, newState] = splitter.nextBlock(currentBlock.c_str(), currentBlock.size(), nextBlock.c_str(), nextBlock.size(),
+                                                               isLastBlock, currentState);
+                currentState = std::move(newState);
+
+                std::string line;
+                if (newline_pos == 0) {
+                    // No newline, we need a new block
+                    currentBlock += nextBlock;
+                    continue;
+                }
+                else if (newline_pos >= currentBlock.c_str() && newline_pos < currentBlock.c_str() + currentBlock.size()) {
+                    // newline is in the current block
+                    CHECK(*newline_pos == '\n');
+                    line = std::string(currentBlock.c_str(), newline_pos);
+                    currentBlock = std::string(currentBlock, newline_pos - currentBlock.c_str() + 1);
+                }
+                else if (newline_pos >= nextBlock.c_str() && newline_pos < nextBlock.c_str() + nextBlock.size()) {
+                    // Newline is in the next block
+                    CHECK(*newline_pos == '\n');
+                    line = currentBlock + std::string(nextBlock.c_str(), newline_pos);
+                    currentBlock = std::string(nextBlock, newline_pos - nextBlock.c_str() + 1);
+                }
+                else {
+                    REQUIRE(false);
+                }
+
+                checkLine(line);
+            }
+        };
+
+        for (auto blockSize: { 1, 5, 8, 11, 17, 231, 1024 }) {
+            SECTION("blockSize " + std::to_string(blockSize)) {
+                SECTION("Unix line endings") {
+                    testSplitter(blockSize, withNewLines.c_str(), withNewLines.c_str() + withNewLines.size());
+                }
+                SECTION("DOS line endings") {
+                    testSplitter(blockSize, withDosNewLines.c_str(), withDosNewLines.c_str() + withDosNewLines.size());
+                }
+            }
+        }
+    }
+}
+
+struct ForEachLineTester {
+    ForEachLineTester()
+        : splitter(new NewlineSplitter())
+    {
+    }
+
+    bool debug = false;
+    bool blocked = true;
+
+    std::unique_ptr<BlockSplitter> splitter;
+
+    atomic<size_t> lineCount = 0;
+
+    struct LineInfo {
+        std::string contents;
+        bool found = false;
+    };
+
+    struct BlockInfo {
+        int64_t blockNumber = -1;
+        int64_t firstLineNumber = -1;
+        uint64_t numLines = 0;
+        std::vector<LineInfo> lines;
+        bool ended = false;
+
+        LineInfo & getLineInfo(int64_t lineNum, bool blocked)
+        {
+            if (!blocked) {
+                static std::mutex linesMutex; // for unblocked only
+                REQUIRE(firstLineNumber == 0);
+                std::lock_guard<std::mutex> guard(linesMutex);
+                if (lines.size() <= lineNum) {
+                    lines.resize(lineNum + 1);
+                }
+                return lines[lineNum];
+            }
+            else {
+                CHECK(lineNum >= firstLineNumber);
+                CHECK(lineNum < firstLineNumber + numLines);
+                REQUIRE(lineNum - firstLineNumber < lines.size());
+            }
+            return lines[lineNum - firstLineNumber];
+        }
+    };
+
+    // Call the first time we see a block
+    BlockInfo & addBlockInfo(int64_t blockNumber)
+    {
+        //CHECK(blockNumber < 50);
+        std::lock_guard<std::mutex> guard(blockInfoMutex);
+        if (blocks.size() <= blockNumber)
+            blocks.resize(blockNumber + 1);
+        CHECK(blocks[blockNumber].blockNumber == -1);
+        return blocks[blockNumber];
+    };
+
+    // Call after we've seen a block
+    BlockInfo & getBlockInfo(int64_t blockNumber)
+    {
+        std::lock_guard<std::mutex> guard(blockInfoMutex);
+
+        if (!blocked) {
+            CHECK(blockNumber == 0);
+            if (blocks.empty()) {
+                blocks.resize(1);
+                blocks[0].firstLineNumber = 0;
+            }
+            return blocks[0];
+        }
+
+        REQUIRE(blockNumber < blocks.size());
+        CHECK(blocks[blockNumber].ended == false);
+        CHECK(blocks[blockNumber].blockNumber == blockNumber);
+        return blocks[blockNumber];
+    };
+
+    std::mutex blockInfoMutex;
+    std::vector<BlockInfo> blocks;
+
+    void processUsingBlockedStream(const std::string & filename, ssize_t blockSize = -1, ssize_t maxLines = -1, int maxParallelism = 0)
+    {
+        filter_istream stream(filename);
+
+        forEachLineBlock(stream,
+                         std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
+                         maxLines, maxParallelism,
+                         std::bind(&ForEachLineTester::startBlock, this, _1, _2, _3),
+                         std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
+                         blockSize,
+                         *splitter);
+    }
+
+    void processUsingBlockedMappedStream(const std::string & filename, ssize_t blockSize = -1, ssize_t maxLines = -1, int maxParallelism = 0)
+    {
+        filter_istream stream(filename, { { "mapped", "true" } } );
+
+        forEachLineBlock(stream,
+                         std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
+                         maxLines, maxParallelism,
+                         std::bind(&ForEachLineTester::startBlock, this, _1, _2, _3),
+                         std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
+                         blockSize,
+                         *splitter);
+    }
+
+    void processUsingLineByLine(const std::string & filename, ssize_t maxLines = -1, int maxParallelism = 0)
+    {
+        this->blocked = false;
+        filter_istream stream(filename);
+
+        forEachLine(stream,
+                    std::bind(&ForEachLineTester::processLine, this, _1, _2, 0, _3),
+                    getMldbLog("test"),
+                    maxParallelism,
+                    false /* ignore exceptions */,
+                    maxLines);
+    }
+
+    void processUsingContentDescriptor(const std::string & filename)
+    {
+    }
+
+    bool processLine(const char * line, size_t length, int64_t blockNumber, int64_t lineNum)
+    {
+        if (debug)
+            cerr << "got line " << lineNum << " with length " << length << " at " << lineNum << " of block " << blockNumber << endl;
+        BlockInfo & blockInfo = getBlockInfo(blockNumber);
+        LineInfo & lineInfo = blockInfo.getLineInfo(lineNum, blocked);
+        lineInfo.contents = std::string(line, line + length);
+        lineInfo.found = true;
+        ++lineCount;
+        return true;
+    }
+
+    bool startBlock(int64_t blockNumber, int64_t lineNumber, int64_t numLines)
+    {
+        if (debug)
+            cerr << "startBlock " << blockNumber << " with " << numLines << " lines from " << lineNumber << endl;
+
+        BlockInfo & blockInfo = addBlockInfo(blockNumber);
+        blockInfo.blockNumber = blockNumber;
+        blockInfo.firstLineNumber = lineNumber;
+        blockInfo.numLines = numLines;
+        blockInfo.lines.resize(numLines);
+
+        //REQUIRE(blockNumber < 5);
+        //return blockNumber < 5;
+
+        return true;
+    }
+
+    bool endBlock(int64_t blockNumber, int64_t lineNumber, int64_t numLines)
+    {
+        if (debug)
+            cerr << "endBlock " << blockNumber << " at " << lineNumber << endl;
+        BlockInfo & blockInfo = getBlockInfo(blockNumber);
+        blockInfo.ended = true;
+        return true;
+    }
+
+    void validate()
+    {
+        for (auto & block: blocks) {
+            if (blocked) REQUIRE(block.ended);
+            for (auto & line: block.lines) {
+                REQUIRE(line.found);
+            }
+        }
+    }
+};
+
+
+TEST_CASE("for_each_line newline splitter")
+{
+    for (auto blockSize: { -1 , 1, 2, 3, 5, 17, 1000000 }) {
+        SECTION("blockSize " + std::to_string(blockSize)) {
+
+            SECTION("blocked stream") {
+                ForEachLineTester tester;
+                tester.processUsingBlockedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
+                tester.validate();
+            }
+
+            SECTION("blocked mapped stream") {
+                ForEachLineTester tester;
+                tester.processUsingBlockedMappedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
+                tester.validate();
+            }
+
+            SECTION("blocked gzip stream") {
+                ForEachLineTester tester;
+                tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, 100000 /* maxLines */);
+                tester.validate();
+            }
+
+            SECTION("line by line") {
+                ForEachLineTester tester;
+                tester.processUsingLineByLine("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, 1000 /* maxLines */);
+                tester.validate();
+            };
+        }
+    }
+
+#if 0
+    SECTION("blocked filter stream") {
+        ForEachLineTester tester;
+        tester.processUsingBlockedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv");
+        tester.validate();
+    }
+#endif
+}

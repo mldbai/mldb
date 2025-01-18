@@ -255,20 +255,18 @@ forEachLineStr(const std::string & filename,
 /* FOR EACH LINE BLOCK (ISTREAM)                                             */
 /*****************************************************************************/
 
-void forEachLineBlock(std::istream & stream,
+bool forEachLineBlock(std::istream & stream,
                       std::function<bool (const char * line,
                                           size_t lineLength,
                                           int64_t blockNumber,
                                           int64_t lineNumber)> onLine,
                       int64_t maxLines,
                       int maxParallelism,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> startBlock,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber)> endBlock,
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> startBlock,
+                      std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> endBlock,
+                      ssize_t defaultBlockSize,
                       const BlockSplitter & splitter)
 {
-    //static constexpr int64_t BLOCK_SIZE = 100000000;  // 100MB blocks
-    //static constexpr int64_t BLOCK_SIZE = 20000000;  // 20MB blocks
-    int64_t BLOCK_SIZE = 20000000;
     static constexpr int64_t READ_SIZE = 200000;  // read&scan 200kb to fit in cache
 
     std::atomic<int64_t> doneLines(0); //number of lines processed but not yet returned
@@ -291,11 +289,15 @@ void forEachLineBlock(std::istream & stream,
         // nullptr if it's not possible to memory map this stream.
         std::tie(mapped, mappedSize, mappedCapacity) = fistream->mapped();
         auto info = fistream->info();
-        if (info.size > 0) {
-            BLOCK_SIZE = std::max<int64_t>(1000000, info.size / maxParallelism);
-            BLOCK_SIZE = std::min<int64_t>(BLOCK_SIZE, 20000000);
+        if (info.size > 0 && defaultBlockSize == -1) {
+            defaultBlockSize = std::max<int64_t>(1000000, info.size / maxParallelism);
+            defaultBlockSize = std::min<int64_t>(defaultBlockSize, 20000000);
         }
     }
+
+    ExcCheckGreater(defaultBlockSize, 0, "defaultBlockSize must be > 0");
+
+    //cerr << "defaultBlockSize = " << defaultBlockSize << endl;
 
     //cerr << "mapped = " << (void *)mapped << endl;
     //cerr << "mappedSize = " << mappedSize << endl;
@@ -311,6 +313,7 @@ void forEachLineBlock(std::istream & stream,
     std::shared_ptr<char> nextBlock;
     size_t nextBlockSize = 0;
     size_t nextBlockUsed = 0;
+    std::atomic<bool> stop = false;
 
     std::function<void ()> doBlock = [&] ()
         {
@@ -322,17 +325,23 @@ void forEachLineBlock(std::istream & stream,
             bool lastBlock = false;
             size_t myChunkNumber = 0;
 
+            if (stop.load(std::memory_order_relaxed))
+                return;
+
             try {
                 //MLDB-1426
                 if (mapped) {
                     std::streamsize pos = stream.tellg();
+
+                    //cerr << "memory mapped for each line at pos " << pos << " of " << mappedSize << endl;
+
                     if (mappedSize == 0 || pos == EOF)
                         return;  // EOF, so nothing to read... probably empty
                     const char * start = mapped + pos;
                     const char * current = start;
                     const char * end = mapped + mappedSize;
 
-                    while (current && current < end && (current - start) < BLOCK_SIZE
+                    while (current && current < end && (current - start) < defaultBlockSize
                            && (maxLines == -1 || doneLines < maxLines)) { //stop processing new line when we have enough)
                         std::tie(current, splitterState)
                             = splitter.nextBlock(current, end - current, nullptr, 0,
@@ -344,6 +353,9 @@ void forEachLineBlock(std::istream & stream,
                                 break;
                             ++current;
                         }
+
+                        if (stop.load(std::memory_order_relaxed))
+                            return;
                     }
                 
                     if (current)
@@ -372,30 +384,33 @@ void forEachLineBlock(std::istream & stream,
                     // How far through our block are we?
 
                     std::shared_ptr<char> block = nextBlock;
-                    size_t blockSize = nextBlockSize;
+                    size_t thisBlockSize = nextBlockSize;
                     size_t blockUsed = nextBlockUsed;
 
                     if (!block) {
-                        block = std::shared_ptr<char>(new char[BLOCK_SIZE], [] (char * c) { delete[] c; });
-                        blockSize = BLOCK_SIZE;
+                        block = std::shared_ptr<char>(new char[defaultBlockSize], [] (char * c) { delete[] c; });
                         blockUsed = 0;
+                        thisBlockSize = defaultBlockSize;
                     }
 
                     blockOut = block;
                     size_t offset = blockUsed;
 
                     // First line starts at offset 0
+                    //cerr << "starting block with istream: eof = " << stream.eof() << " offset = " << offset << " blockUsed " << blockUsed << " thisBlockSize " << thisBlockSize << endl;
 
                     while (stream && !stream.eof()
                            && (maxLines == -1 || doneLines < maxLines)  //stop processing new line when we have enough
-                           && (offset < blockSize)) {
+                           && (offset < thisBlockSize)) {
                         
                         stream.read((char *)block.get() + offset,
-                                    std::min<size_t>(READ_SIZE, blockSize - offset));
+                                    std::min<size_t>(READ_SIZE, thisBlockSize - offset));
 
                         // Check how many bytes we actually read
                         size_t bytesRead = stream.gcount();
                         
+                        //cerr << "read " << bytesRead << " characters" << endl;
+
                         offset += bytesRead;
 
                         // Scan for the end of the block
@@ -436,8 +451,8 @@ void forEachLineBlock(std::istream & stream,
                         // block.
                         nextBlockUsed = offset - lineOffsets.back();
                         if (lineOffsets.size() == 1)
-                            nextBlockSize = blockSize + nextBlockUsed;
-                        else nextBlockSize = BLOCK_SIZE + nextBlockUsed;
+                            nextBlockSize = thisBlockSize + nextBlockUsed;
+                        else nextBlockSize = defaultBlockSize + nextBlockUsed;
 
                         nextBlock = std::shared_ptr<char>(new char[nextBlockSize],
                                                           [] (char * c) { delete[] c; });
@@ -445,27 +460,27 @@ void forEachLineBlock(std::istream & stream,
                                   nextBlock.get());
                     }
 
-                    myChunkNumber = chunkNumber++;
+                    bool emptyBlock = lineOffsets.size() == 1;
+                    myChunkNumber = emptyBlock ? -1 : chunkNumber++;
 
-                    if (stream && !stream.eof()
-                        && (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
-                        {
-                            // Ready for another chunk
-                            tp.add(doBlock);
-                        } else if (stream.eof()) {
-                            lastBlock = true;
-                        }
+                    // don't schedule a new block if we have enough lines
+                    if (stream && !stream.eof() && (maxLines == -1 || doneLines < maxLines)) {
+                        // Ready for another chunk
+                        tp.add(doBlock);
+                    } else if (stream.eof()) {
+                        lastBlock = true;
                     }
                     
                     int64_t chunkLineNumber = startLine;
                     size_t lastLineOffset = lineOffsets[0];
 
-                    if (startBlock)
-                        if (!startBlock(myChunkNumber, chunkLineNumber))
-                            return;
+                    if (!emptyBlock && startBlock && !startBlock(myChunkNumber, chunkLineNumber, lineOffsets.size() - 1)) {
+                        stop = true;
+                        return;
+                    }
 
                     for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
-                        if (hasExc.load(std::memory_order_relaxed))
+                        if (stop.load(std::memory_order_relaxed))
                             return;
                         const char * line = blockOut.get() + lastLineOffset;
                         size_t len = lineOffsets[i] - lastLineOffset;
@@ -473,26 +488,30 @@ void forEachLineBlock(std::istream & stream,
                         auto fixedup = splitter.fixupBlock({line, len});
 
                         // if we are not at the last line
-                        if (!lastBlock || fixedup.size() != 0 || i != lineOffsets.size() - 1)
-                            if (!onLine(fixedup.data(), fixedup.size(), chunkNumber, chunkLineNumber++))
+                        if (!lastBlock || fixedup.size() != 0 || i != lineOffsets.size() - 1) {
+                            if (!onLine(fixedup.data(), fixedup.size(), myChunkNumber, chunkLineNumber++)) {
+                                stop = true;
                                 return;
+                            }
+                        }
                     
                         lastLineOffset = lineOffsets[i];
-
                     }
 
-                if (endBlock)
-                    if (!endBlock(myChunkNumber, chunkLineNumber))
+                    if (!emptyBlock && endBlock && !endBlock(myChunkNumber, chunkLineNumber, lineOffsets.size())) {
+                        stop = true;
                         return;
-
+                    }
+                }
             } MLDB_CATCH_ALL {
                 if (hasExc.fetch_add(1) == 0) {
                     exc = std::current_exception();
+                    stop = true;
                 }
             }
         };
 
-    // Run the first block, which will enqueue the second before exiting
+    // Run the first block, which will enqueue the second before exiting, and so on
     doBlock();
 
     // Wait for all to be done
@@ -503,6 +522,8 @@ void forEachLineBlock(std::istream & stream,
     if (hasExc) {
         std::rethrow_exception(exc);
     }
+
+    return stop;
 }
 
 /*****************************************************************************/
@@ -519,9 +540,10 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       int maxParallelism,
                       std::function<bool (int64_t blockNumber,
                                           int64_t lineNumber,
-                                          uint64_t numLines)> startBlock,
+                                          uint64_t numLinesInBlock)> startBlock,
                       std::function<bool (int64_t blockNumber,
-                                          int64_t lineNumber)> endBlock,
+                                          int64_t lineNumber,
+                                          uint64_t numLinesInBlock)> endBlock,
                       size_t blockSize,
                       const BlockSplitter & splitter)
 {
@@ -826,7 +848,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 }
                     
                 if (endBlock)
-                    if (!endBlock(chunkNumber, chunkLineNumber))
+                    if (!endBlock(chunkNumber, chunkLineNumber, numLines))
                         return false;
                 
             } MLDB_CATCH_ALL {
@@ -855,7 +877,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
     // last chunk with single last line is in the last queue entry
     if (!hasExc && !queues.empty()) {
-        cerr << "last one; queues.size() = " << queues.size() << endl;
+        //cerr << "last one; queues.size() = " << queues.size() << endl;
         size_t chunkNumber = queues.size() - 1;
         doBlock(chunkNumber, -1 /* offset */, FrozenMemoryRegion());
     

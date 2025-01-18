@@ -292,14 +292,14 @@ struct JSONImporter: public Procedure {
 
         PerThreadAccumulator<ThreadAccum> accum;
 
-        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
                 return true;
             };
 
-        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
                 ExcAssert(threadAccum.threadRecorder.get());

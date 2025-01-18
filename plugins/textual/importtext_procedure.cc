@@ -1013,7 +1013,7 @@ struct ImportTextProcedureWorkInstance
 
         PerThreadAccumulator<ThreadAccum> accum;
 
-        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
@@ -1024,7 +1024,7 @@ struct ImportTextProcedureWorkInstance
                 return true;
             };
 
-        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
                 ExcAssert(threadAccum.threadRecorder.get());
@@ -1323,7 +1323,7 @@ struct ImportTextProcedureWorkInstance
             // we get an error that probably is caused by a multi-
             // line string, we concat the current line with the next
             // one and try again. 
-            startChunk(0, 0);
+            startChunk(0, 0, -1 /* numLinesInChunk; unused */);
 
             string line;
             string t_line;
@@ -1349,7 +1349,7 @@ struct ImportTextProcedureWorkInstance
                     break;
             }
 
-            doneChunk(0, lineNum);
+            doneChunk(0, lineNum, -1 /* numLinesInChunk */);
         }
 
         // Accumulate any from the end
