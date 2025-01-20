@@ -123,6 +123,15 @@ DEFINE_VALUE_DESCRIPTION_NS(ContentHashes, ContentHashesDescription);
 /* CONTENT DESCRIPTOR                                                        */
 /*****************************************************************************/
 
+
+void
+ContentDescriptor::
+addUrl(Utf8String url)
+{
+    ContentHash hash{"url", std::move(url)};
+    content.emplace_back(std::move(hash));
+}
+
 Url
 ContentDescriptor::
 getUrl() const
@@ -374,6 +383,8 @@ forEachBlockParallel(uint64_t startOffset,
                      int maxParallelism,
                      std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
 {
+    constexpr bool debug = false;
+    if (debug) cerr << "ContentHandler foreachblockparallel" << endl;
     size_t offset = startOffset;
 
     std::atomic<bool> finished(false);
@@ -389,6 +400,8 @@ forEachBlockParallel(uint64_t startOffset,
         std::tie(startOffset, region)
             = getRangeContaining(offset, requestedBlockSize);
 
+        if (debug) cerr << "startOffset = " << startOffset << " region = " << (bool)region << endl;
+
         if (!region)
             break;
         
@@ -396,6 +409,9 @@ forEachBlockParallel(uint64_t startOffset,
         ExcAssertEqual(toSkip, 0);
         size_t myBlockNumber = blockNumber++;
         
+        if (debug) cerr << "doing block " << myBlockNumber << " at offset "
+             << startOffset << " len " << region.length() << endl;
+
         auto processBlock
             = [myBlockNumber, startOffset, region, &fn, &finished] ()
             {
@@ -403,7 +419,7 @@ forEachBlockParallel(uint64_t startOffset,
                     finished = true;
             };
 
-        if (maxParallelism == 1)
+        if (maxParallelism == 0)
             processBlock();
         else
             tp.add(std::move(processBlock));

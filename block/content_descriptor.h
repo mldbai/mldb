@@ -80,6 +80,9 @@ PREDECLARE_VALUE_DESCRIPTION(ContentHashes);
 struct ContentDescriptor {
     ContentHashes content;
 
+    // Add a single (non-hashed) URL to enable it to be used in place of legacy URLs
+    void addUrl(Utf8String url);
+
     Url getUrl() const;
     Utf8String getUrlString() const;
     std::u8string getUrlStringUtf8() const;

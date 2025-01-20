@@ -13,6 +13,7 @@
 #include <thread>
 #include <cstring>
 #include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
+#include <future>
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/exc_assert.h"
@@ -21,6 +22,9 @@
 #include "mldb/base/hex_dump.h"
 #include "mldb/block/content_descriptor.h"
 #include "mldb/arch/spinlock.h"
+#include "mldb/arch/atomic_min_max.h"
+#include "mldb/base/scope.h"
+#include "mldb/utils/scoreboard.h"
 
 using namespace std;
 using moodycamel::BlockingConcurrentQueue;
@@ -201,21 +205,20 @@ forEachLineStr(std::istream & stream,
                int64_t maxLines)
 {
     Processing processing;
+    if (numThreads == -1)
+        numThreads = numCpus();
 
-    std::vector<std::thread> threads;
-    for (unsigned i = 0;  i < numThreads;  ++i)
-        threads.emplace_back(std::bind(parseLinesThreadStr,
-                                       std::ref(processing),
-                                       std::ref(processLine),
-                                       logger));
+    ThreadPool tp(ThreadPool::instance(), numThreads);
+
+    for (unsigned i = 0;  i == 0 || i < numThreads;  ++i)
+        tp.add(std::bind(parseLinesThreadStr, std::ref(processing), std::ref(processLine), logger));
         
     size_t result = readStream(stream, processing, logger,
                                ignoreStreamExceptions, maxLines);
         
     processing.shutdown = true;
 
-    for (auto & t: threads)
-        t.join();
+    tp.waitForAll();
 
     if (processing.hasException()) {
         std::rethrow_exception(processing.excPtr);
@@ -276,6 +279,8 @@ bool forEachLineBlock(std::istream & stream,
 
     ThreadPool tp(ThreadPool::instance(), maxParallelism);
 
+    constexpr bool debug = false;
+
     // Memory map if possible
     const char * mapped = nullptr;
     size_t mappedSize = 0;
@@ -328,12 +333,14 @@ bool forEachLineBlock(std::istream & stream,
             if (stop.load(std::memory_order_relaxed))
                 return;
 
+            if (debug) cerr << "starting block at " << startLine << endl;
+
             try {
                 //MLDB-1426
                 if (mapped) {
                     std::streamsize pos = stream.tellg();
 
-                    //cerr << "memory mapped for each line at pos " << pos << " of " << mappedSize << endl;
+                    if (debug) cerr << "memory mapped for each line at pos " << pos << " of " << mappedSize << endl;
 
                     if (mappedSize == 0 || pos == EOF)
                         return;  // EOF, so nothing to read... probably empty
@@ -381,6 +388,8 @@ bool forEachLineBlock(std::istream & stream,
                                                            [] (const char *) {});
                 }
                 else { // not memory mapped
+                    if (debug) cerr << "block is not memory mapped" << endl;
+
                     // How far through our block are we?
 
                     std::shared_ptr<char> block = nextBlock;
@@ -397,7 +406,7 @@ bool forEachLineBlock(std::istream & stream,
                     size_t offset = blockUsed;
 
                     // First line starts at offset 0
-                    //cerr << "starting block with istream: eof = " << stream.eof() << " offset = " << offset << " blockUsed " << blockUsed << " thisBlockSize " << thisBlockSize << endl;
+                    if (debug) cerr << "starting block with istream: eof = " << stream.eof() << " offset = " << offset << " blockUsed " << blockUsed << " thisBlockSize " << thisBlockSize << endl;
 
                     while (stream && !stream.eof()
                            && (maxLines == -1 || doneLines < maxLines)  //stop processing new line when we have enough
@@ -409,7 +418,7 @@ bool forEachLineBlock(std::istream & stream,
                         // Check how many bytes we actually read
                         size_t bytesRead = stream.gcount();
                         
-                        //cerr << "read " << bytesRead << " characters" << endl;
+                        if (debug) cerr << "read " << bytesRead << " characters" << endl;
 
                         offset += bytesRead;
 
@@ -417,7 +426,7 @@ bool forEachLineBlock(std::istream & stream,
                         const char * current = block.get() + lineOffsets.back();
                         const char * end = block.get() + offset;
 
-                        while (current && current < end) {
+                        while (current && current < end && (maxLines == -1 || doneLines < maxLines)) {
                             std::tie(current, splitterState)
                                 = splitter.nextBlock(current, end - current, nullptr, 0,
                                                      stream.eof(), splitterState);
@@ -474,12 +483,27 @@ bool forEachLineBlock(std::istream & stream,
                     int64_t chunkLineNumber = startLine;
                     size_t lastLineOffset = lineOffsets[0];
 
+                    size_t numLinesInBlock = lineOffsets.size() - 1;
+                    if (maxLines != -1)
+                        ExcAssertLessEqual(numLinesInBlock + startLine, maxLines);
+
                     if (!emptyBlock && startBlock && !startBlock(myChunkNumber, chunkLineNumber, lineOffsets.size() - 1)) {
                         stop = true;
                         return;
                     }
 
-                    for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines++ < maxLines);  ++i) {
+                    if (debug)
+                        cerr << "passing on " << lineOffsets.size() - 1 << " lines in chunk " << myChunkNumber << endl;
+
+                    size_t returnedLinesAtStart = returnedLines;
+                    size_t returnedLinesFromThisBlock = 0;
+
+                    for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines < maxLines);  ++i) {
+
+                        if (debug && myChunkNumber == 88) {
+                            cerr << "maxLines = " << maxLines << " returnedLines = " << returnedLines << " lastBlock = " << lastBlock << endl;
+                        }
+
                         if (stop.load(std::memory_order_relaxed))
                             return;
                         const char * line = blockOut.get() + lastLineOffset;
@@ -489,14 +513,31 @@ bool forEachLineBlock(std::istream & stream,
 
                         // if we are not at the last line
                         if (!lastBlock || fixedup.size() != 0 || i != lineOffsets.size() - 1) {
+                            ++returnedLines;
+                            ++returnedLinesFromThisBlock;
+                            if (debug && myChunkNumber == 88) {
+                                cerr << "line " << i << " of " << lineOffsets.size() << " in chunk " << myChunkNumber << endl;
+                                //cerr << "  line is " << string(line, len) << endl;
+                                //cerr << "  fixedup is " << string(fixedup.data(), fixedup.size()) << endl;
+                            }
                             if (!onLine(fixedup.data(), fixedup.size(), myChunkNumber, chunkLineNumber++)) {
+                                if (debug && myChunkNumber == 88)
+                                    cerr << "  STOPPING" << endl;
                                 stop = true;
                                 return;
                             }
+                            if (debug && myChunkNumber == 88) cerr << "  CONTINUING" << endl;
+
+                        } else {
+                            cerr << "*** skipped line " << returnedLines << " with lastBlock = " << lastBlock << " and fixedup size = " << fixedup.size() << endl;  
                         }
                     
                         lastLineOffset = lineOffsets[i];
                     }
+
+                    //cerr << "returnedLines was " << returnedLinesAtStart << " now " << returnedLines << " from this block " << returnedLinesFromThisBlock << endl;
+                    //cerr << "compared to " << returnedLines - returnedLinesAtStart << " from this block" << endl;
+                    ExcAssertEqual(returnedLines, returnedLinesAtStart + returnedLinesFromThisBlock);
 
                     if (!emptyBlock && endBlock && !endBlock(myChunkNumber, chunkLineNumber, lineOffsets.size())) {
                         stop = true;
@@ -559,31 +600,57 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
         std::any splitterState;
     };
 
-    // Set of queues, one per block, that grows with the amount of data
-    // TODO: make this a deque so we can remove early entries
-    Spinlock queuesMutex;
-    std::vector<std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > > queues;
-    queues.reserve(1024);
-    queues.emplace_back(new BlockingConcurrentQueue<PassToNextBlock>());
+    constexpr bool debug = false;
+    constexpr bool debug_lines = debug && false;
+
+    // Set of promises, one per block, for the previous block to use to pass information
+    // to the next block.  We use a map so that we can remove early entries. Each block gets
+    // information from the promise blockNum and writes its output information to the
+    // promise blockNum + 1. Each block is responsible for removing its input promise from
+    // the map once it's done with it.
+
+    Spinlock promisesMutex;
+    std::map<size_t, std::promise<PassToNextBlock>> promises;
     
-    auto getQueues = [&] (size_t blockNumber)
-        -> std::pair<std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> >,
-                     std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> > >
-        {
-            std::unique_lock<Spinlock> guard(queuesMutex);
-            while (blockNumber + 1 >= queues.size())
-                queues.emplace_back(new BlockingConcurrentQueue<PassToNextBlock>());
-            return { queues[blockNumber], queues[blockNumber + 1] };
-        };
+    auto getPromises = [&] (size_t blockNumber) -> std::pair<std::future<PassToNextBlock>, std::promise<PassToNextBlock> *>
+    {
+        if (debug) {
+            cerr << "getting promises for block " << blockNumber << endl;
+            cerr << "  current exists: " << promises.count(blockNumber) << endl;
+            cerr << "  next exists: " << promises.count(blockNumber + 1) << endl;
+        }
+        std::unique_lock<Spinlock> guard(promisesMutex);
+        //ExcAssert(promises.count(blockNumber));
+        //ExcAssert(!promises.count(blockNumber + 1));
+        auto future = promises[blockNumber].get_future();
+        ExcAssert(future.valid());
+        return { std::move(future), &promises[blockNumber + 1] };
+    };
     
-    
+    auto doneBlock = [&] (size_t blockNumber)
+    {
+        std::unique_lock<Spinlock> guard(promisesMutex);
+        promises.erase(blockNumber);
+    };
+
+    std::atomic<ssize_t> highestChunkNumber(-1);
+
     auto doBlock
-        = [&hasExc,&exc,maxLines,&onLine,&startBlock,&endBlock,&getQueues, &splitter]
+        = [&hasExc,&exc,maxLines,&onLine,&startBlock,&endBlock,&getPromises, &splitter, &doneBlock, &highestChunkNumber]
         (int chunkNumber,
          uint64_t offset,
          FrozenMemoryRegion mem) -> bool
         {
-            //cerr << "chunk " << chunkNumber << " with " << mem.length() << " bytes" << endl;
+            atomic_max(highestChunkNumber, chunkNumber);
+            if (debug) {
+                cerr << "processing chunk " << chunkNumber << " with " << mem.length() << " bytes" << endl;
+                std::string data(mem.data(), mem.data() + mem.length());
+                if (data.length() > 100) {
+                    data.resize(100);
+                    data += "...";
+                }
+                cerr << "    mem is " << data << endl;
+            }
             
             // Contains the full first line of our block, which is made up
             // of whatever was leftover from the previous block plus
@@ -599,10 +666,10 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             // What we got from the last block
             PassToNextBlock fromPrev;
 
-            std::shared_ptr<BlockingConcurrentQueue<PassToNextBlock> >
-                fromPrevQueue, toNextQueue;
-            std::tie(fromPrevQueue, toNextQueue) = getQueues(chunkNumber);
-            
+            auto [fromPrevFuture, toNextPromise] = getPromises(chunkNumber);
+
+            if (debug) cerr << "  got promises" << endl;
+
             // Call this to tell the next block that it should bail out.  It's
             // safe to call at any time, including before the next block has
             // been launched and after the next block has already been told to
@@ -611,7 +678,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
             {
                 PassToNextBlock toNext;
                 toNext.bail = true;
-                toNextQueue->enqueue(std::move(toNext));
+                toNextPromise->set_value(std::move(toNext));
             };
 
             if (splitter.isStateless()) {
@@ -688,8 +755,15 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     bailNextBlock();
                     return false;
                 }
-                
-                fromPrevQueue->wait_dequeue(fromPrev);
+
+                if (debug) cerr << "    waiting for previous queue..." << endl;
+
+                //fromPrevFuture.wait();
+                fromPrev = fromPrevFuture.get();
+                if (debug) cerr << "    done waiting for previous queue..." << endl;
+
+                // We no longer need the entry in the promises map
+                doneBlock(chunkNumber);
 
                 // Do we bail out?  If our previous block says it has bailed,
                 // then we should too.
@@ -700,6 +774,17 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 
                 FrozenMemoryRegion leftoverFromPreviousBlock
                     = std::move(fromPrev.leftoverFromPreviousBlock);
+
+                if (debug) {
+                    cerr << "    had " << leftoverFromPreviousBlock.length() << " bytes leftover from previous block" << endl;
+                    std::string leftoverStr(leftoverFromPreviousBlock.data(), leftoverFromPreviousBlock.length());
+                    if (leftoverStr.length() > 100) {
+                        leftoverStr.resize(100);
+                        leftoverStr += "...";
+                    }
+                    cerr << "    " << leftoverStr << endl;
+                }
+
                 int64_t startLine = fromPrev.doneLines;
                 std::any splitterState = std::move(fromPrev.splitterState);
 
@@ -714,6 +799,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 FrozenMemoryRegion leftover;
                 FrozenMemoryRegion firstRecord;
                 bool noMoreData = mem.length() == 0;  // We signal the last block by sending over a null block
+
+                if (debug) cerr << "    noMoreData = " << noMoreData << endl;
 
                 //cerr << "leftoverFromPreviousBlock.length() = " << leftoverFromPreviousBlock.length() << endl;
                 //cerr << "mem.length() = " << mem.length() << endl;
@@ -742,6 +829,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     current = 0;
                 }
 
+                if (debug) cerr << "    lengths: prev block = " << end1 - start1 << ", this block = " << end2 - start2 << endl;
+
                 // Scan the combined leftover and new blocks, normally it should only be once
                 // to complete the partial last record.
                 while (current && current >= start1 && current < end1) {
@@ -749,6 +838,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     //cerr << "doing current line" << endl;
                     auto [newCurrent, newState] = splitter.nextBlock(current, end1 - current, start2, end2 - start2, noMoreData, splitterState);
                     if (!newCurrent) {
+                        if (debug) cerr << "    *** no break in the whole block, continuing" << endl;
                         // No break in the whole lot... it's all a partial record
                         leftover = FrozenMemoryRegion::combined(leftoverFromPreviousBlock, mem);
                         current = nullptr;
@@ -756,6 +846,8 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     }
 
                     if (newCurrent >= start1 && newCurrent < end1) {
+                        if (debug_lines) cerr << "    *** got line in first block at position " << newCurrent - start1 << endl;
+                        if (debug_lines) cerr << "    adding line " << string(current, newCurrent - start1) << endl;
                         lines.emplace_back(current, newCurrent - current);
                     }
                     else {
@@ -770,16 +862,28 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                         ExcAssertGreaterEqual((const void *)newCurrent, (const void *)start2);
                         ExcAssertLessEqual((const void *)newCurrent, (const void *)end2);
                         //cerr << "doing combined" << endl;
+                        if (debug_lines) cerr << "    *** got line in the second block at position " << newCurrent - start2 << endl;
+                        if (debug_lines) {
+                                cerr << "combining " << string(leftoverFromPreviousBlock.data(), 0, leftoverFromPreviousBlock.length())
+                                     << " with " << string(current, end1)
+                                     << " and " << string(start2, newCurrent) << endl;
+                        }
                         firstRecord = FrozenMemoryRegion::combined(leftoverFromPreviousBlock, mem.rangeAtStart(newCurrent - start2));
                         lines.emplace_back(firstRecord.data(), firstRecord.length());
+                        if (debug_lines) cerr << "    adding line " << string(firstRecord.data(), firstRecord.length()) << endl;
                     }
                     //cerr << "got first line " << string(lines.back().data(), lines.back().size()) << endl;
                     current = newCurrent;
                     splitterState = std::move(newState);
                 }
 
+                if (debug) cerr << "    got " << lines.size() << " lines" << endl;
+
                 // Scan the current block
                 while (current && current >= start2 && current < end2) {
+                    if (startLine + lines.size() >= maxLines)
+                        break;
+
                     auto [newCurrent, newState] = splitter.nextBlock(current, end2 - current, nullptr, 0, noMoreData, splitterState);
                     if (!newCurrent) {
                         // We've gotten all we can
@@ -803,6 +907,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                 }
 
                 uint64_t doneLines = startLine + lines.size();
+                if (debug) cerr << "    doneLines = " << doneLines << endl;
 
                 if (maxLines == -1 || doneLines < maxLines) {
                     // What we pass on to the next block
@@ -810,7 +915,7 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                     toNext.leftoverFromPreviousBlock = std::move(leftover);
                     toNext.doneLines = doneLines;
                     toNext.splitterState = std::move(splitterState);
-                    toNextQueue->enqueue(std::move(toNext));
+                    toNextPromise->set_value(std::move(toNext));
                 }
                 else {
                     bailNextBlock();
@@ -871,14 +976,17 @@ void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
     PassToNextBlock pass;
     pass.doneLines = 0;
     pass.splitterState = splitter.newState();
-    queues[0]->enqueue(std::move(pass));
+    {
+        std::unique_lock<Spinlock> guard(promisesMutex);
+        promises[0].set_value(std::move(pass));
+    }
     
     content->forEachBlockParallel(startOffset, blockSize, maxParallelism, doBlock);
 
     // last chunk with single last line is in the last queue entry
-    if (!hasExc && !queues.empty()) {
-        //cerr << "last one; queues.size() = " << queues.size() << endl;
-        size_t chunkNumber = queues.size() - 1;
+    if (!hasExc && !promises.empty()) {
+        if (debug) cerr << "last one; promises.size() = " << promises.size() << endl;
+        size_t chunkNumber = highestChunkNumber + 1;
         doBlock(chunkNumber, -1 /* offset */, FrozenMemoryRegion());
     
 #if 0

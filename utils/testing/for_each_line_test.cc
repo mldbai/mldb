@@ -306,6 +306,7 @@ struct ForEachLineTester {
 
     bool debug = false;
     bool blocked = true;
+    ssize_t maxLines = -1;
 
     std::unique_ptr<BlockSplitter> splitter;
 
@@ -388,6 +389,8 @@ struct ForEachLineTester {
                          std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
                          blockSize,
                          *splitter);
+
+        this->maxLines = maxLines;
     }
 
     void processUsingBlockedMappedStream(const std::string & filename, ssize_t blockSize = -1, ssize_t maxLines = -1, int maxParallelism = 0)
@@ -401,6 +404,8 @@ struct ForEachLineTester {
                          std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
                          blockSize,
                          *splitter);
+
+        this->maxLines = maxLines;
     }
 
     void processUsingLineByLine(const std::string & filename, ssize_t maxLines = -1, int maxParallelism = 0)
@@ -414,10 +419,26 @@ struct ForEachLineTester {
                     maxParallelism,
                     false /* ignore exceptions */,
                     maxLines);
+
+        this->maxLines = maxLines;
     }
 
-    void processUsingContentDescriptor(const std::string & filename)
+    void processUsingContentDescriptor(const std::string & filename, ssize_t blockSize = -1, ssize_t maxLines = -1, int maxParallelism = 0)
     {
+        ContentDescriptor descriptor;
+        descriptor.addUrl(filename);
+        auto content = getContent(descriptor);
+
+        forEachLineBlock(content,
+                         0 /* startOffset */,
+                         std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
+                         maxLines, maxParallelism,
+                         std::bind(&ForEachLineTester::startBlock, this, _1, _2, _3),
+                         std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
+                         blockSize,
+                         *splitter);
+
+        this->maxLines = maxLines;
     }
 
     bool processLine(const char * line, size_t length, int64_t blockNumber, int64_t lineNum)
@@ -429,6 +450,8 @@ struct ForEachLineTester {
         lineInfo.contents = std::string(line, line + length);
         lineInfo.found = true;
         ++lineCount;
+        if (maxLines != -1)
+            CHECK(lineNum < maxLines);
         return true;
     }
 
@@ -452,7 +475,7 @@ struct ForEachLineTester {
     bool endBlock(int64_t blockNumber, int64_t lineNumber, int64_t numLines)
     {
         if (debug)
-            cerr << "endBlock " << blockNumber << " at " << lineNumber << endl;
+            cerr << "endBlock " << blockNumber << " at " << lineNumber << " with " << numLines << " lines" << endl;
         BlockInfo & blockInfo = getBlockInfo(blockNumber);
         blockInfo.ended = true;
         return true;
@@ -460,47 +483,82 @@ struct ForEachLineTester {
 
     void validate()
     {
+        int b = 0;
         for (auto & block: blocks) {
             if (blocked) REQUIRE(block.ended);
+            int n = 0;
             for (auto & line: block.lines) {
+                if (!line.found)
+                    cerr << "line not found: line " << n << " of block " << b << " of " << blocks.size()
+                         << " (" << b + block.firstLineNumber << " of " << lineCount.load() << " in file)" << endl;
                 REQUIRE(line.found);
+                ++n;
             }
+            ++b;
         }
+
+        if (maxLines != -1)
+            CHECK(lineCount == maxLines);
     }
 };
 
 
 TEST_CASE("for_each_line newline splitter")
 {
-    for (auto blockSize: { -1 , 1, 2, 3, 5, 17, 1000000 }) {
-        SECTION("blockSize " + std::to_string(blockSize)) {
+    for (auto parallelism: { 0, 1, -1 }) {
+        SECTION("parallelism " + std::to_string(parallelism)) {
+            cerr << "parallelism " << parallelism << endl;
+            for (auto blockSize: { -1, 1, 2, 3, 5, 17, 1000000 }) {
+                SECTION("blockSize " + std::to_string(blockSize)) {
+                    cerr << "blockSize " << blockSize << endl;
+#if 1
+                    SECTION("blocked stream") {
+                        ForEachLineTester tester;
+                        tester.processUsingBlockedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
+                        tester.validate();
+                    }
 
-            SECTION("blocked stream") {
-                ForEachLineTester tester;
-                tester.processUsingBlockedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
-                tester.validate();
+                    // Mapping requires the file to be non-compressed
+                    SECTION("blocked mapped stream") {
+                        ForEachLineTester tester;
+                        tester.processUsingBlockedMappedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
+                        tester.validate();
+                    }
+#endif
+
+                    SECTION("blocked gzip stream") {
+                        ForEachLineTester tester;
+                        tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, 64000 /* maxLines */);
+                        tester.validate();
+                    }
+
+#if 1
+                    SECTION("line by line") {
+                        ForEachLineTester tester;
+                        tester.processUsingLineByLine("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", 1000 /* maxLines */);
+                        tester.validate();
+                    };
+#endif
+
+#if 1
+                    SECTION("blocked content descriptor") {
+                        ForEachLineTester tester;
+                        tester.processUsingContentDescriptor("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
+                        tester.validate();
+                    }
+
+                    if (blockSize > 5) {
+                        SECTION("blocked content descriptor large stream") {
+                            ForEachLineTester tester;
+                            tester.processUsingContentDescriptor("file://mldb/mldb_test_data/train-1m.csv.lz4", blockSize, 100000 /* maxLines */);
+                            tester.validate();
+                        }
+                    }
+#endif
+                }
             }
-
-            SECTION("blocked mapped stream") {
-                ForEachLineTester tester;
-                tester.processUsingBlockedMappedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
-                tester.validate();
-            }
-
-            SECTION("blocked gzip stream") {
-                ForEachLineTester tester;
-                tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, 100000 /* maxLines */);
-                tester.validate();
-            }
-
-            SECTION("line by line") {
-                ForEachLineTester tester;
-                tester.processUsingLineByLine("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, 1000 /* maxLines */);
-                tester.validate();
-            };
         }
     }
-
 #if 0
     SECTION("blocked filter stream") {
         ForEachLineTester tester;

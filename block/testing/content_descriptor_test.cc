@@ -1,4 +1,4 @@
-/* filter_streams_test.cc
+/* content_descriptor_test.cc
    Jeremy Barnes, 29 June 2011
    Copyright (c) 2011 mldb.ai inc.
    Copyright (c) 2011 Jeremy Barnes.
@@ -13,6 +13,7 @@
 #include "mldb/block/content_descriptor.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/json.h"
+#include "mldb/arch/atomic_min_max.h"
 
 #include <boost/test/unit_test.hpp>
 
@@ -154,15 +155,15 @@ BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
     ContentDescriptor descriptor = jsonDecode<ContentDescriptor>("file://" + input_file);
     std::shared_ptr<ContentHandler> handler = getDecompressedContent(descriptor);
 
-    std::atomic<size_t> numBlocks{0}, totalLength{0}, numParallel{0}, maxNumParallel{0};
+    std::atomic<size_t> numBlocks{0}, totalLength{0}, numParallel{0}, maxNumParallel{0}, minBlock(10000000), maxBlock(0);
 
     auto onBlock = [&] (size_t blockNum, uint64_t blockOffset,
                         FrozenMemoryRegion block)
     {
         auto par = numParallel.fetch_add(1) + 1;
-        auto mnp = maxNumParallel.load();
-        while (par > mnp && !maxNumParallel.compare_exchange_weak(mnp, std::max(mnp, par)))
-            ;
+        atomic_max(maxNumParallel, par);
+        atomic_min(minBlock, blockNum);
+        atomic_max(maxBlock, blockNum);
 
         numBlocks.fetch_add(1);
         totalLength.fetch_add(block.length());
@@ -183,4 +184,6 @@ BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
     BOOST_CHECK_EQUAL(totalLength, 88964528);
     BOOST_CHECK_EQUAL(numParallel, 0);
     BOOST_CHECK_GT(maxNumParallel, 1);
+    BOOST_CHECK_EQUAL(minBlock, 0);
+    BOOST_CHECK_EQUAL(maxBlock, 678);
 }
