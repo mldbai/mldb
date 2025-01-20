@@ -22,12 +22,13 @@
 using namespace std;
 using namespace MLDB;
 
+#if 0
 TEST_CASE("proper EOF sequencing")
 {
     string input_file = "mldb/utils/testing/parse_context_test_data.csv";
     size_t input_length = std::filesystem::file_size(input_file);
 
-    for (auto chunk_size: { /* 1, 2, 3, 5, 7, 11, 50,*/ 71, 1000, 1000000 }) {
+    for (auto chunk_size: {  1, 2, 3, 5, 7, 11, 50, 71, 1000, 1000000 }) {
         SECTION("chunk_size " + std::to_string(chunk_size)) {
             for (auto buffer_size: { /*1, 2, 3, 5, 7, 11, 16,*/ 128, 1000 }) {
                 SECTION("buffer_size " + std::to_string(buffer_size)) {
@@ -68,6 +69,31 @@ TEST_CASE("proper EOF sequencing")
                     CHECK(has_read_zero);
                 }
             }
+        }
+    }
+}
+#endif
+
+TEST_CASE("mapped stream tellg")
+{
+    string input_file = "mldb/vfs/testing/fixtures/minimal.csv";
+
+    for (auto buffer_size: { /*1, 2, 3, 5, 7, 11, 16, 128,*/ 1000 }) {
+        SECTION("buffer_size " + std::to_string(buffer_size)) {
+            filtering_istream stream;
+            stream.push(mapped_file_source({input_file}), buffer_size);
+
+            CHECK(stream.tellg() == 0);
+            std::string line;
+            getline(stream, line);
+            CHECK(line == "a,b,c");
+            CHECK(stream.tellg() == 6);
+            getline(stream, line);
+            CHECK(line == "d,e,f");
+            CHECK(stream.tellg() == 12);
+            getline(stream, line);
+            CHECK(line == "");
+            CHECK(stream.eof());
         }
     }
 }

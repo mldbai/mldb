@@ -770,4 +770,17 @@ BOOST_AUTO_TEST_CASE(test_file_stream_tellg)
         stream.close();
         BOOST_CHECK_EQUAL(stream.tellg(), -1);
     }
+
+    {
+        filter_istream stream;
+        stream.open("mldb/vfs/testing/fixtures/minimal.csv", {{ "mapped", "true" }});
+        BOOST_CHECK_EQUAL(stream.tellg(), 0);
+        std::string line;
+        getline(stream, line);
+        BOOST_CHECK_EQUAL(line, "a,b,c");
+        BOOST_CHECK_EQUAL(stream.tellg(), 6);
+        getline(stream, line);
+        BOOST_CHECK_EQUAL(line, "d,e,f");
+        BOOST_CHECK_EQUAL(stream.tellg(), 12);
+    }
 }

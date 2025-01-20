@@ -365,27 +365,23 @@ bool forEachLineBlock(std::istream & stream,
                             return;
                     }
                 
-                    if (current)
+                    if (current) {
+                        // Seek ahead in the stream to keep it synchronized with the data that we've
+                        // read so far.
+                        //cerr << "seeking " << current - start << " chars ahead" << endl;
+                        //cerr << "lineOffsets.size() = " << lineOffsets.size() << endl;
                         stream.seekg(current - start, ios::cur);
+                    }
                     else {
                         // Last line has no newline
                         lineOffsets.push_back(end - start);
                         ++doneLines;
                     }
                     
-                    myChunkNumber = chunkNumber++;
-
-                    if (current && current < end &&
-                        (maxLines == -1 || doneLines < maxLines)) // don't schedule a new block if we have enough lines
-                        {
-                            // Ready for another chunk
-                            tp.add(doBlock);
-                        } else if (current == end) {
-                        lastBlock = true;
-                    }
-
                     blockOut = std::shared_ptr<const char>(start,
                                                            [] (const char *) {});
+
+                    lastBlock = !current || current >= end;
                 }
                 else { // not memory mapped
                     if (debug) cerr << "block is not memory mapped" << endl;
@@ -469,80 +465,91 @@ bool forEachLineBlock(std::istream & stream,
                                   nextBlock.get());
                     }
 
-                    bool emptyBlock = lineOffsets.size() == 1;
-                    myChunkNumber = emptyBlock ? -1 : chunkNumber++;
+                    lastBlock = !stream || stream.eof();
+                }                    
 
-                    // don't schedule a new block if we have enough lines
-                    if (stream && !stream.eof() && (maxLines == -1 || doneLines < maxLines)) {
-                        // Ready for another chunk
-                        tp.add(doBlock);
-                    } else if (stream.eof()) {
-                        lastBlock = true;
-                    }
-                    
-                    int64_t chunkLineNumber = startLine;
-                    size_t lastLineOffset = lineOffsets[0];
+                bool emptyBlock = lineOffsets.size() == 1;
 
-                    size_t numLinesInBlock = lineOffsets.size() - 1;
-                    if (maxLines != -1)
-                        ExcAssertLessEqual(numLinesInBlock + startLine, maxLines);
+                // Must increment this before scheduling the new block to avoid a data
+                // race.
+                myChunkNumber = emptyBlock ? -1 : chunkNumber++;
 
-                    if (!emptyBlock && startBlock && !startBlock(myChunkNumber, chunkLineNumber, lineOffsets.size() - 1)) {
-                        stop = true;
+                // don't schedule a new block if we have enough lines
+                if (!lastBlock && (maxLines == -1 || doneLines < maxLines)) {
+                    // Ready for another chunk
+                    tp.add(doBlock);
+                }
+                
+                //cerr << "emptyBlock = " << emptyBlock << " myChunkNumber = " << myChunkNumber << endl;
+
+                int64_t chunkLineNumber = startLine;
+                size_t lastLineOffset = lineOffsets[0];
+
+                size_t numLinesInBlock = lineOffsets.size() - 1;
+                if (maxLines != -1)
+                    ExcAssertLessEqual(numLinesInBlock + startLine, maxLines);
+
+                //cerr << "calling startBlock(" << myChunkNumber << ", " << chunkLineNumber << ", " << lineOffsets.size() - 1 << ")" << endl;
+                if (!emptyBlock && startBlock && !startBlock(myChunkNumber, startLine, lineOffsets.size() - 1)) {
+                    cerr << "stopping from startBlock" << endl;
+                    stop = true;
+                    return;
+                }
+
+                if (debug) {
+                    cerr << "passing on " << lineOffsets.size() - 1 << " lines in chunk " << myChunkNumber << endl;
+                    cerr << "lastBlock = " << lastBlock << endl;
+                    cerr << "maxLines = " << maxLines << endl;
+                }
+
+                size_t returnedLinesAtStart = returnedLines;
+                size_t returnedLinesFromThisBlock = 0;
+
+                for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines < maxLines);  ++i) {
+
+
+                    if (stop.load(std::memory_order_relaxed)) {
                         return;
                     }
+                    const char * line = blockOut.get() + lastLineOffset;
+                    size_t len = lineOffsets[i] - lastLineOffset;
 
-                    if (debug)
-                        cerr << "passing on " << lineOffsets.size() - 1 << " lines in chunk " << myChunkNumber << endl;
+                    auto fixedup = splitter.fixupBlock({line, len});
 
-                    size_t returnedLinesAtStart = returnedLines;
-                    size_t returnedLinesFromThisBlock = 0;
-
-                    for (unsigned i = 1;  i < lineOffsets.size() && (maxLines == -1 || returnedLines < maxLines);  ++i) {
-
+                    // if we are not at the last line
+                    if (!lastBlock || fixedup.size() != 0 || i != lineOffsets.size() - 1) {
+                        ++returnedLines;
+                        ++returnedLinesFromThisBlock;
                         if (debug && myChunkNumber == 88) {
-                            cerr << "maxLines = " << maxLines << " returnedLines = " << returnedLines << " lastBlock = " << lastBlock << endl;
+                            cerr << "line " << i << " of " << lineOffsets.size() << " in chunk " << myChunkNumber << endl;
+                            //cerr << "  line is " << string(line, len) << endl;
+                            //cerr << "  fixedup is " << string(fixedup.data(), fixedup.size()) << endl;
                         }
-
-                        if (stop.load(std::memory_order_relaxed))
+                        if (!onLine(fixedup.data(), fixedup.size(), myChunkNumber, chunkLineNumber++)) {
+                            if (debug && myChunkNumber == 88)
+                                cerr << "  STOPPING" << endl;
+                            stop = true;
                             return;
-                        const char * line = blockOut.get() + lastLineOffset;
-                        size_t len = lineOffsets[i] - lastLineOffset;
-
-                        auto fixedup = splitter.fixupBlock({line, len});
-
-                        // if we are not at the last line
-                        if (!lastBlock || fixedup.size() != 0 || i != lineOffsets.size() - 1) {
-                            ++returnedLines;
-                            ++returnedLinesFromThisBlock;
-                            if (debug && myChunkNumber == 88) {
-                                cerr << "line " << i << " of " << lineOffsets.size() << " in chunk " << myChunkNumber << endl;
-                                //cerr << "  line is " << string(line, len) << endl;
-                                //cerr << "  fixedup is " << string(fixedup.data(), fixedup.size()) << endl;
-                            }
-                            if (!onLine(fixedup.data(), fixedup.size(), myChunkNumber, chunkLineNumber++)) {
-                                if (debug && myChunkNumber == 88)
-                                    cerr << "  STOPPING" << endl;
-                                stop = true;
-                                return;
-                            }
-                            if (debug && myChunkNumber == 88) cerr << "  CONTINUING" << endl;
-
-                        } else {
-                            cerr << "*** skipped line " << returnedLines << " with lastBlock = " << lastBlock << " and fixedup size = " << fixedup.size() << endl;  
                         }
-                    
-                        lastLineOffset = lineOffsets[i];
-                    }
+                        if (debug && myChunkNumber == 88) cerr << "  CONTINUING" << endl;
 
+                    }
+                
+                    lastLineOffset = lineOffsets[i];
+                }
+
+                //cerr << "emptyBlock = " << emptyBlock << endl;
+
+                if (maxParallelism == 0) {
                     //cerr << "returnedLines was " << returnedLinesAtStart << " now " << returnedLines << " from this block " << returnedLinesFromThisBlock << endl;
                     //cerr << "compared to " << returnedLines - returnedLinesAtStart << " from this block" << endl;
                     ExcAssertEqual(returnedLines, returnedLinesAtStart + returnedLinesFromThisBlock);
+                }
 
-                    if (!emptyBlock && endBlock && !endBlock(myChunkNumber, chunkLineNumber, lineOffsets.size())) {
-                        stop = true;
-                        return;
-                    }
+                //cerr << "calling endBlock(" << myChunkNumber << ", " << startLine << ", " << lineOffsets.size() - 1 << ")" << endl;
+                if (!emptyBlock && endBlock && !endBlock(myChunkNumber, startLine, lineOffsets.size() - 1)) {
+                    stop = true;
+                    return;
                 }
             } MLDB_CATCH_ALL {
                 if (hasExc.fetch_add(1) == 0) {
@@ -558,9 +565,8 @@ bool forEachLineBlock(std::istream & stream,
     // Wait for all to be done
     tp.waitForAll();
 
-    // If there was an exception, rethrow it rather than returning
-    // cleanly
-    if (hasExc) {
+    // If there was an exception, rethrow it rather than returning cleanly
+    if (exc) {
         std::rethrow_exception(exc);
     }
 

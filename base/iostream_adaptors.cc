@@ -88,9 +88,8 @@ std::streamsize buffered_istreambuf::xsgetn(char * s, std::streamsize n)
 
 std::streampos buffered_istreambuf::seekoff(std::streamoff off, std::ios_base::seekdir way, std::ios_base::openmode which)
 {
-    // pos_ represents the position of the last character in the buffer, ie egptr()
-    if (which != std::ios_base::in || way != std::ios_base::cur || off != 0) return EOF;
-    return pos_ + egptr() - gptr();
+    if (which != std::ios_base::in) return EOF;
+    return this->seek(off, way);
 }
 
 void buffered_istreambuf::buf_fill()
@@ -188,6 +187,35 @@ ssize_t mapped_file_source::read(char * s, size_t n)
     ptr_ += n;
     //cerr << "read " << n << " bytes from mapped file" << endl;
     return n;
+}
+
+std::streampos mapped_file_source::seek(std::streamoff off, std::ios_base::seekdir way)
+{
+    ssize_t currentOff = ptr_ - data_;
+    cerr << "currentOff = " << currentOff << endl;
+    std::streamoff newOff;
+    switch (way) {
+    case std::ios_base::beg:
+        newOff = off;
+        break;
+    case std::ios_base::cur:
+        newOff = currentOff + off;
+        break;
+    case std::ios_base::end:
+        newOff = size_ + off;
+        break;
+    default:
+        MLDB_THROW_LOGIC_ERROR("invalid seek direction");
+    }
+
+    if (newOff < 0 || newOff > size_)
+        return EOF;
+
+    if (currentOff == newOff)
+        return newOff;
+
+    ptr_ = data_ + newOff;
+    return newOff == size_ ? EOF : newOff;
 }
 
 /*****************************************************************************/

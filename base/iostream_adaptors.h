@@ -62,6 +62,21 @@ template<typename Stream> void close_stream(Stream& stream, std::enable_if_t<has
 template<typename Stream> void close_stream(Stream& stream, std::enable_if_t<!has_close_v<Stream>> * = 0) { }
 
 
+template<typename SinkOrSource>
+struct has_seek {
+    template<typename S> static auto test(int) -> decltype(std::declval<S>().seek(0, std::ios::beg), std::true_type());
+    template<typename S> static auto test(...) -> std::false_type;
+    using type = decltype(test<SinkOrSource>(0));
+    static constexpr bool value = type::value;
+};
+
+template<typename SinkOrSource> constexpr bool has_seek_v = has_seek<SinkOrSource>::value;
+template<typename SinkOrSource> using has_seek_t = has_seek<SinkOrSource>::type;
+
+template<typename SinkOrSource> void seek_stream(SinkOrSource& stream, std::streamoff off, std::ios::seekdir dir, std::enable_if_t<has_seek_v<SinkOrSource>> * = 0) { stream.seek(off, dir); }
+template<typename SinkOrSource> void seek_stream(SinkOrSource& stream, std::streamoff off, std::ios::seekdir dir, std::enable_if_t<!has_seek_v<SinkOrSource>> * = 0) { }
+
+
 template<typename Stream>
 ssize_t write_stream(std::ostream& stream, const char * data, size_t len)
 {
@@ -227,6 +242,12 @@ protected:
         pos_ += (res == EOF ? 0 : res);
         return res;
     }
+    size_t current_pos() const { return pos_ - (egptr() - gptr()); };
+    virtual std::streampos seek(std::streamoff off, std::ios_base::seekdir way)
+    { 
+        if (way != std::ios_base::cur || off != 0) return EOF;
+        return current_pos();
+    }
 };
 
 template<typename Source>
@@ -239,6 +260,25 @@ struct source_istreambuf: public buffered_istreambuf {
     virtual void close() override { close_stream(source_); }
 protected:
     virtual ssize_t source_read(char * s, size_t n) override { return do_source_read(s, n, source_); }
+    virtual std::streampos seek(std::streamoff off, std::ios_base::seekdir way) override
+    {
+        if (way == std::ios_base::cur && off == 0) return current_pos();
+
+        // If the source supports seeking, then we can seek to the new position.
+        // Since the source doesn't know about buffering at all, we need to calculate
+        // a different offset to seek to, and then perform the actual seek.
+        if constexpr (has_seek_v<Source>) {
+            auto curr_pos = current_pos();
+            if (way == std::ios_base::cur) off -= egptr() - gptr();
+            std::streampos new_pos = source_.seek(off, way);
+            if (curr_pos != new_pos && !eof()) {
+                setg(nullptr, nullptr, nullptr); // we no longer have a buffer
+                buf_fill();
+            }
+            return new_pos;
+        }
+        return base_type::seek(off, way);
+    }
     Source source_;
 };
 
@@ -304,6 +344,7 @@ struct mapped_file_source {
     size_t extra_capacity() const { return capacity_ - size_; }
 
     ssize_t read(char * s, size_t n);
+    std::streampos seek(std::streamoff off, std::ios_base::seekdir way);
 
     int fd_ = -1;
     std::shared_ptr<const void> region_;
