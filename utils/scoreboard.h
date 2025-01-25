@@ -124,6 +124,8 @@ struct LinearScoreboard {
         int64_t prevEarliestUncompletedWork = -1;
         int64_t newEarliestUncompletedWork = -1;
         int64_t count() const { return newEarliestUncompletedWork - prevEarliestUncompletedWork; }
+        int64_t begin() const { return prevEarliestUncompletedWork; }
+        int64_t end() const { return newEarliestUncompletedWork; }
     };
 
     EndWorkItemResult endWorkItem(size_t index)

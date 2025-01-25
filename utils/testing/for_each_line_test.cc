@@ -17,7 +17,7 @@
 #include "mldb/utils/for_each_line.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/block/content_descriptor.h"
-#include "catch2/catch_all.hpp"
+#include "mldb/utils/testing/mldb_catch2.h"
 
 using namespace std;
 using namespace std::placeholders;

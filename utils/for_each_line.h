@@ -10,7 +10,9 @@
 #pragma once
 
 #include "mldb/utils/log_fwd.h"
+#include "mldb/utils/coalesced_range.h"
 #include <iostream>
+#include <optional>
 #include <functional>
 #include <string>
 #include <memory>
@@ -21,6 +23,9 @@
 namespace MLDB {
 
 struct ContentHandler;
+
+using TextBlock = CoalescedRange<const char>;
+using TextBlockIterator = TextBlock::const_iterator;
 
 /* Structure that encapsulates logic to split a block of memory into separate
  * chunks that can be handled in parallel.  The simplest is to split per line
@@ -33,9 +38,8 @@ struct BlockSplitter {
     virtual std::any newState() const = 0;
     virtual bool isStateless() const { return false; };
     virtual size_t requiredBlockPadding() const { return 0; }
-    virtual std::pair<const char *, std::any>
-    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
-              bool noMoreData, const std::any & state) const = 0;
+    virtual std::optional<std::tuple<TextBlockIterator, std::any>>
+    nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const = 0;
     virtual std::span<const char> fixupBlock(std::span<const char> block) const;
 };
 
@@ -44,19 +48,17 @@ template<typename State>
 struct BlockSplitterT: public BlockSplitter {
     virtual ~BlockSplitterT() = default;
     virtual State newStateT() const { return State(); }
-    virtual std::pair<const char *, State>
-    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
-               bool noMoreData, const State & state) const = 0;
+    virtual std::optional<std::tuple<TextBlockIterator, State>>
+    nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const State & state) const = 0;
     virtual std::any newState() const override
     {
         return newStateT();
     }
-    virtual std::pair<const char *, std::any>
-    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
-              bool noMoreData, const std::any & state) const override
+    virtual std::optional<std::tuple<TextBlockIterator, std::any>>
+    nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const override
     {
         const State & stateT = std::any_cast<State>(state);
-        auto [newPos, newState] = nextBlockT(block1, n1, block2, n2, noMoreData, stateT);
+        auto [newPos, newState] = nextRecordT(data, noMoreData, stateT);
         return { newPos, std::move(newState) };
     };
 };
@@ -70,38 +72,36 @@ struct BlockSplitterT<void>: public BlockSplitter {
         return {};
     }
     virtual bool isStateless() const override { return true; };
-    virtual const char *
-    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
-               bool noMoreData) const = 0;
-    virtual std::pair<const char *, std::any>
-    nextBlock(const char * block1, size_t n1, const char * block2, size_t n2,
-              bool noMoreData, const std::any & state) const override
+    virtual std::optional<TextBlockIterator>
+    nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData) const = 0;
+    virtual std::optional<std::tuple<TextBlockIterator, std::any>>
+    nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const override
     {
-        auto newPos = nextBlockT(block1, n1, block2, n2, noMoreData);
-        return { newPos, {} };
+        auto newPos = nextRecordT(data, curr, noMoreData);
+        if (!newPos)
+            return std::nullopt;
+        std::tuple<TextBlockIterator, std::any> result(*newPos, std::any());
+        return result;
     };
 };
 
 /* BlockSplitter that splits on the newline character. */
 struct NewlineSplitter: public BlockSplitterT<void> {
-    virtual const char *
-    nextBlockT(const char * block1, size_t n1, const char * block2, size_t n2,
-               bool noMoreData) const override
+    virtual std::optional<TextBlockIterator>
+    nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData) const override
     {
-        auto result = (const char *)memchr(block1, '\n', n1);
-        if (!result && block2)
-            result = (const char *)memchr(block2, '\n', n2);
+        auto result = data.find(curr, data.end(), '\n');
 
         // Found a newline, skip it and return
-        if (result)
+        if (result != data.end())
             return result + 1;
 
         // No newline but EOF, return up to the last character
         if (noMoreData)
-            return n2 ? block2 + n2 : block1 + n1;
+            return data.end();
 
         // No newline and not EOF, we need more data
-        return nullptr;
+        return std::nullopt;
     }
 
     static std::span<const char> removeNewlines(std::span<const char> block)
@@ -249,7 +249,7 @@ bool forEachLineBlock(std::istream & stream,
     This is the fastest way to parse a text file.
 */
 
-void forEachLineBlock(std::shared_ptr<const ContentHandler> content,
+bool forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       uint64_t startOffset,
                       std::function<bool (const char * line,
                                           size_t lineLength,
