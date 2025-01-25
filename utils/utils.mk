@@ -13,6 +13,7 @@ LIBUTILS_SOURCES := \
 	confidence_intervals.cc \
 	quadtree.cc \
 	for_each_line.cc \
+	block_splitter.cc \
 	tmpdir.cc \
 
 LIBUTILS_LINK := \

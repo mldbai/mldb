@@ -10,7 +10,7 @@
 #pragma once
 
 #include "mldb/utils/log_fwd.h"
-#include "mldb/utils/coalesced_range.h"
+#include "mldb/utils/block_splitter.h"
 #include <iostream>
 #include <optional>
 #include <functional>
@@ -23,105 +23,6 @@
 namespace MLDB {
 
 struct ContentHandler;
-
-using TextBlock = CoalescedRange<const char>;
-using TextBlockIterator = TextBlock::const_iterator;
-
-/* Structure that encapsulates logic to split a block of memory into separate
- * chunks that can be handled in parallel.  The simplest is to split per line
- * of text, but this interface allows state to be carried around which allows
- * for other splitting schemes that can handle quoted or structured records
- * like CSV and JSON.
- */ 
-struct BlockSplitter {
-    virtual ~BlockSplitter() = default;
-    virtual std::any newState() const = 0;
-    virtual bool isStateless() const { return false; };
-    virtual size_t requiredBlockPadding() const { return 0; }
-    virtual std::optional<std::tuple<TextBlockIterator, std::any>>
-    nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const = 0;
-    virtual std::span<const char> fixupBlock(std::span<const char> block) const;
-};
-
-/* BlockSplitter with a specific state type. */
-template<typename State>
-struct BlockSplitterT: public BlockSplitter {
-    virtual ~BlockSplitterT() = default;
-    virtual State newStateT() const { return State(); }
-    virtual std::optional<std::tuple<TextBlockIterator, State>>
-    nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const State & state) const = 0;
-    virtual std::any newState() const override
-    {
-        return newStateT();
-    }
-    virtual std::optional<std::tuple<TextBlockIterator, std::any>>
-    nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const override
-    {
-        const State & stateT = std::any_cast<State>(state);
-        auto [newPos, newState] = nextRecordT(data, noMoreData, stateT);
-        return { newPos, std::move(newState) };
-    };
-};
-
-/* BlockSplitter with no state. */
-template<>
-struct BlockSplitterT<void>: public BlockSplitter {
-    virtual ~BlockSplitterT() = default;
-    virtual std::any newState() const override
-    {
-        return {};
-    }
-    virtual bool isStateless() const override { return true; };
-    virtual std::optional<TextBlockIterator>
-    nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData) const = 0;
-    virtual std::optional<std::tuple<TextBlockIterator, std::any>>
-    nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const override
-    {
-        auto newPos = nextRecordT(data, curr, noMoreData);
-        if (!newPos)
-            return std::nullopt;
-        std::tuple<TextBlockIterator, std::any> result(*newPos, std::any());
-        return result;
-    };
-};
-
-/* BlockSplitter that splits on the newline character. */
-struct NewlineSplitter: public BlockSplitterT<void> {
-    virtual std::optional<TextBlockIterator>
-    nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData) const override
-    {
-        auto result = data.find(curr, data.end(), '\n');
-
-        // Found a newline, skip it and return
-        if (result != data.end())
-            return result + 1;
-
-        // No newline but EOF, return up to the last character
-        if (noMoreData)
-            return data.end();
-
-        // No newline and not EOF, we need more data
-        return std::nullopt;
-    }
-
-    static std::span<const char> removeNewlines(std::span<const char> block)
-    {
-        const char * p = block.data();
-        const char * e = p + block.size();
-        if (e > p && e[-1] == '\n') --e;
-        if (e > p && e[-1] == '\r') --e;
-        return { p, size_t(e - p) };
-    }
-
-    virtual std::span<const char> fixupBlock(std::span<const char> block) const override
-    {
-        return removeNewlines(block);
-    }
-};
-
-/* Instance of the newline splitter that we can use for default reference arguments. */
-extern const NewlineSplitter newLineSplitter;
-
 
 /** Run the given lambda over every line read from the stream, with the
     work distributed over the given number of threads.
