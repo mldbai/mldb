@@ -2,7 +2,7 @@
 
 LIBVFS_SOURCES := \
 	fs_utils.cc \
-        filter_streams.cc \
+    filter_streams.cc \
 	http_streambuf.cc \
 	compressor.cc \
 	exception_ptr.cc \
