@@ -65,5 +65,73 @@ TEST_CASE("coalesced range basics")
 
     auto found4 = range.find(range.begin(), range.end() - 1, '\n');
     CHECK(found4 == range.end() - 1);
+}
 
+TEST_CASE("coalesced range reduce")
+{
+    CoalescedRange<const char> range;
+
+    range.add(span<const char>("hello", 5));
+    range.add(span<const char>(" ", 1));
+    range.add(span<const char>("world", 5));
+    range.add(span<const char>("\n", 1));
+
+#if 1
+    SECTION("no-op reduce") {
+        auto [first, last] = range.reduce(range.begin(), range.end());
+        CHECK(first == 0);
+        CHECK(last == 4);
+        CHECK(range.to_string() == "hello world\n");
+    }
+
+    SECTION("null reduce at beginning") {
+        auto [first, last] = range.reduce(range.begin(), range.begin());
+        CHECK(first == 0);
+        CHECK(last == 0);
+        CHECK(range.to_string() == "");
+    }
+
+    SECTION("null reduce at all positions") {
+        for (size_t i = 0; i < range.size(); ++i) {
+            SECTION("position " + to_string(i)) {
+                auto [first, last] = range.reduce(range.begin() + i, range.begin() + i);
+                CHECK(first == last);
+                CHECK(range.to_string() == "");
+            }
+        }
+    }
+
+    SECTION("keep n characters") {
+        for (size_t keep = 0; keep < range.size(); ++keep) {
+            SECTION("keep " + to_string(keep)) {
+                for (size_t i = 0; i < range.size() - keep; ++i) {
+                    SECTION("position " + to_string(i)) {
+                        cerr << "keep " << keep << " at " << i << endl;
+                        auto it = range.begin() + i, end = range.begin() + i + keep;
+                        string str(it, end);
+                        cerr << "got iterators" << endl;
+                        auto [first, last] = range.reduce(it, end);
+                        CHECK(first <= last);
+                        CHECK(range.to_string() == str);
+                        CHECK(range.to_string() == string("hello world\n").substr(i, keep));
+                    }
+                }
+            }
+        }
+    }
+#endif
+
+    SECTION("reduce remove first word") {
+        auto [first, last] = range.reduce(range.begin(), range.begin() + 5);
+        CHECK(first == 0);
+        CHECK(last == 1);
+        CHECK(range.to_string() == "hello");
+    }
+    
+    SECTION("reduce remove second word") {
+        auto [first, last] = range.reduce(range.begin() + 6, range.begin() + 11);
+        CHECK(first == 2);
+        CHECK(last == 3);
+        CHECK(range.to_string() == "world");
+    }
 }

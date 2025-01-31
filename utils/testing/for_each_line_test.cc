@@ -381,6 +381,7 @@ struct ForEachLineTester {
     void processUsingBlockedStream(const std::string & filename, ssize_t blockSize = -1, ssize_t maxLines = -1, int maxParallelism = 0)
     {
         filter_istream stream(filename);
+        REQUIRE(stream);
 
         forEachLineBlock(stream,
                          std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
@@ -396,6 +397,7 @@ struct ForEachLineTester {
     void processUsingBlockedMappedStream(const std::string & filename, ssize_t blockSize = -1, ssize_t maxLines = -1, int maxParallelism = 0)
     {
         filter_istream stream(filename, { { "mapped", "true" } } );
+        REQUIRE(stream);
 
         forEachLineBlock(stream,
                          std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
@@ -412,6 +414,7 @@ struct ForEachLineTester {
     {
         this->blocked = false;
         filter_istream stream(filename);
+        REQUIRE(stream);
 
         forEachLine(stream,
                     std::bind(&ForEachLineTester::processLine, this, _1, _2, 0, _3),

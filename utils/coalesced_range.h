@@ -12,6 +12,7 @@
 
 #include "coalesced_range_fwd.h"
 #include <vector>
+#include <string>
 #include <memory>
 #include <span>
 #include <algorithm>
@@ -163,6 +164,22 @@ struct CoalescedRangeIterator {
     const value_type * range_it() const { return range_begin() + offset_; }
     const value_type * range_end() const { return range_begin() + range_size(); }
 
+    typename ranges_type::iterator ranges_begin() const
+    {
+        ExcCheck(ranges_, "Attempt to dereference null coalesced range iterator");
+        return ranges_->begin();
+    }
+
+    typename ranges_type::iterator ranges_end() const
+    {
+        ExcCheck(ranges_, "Attempt to dereference null coalesced range iterator");
+        return ranges_->end();
+    }
+
+    size_t block_number() const { return range_; }
+    size_t block_offset() const { return offset_; }
+    bool at_the_end() const { return range_ == ranges_->size(); }
+
     template<typename T, typename R> friend struct CoalescedRange;
 };
 
@@ -199,8 +216,59 @@ struct CoalescedRange {
     }
 
     size_t size() const { size_t result = 0; for (auto r: ranges_) result += r.size(); return result; }
+    size_t range_count() const { return ranges_.size(); }
 
-    void reduce(const_iterator begin, const_iterator end);
+    // Convert to a string, rolling up all of the ranges
+    std::basic_string<std::remove_cv_t<value_type>> to_string() const
+    {
+        std::basic_string<std::remove_cv_t<value_type>> result;
+        for (auto r: ranges_)
+            result.append(r.data(), r.size());
+        return result;
+    }
+
+    // Reduce it to contain just the mentioned range
+    // It may lead to the list of ranges shrinking
+    // The result gives the indexes (first and past-the-end) of the new range in the
+    // old ranges.
+    std::tuple<size_t, size_t> reduce(const_iterator begin, const_iterator end)
+    {
+        ExcCheck(begin <= end, "Attempt to reduce with backwards span");
+        ExcCheck(begin.ranges_ == &ranges_ && end.ranges_ == &ranges_, "Attempt to reduce span from wrong ranges");
+
+        if (begin == end) {
+            ranges_.clear();
+            return { begin.range_, begin.range_ };
+        }
+
+        size_t first = begin.block_number();
+        size_t first_ofs = begin.block_offset();
+        size_t last = end.block_number();
+        size_t last_ofs = end.block_offset();
+        if (last_ofs == 0) {
+            ExcAssert(last > 0);
+            last -= 1;
+        }
+
+        ranges_type new_ranges(ranges_.begin() + first, ranges_.begin() + last + 1);
+
+        if (!new_ranges.empty()) {
+            auto p1 = new_ranges.front().data();
+            auto sz1 = new_ranges.front().size();
+            p1 += first_ofs;
+            sz1 -= first_ofs;
+            new_ranges.front() = { p1, sz1 };
+
+            auto p2 = new_ranges.back().data();
+            auto sz2 = new_ranges.back().size();
+            sz2 -= last_ofs;
+            new_ranges.back() = { p2, sz2 };
+        }
+
+        ranges_.swap(new_ranges);
+
+        return { first, last + 1 };
+    }
 
     // Try to extract a single contiguous span of memory from two iterators.
     // If both iterators are contained within a contiguous span of memory, then return the

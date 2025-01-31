@@ -35,14 +35,6 @@ using moodycamel::BlockingConcurrentQueue;
 
 namespace MLDB {
 
-const NewlineSplitter newLineSplitter;
-
-std::span<const char>
-BlockSplitter::
-fixupBlock(std::span<const char> block) const
-{
-    return block;
-}
 
 namespace {
 
@@ -195,8 +187,6 @@ forEachLineStr(std::istream & stream,
     size_t result = readStream(stream, processing, logger,
                                ignoreStreamExceptions, maxLines);
         
-    processing.stop();
-
     tp.waitForAll();
 
     processing.rethrowIfException();
@@ -259,15 +249,6 @@ struct ForEachLineProcessor: public ProcessingState {
         CHUNK_STREAM_PRIORITY = 5,
     };
 
-    // A chunk of memory plus metadata
-    struct Chunk {
-        size_t chunkNumber = 0;
-        size_t startOffset = 0;
-        bool lastChunk = false;
-        std::span<const std::byte> data;
-        std::vector<shared_ptr<const void>> keep;
-    };
-
     struct JobPromise;
 
     struct CoroutineJob: public std::coroutine_handle<JobPromise> {
@@ -282,8 +263,17 @@ struct ForEachLineProcessor: public ProcessingState {
         void unhandled_exception() {}
     };
 
+    // A chunk of memory plus metadata
+    struct Chunk {
+        size_t chunkNumber = 0;
+        size_t startOffset = 0;
+        bool lastChunk = false;
+        std::span<const std::byte> data;
+        shared_ptr<const void> keep;      // Pins data in place
+    };
+
     // Pushes a series of jobs that call onChunk
-    void chunk_source(std::istream & stream)
+    bool chunk_source(std::istream & stream)
     {
         filter_istream * fistream = dynamic_cast<filter_istream *>(&stream);
         size_t extraCapacity = options.splitter->requiredBlockPadding();
@@ -294,31 +284,35 @@ struct ForEachLineProcessor: public ProcessingState {
             // saves us having to copy data.  mapped will be set to
             // nullptr if it's not possible to memory map this stream.
             auto [mapped, mappedSize, mappedCapacity] = fistream->mapped();
-            ExcCheckLessEqual(options.startOffset + chunkOffset, mappedSize, "startOffset is beyond the size of the file");
-            std::span<const std::byte> mem(reinterpret_cast<const std::byte *>(mapped) + options.startOffset + chunkOffset,
-                                           mappedSize - options.startOffset - chunkOffset);
-            chunk_source(mem, options.startOffset + chunkOffset);
-        }
-        else {
-            size_t blockSize = options.defaultBlockSize == -1 ? 2'000'000 : options.defaultBlockSize;
-            stream.seekg(options.startOffset);
-            std::shared_ptr<std::byte[]> block(new std::byte[blockSize]);
 
-            bool lastChunk = false;
-            for (size_t chunkNumber = 0; stream; ++chunkNumber) {
-                if (stopped()) return;
-                size_t chunkOffset = stream.tellg();
-                stream.read(reinterpret_cast<char *>(block.get()), blockSize + extraCapacity);
-                ssize_t bytesRead = stream.gcount();
-                if (bytesRead <= 0)
-                    break;
-                if (!stream)
-                    lastChunk = true;
-                std::span<const std::byte> mem(block.get(), bytesRead);
-                if (!handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {block}}))
-                    break;
+            if (mapped) {
+                ExcCheckLessEqual(options.startOffset + chunkOffset, mappedSize, "startOffset is beyond the size of the file");
+                std::span<const std::byte> mem(reinterpret_cast<const std::byte *>(mapped) + options.startOffset + chunkOffset,
+                                            mappedSize - options.startOffset - chunkOffset);
+                return chunk_source(mem, options.startOffset + chunkOffset);
             }
         }
+        size_t blockSize = options.defaultBlockSize == -1 ? 2'000'000 : options.defaultBlockSize;
+        if (options.startOffset > 0)
+            stream.seekg(options.startOffset);
+        std::shared_ptr<std::byte[]> block(new std::byte[blockSize]);
+
+        bool lastChunk = false;
+
+        for (size_t chunkNumber = 0; stream; ++chunkNumber) {
+            if (stopped()) return false;
+            size_t chunkOffset = stream.tellg();
+            stream.read(reinterpret_cast<char *>(block.get()), blockSize + extraCapacity);
+            ssize_t bytesRead = stream.gcount();
+            if (bytesRead <= 0)
+                break;
+            if (!stream)
+                lastChunk = true;
+            std::span<const std::byte> mem(block.get(), bytesRead);
+            if (!handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {block}}))
+                return false;
+        }
+        return true;
     }
 
     size_t block_size_for_content_length(size_t contentLength)
@@ -331,7 +325,7 @@ struct ForEachLineProcessor: public ProcessingState {
         return blockSize;
     }
 
-    void chunk_source(std::span<const std::byte> mem, size_t startOffset)
+    bool chunk_source(std::span<const std::byte> mem, size_t startOffset)
     {
         size_t numBytes = mem.size();
         size_t blockSize = block_size_for_content_length(numBytes);
@@ -340,39 +334,32 @@ struct ForEachLineProcessor: public ProcessingState {
         const std::byte * e = p + mem.size();
 
         for (size_t chunkNumber = 0; p < e; p += blockSize) {
-            if (stopped()) return;
+            if (stopped()) return false;
             const std::byte * eb = std::min(e, p + blockSize);
             std::span<const std::byte> mem(p, eb-p);
             size_t chunkOffset = startOffset + p - mem.data();
             bool lastChunk = eb == e;
             if (!handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}}))
-                break;
+                return false;
         }
+        return true;
     }
 
-    void chunk_source(const ContentHandler & content)
+    bool chunk_source(const ContentHandler & content)
     {
         size_t contentSize = content.getSize();
         size_t blockSize = block_size_for_content_length(contentSize);
 
         auto doBlock = [&] (size_t chunkNumber, uint64_t chunkOffset, FrozenMemoryRegion region)
         {
+            if (stopped()) return false;
             bool lastChunk = chunkOffset + region.length() == contentSize;
             std::span<const std::byte> mem(reinterpret_cast<const std::byte *>(region.data()), region.length());
             return handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}});
         };
     
-        content.forEachBlockParallel(options.startOffset, blockSize, options.maxParallelism, doBlock);
+        return content.forEachBlockParallel(options.startOffset, blockSize, options.maxParallelism, doBlock);
     }
-
-    struct LeftoverChunk {
-        size_t chunkNumber = 0;
-        size_t startOffset = 0;
-        size_t lineNumber = 0;
-        std::vector<std::byte> data;
-        std::any splitterState;
-        std::vector<std::shared_ptr<void>> keep;
-    };
 
     bool handle_chunk(Chunk chunk)
     {
@@ -381,7 +368,9 @@ struct ForEachLineProcessor: public ProcessingState {
         {
             std::unique_lock guard{chunks_mutex_};
             if (chunk.chunkNumber == chunks_done_) {
-                guard.release();
+                if (chunksFinished)
+                    return true;
+                guard.unlock();
                 return handle_next_chunk(std::move(chunk));
             }
             else {
@@ -392,86 +381,11 @@ struct ForEachLineProcessor: public ProcessingState {
         
         // Slow down the production of chunks if there are too many by contributing to
         // other work.
-        while (numChunksOutstanding > numCpus()) {
+        while (numChunksOutstanding > numCpus() && !stopped()) {
             tp_.work();
             std::unique_lock guard{chunks_mutex_};
             numChunksOutstanding = chunks_.size();
         }
-
-        return true;
-    }
-
-    bool handle_next_chunk(Chunk chunk)
-    {
-        cerr << "handling in-order chunk " << chunk.chunkNumber << endl;
-        // Precondition: chunks_done_ is equal to this chunk number
-        // Only one thread in this block at a time, which is staisfied by the condition above
-        ExcAssertEqual(chunks_done_, chunk.chunkNumber);
-
-        CoalescedRange<const char> fullChunk;
-        fullChunk.add(reinterpret_cast<const char *>(leftover.data.data()), leftover.data.size());
-        fullChunk.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size());
-
-        std::vector<std::shared_ptr<const void>> keep;
-        std::vector<std::span<const char>> lines;
-
-        auto it = fullChunk.begin(), end = fullChunk.end();
-        auto & splitterState = leftover.splitterState;
-
-        while (it != end) {
-            auto another = options.splitter->nextRecord(fullChunk, it, chunk.lastChunk, splitterState);
-            if (!another)
-                break;
-            auto [next_it, next_state] = another.value();
-
-            if (auto lineSpan = fullChunk.get_span(it, next_it)) {
-                // Push the contiguous line
-                lines.push_back(std::move(lineSpan.value()));
-            }
-            else {
-                // Line is not in a contiguous range; need to extract as a string
-                size_t len = next_it - it;
-                std::shared_ptr<char[]> contiguous(new char[len]);
-                using std::copy;
-                copy(it, end, contiguous.get());
-                lines.emplace_back(contiguous.get(), len);
-                keep.emplace_back(std::move(contiguous));
-            }
-            splitterState = std::move(next_state);
-            it = next_it;
-        }
-
-        cerr << "found " << lines.size() << " lines" << endl;
-        MLDB_THROW_UNIMPLEMENTED();
-
-#if 0
-        // Create single span with the coalesced version of the given ranges, with new
-        // memory allocated if necessary.
-        auto coalesce = [&] (int firstBlock, const char * firstValue, int lastBlock, const char * lastValue) -> std::span<const char>
-        {
-            ExcAssertGreater(firstBlock, 0);
-            ExcAssertLessEqual(lastBlock, 2);
-            ExcAssertLessEqual(firstBlock, lastBlock);
-
-            if (firstBlock == lastBlock) {
-                // Both within the same block, nothing to do
-                return { firstValue, lastValue - firstValue };
-            }
-            else if (blocks[0].data() + blocks[0].size() == blocks[1].data()) {
-                // If they are contiguous in memory, then they already were coalesced
-                ExcAssertEqual(firstBlock, 0); ExcAssertEqual(lastBlock, 1);
-                return { firstValue, lastValue - firstValue };
-            } else {
-                // Need to allocate a new string to copy the data and coalesce them
-                ExcAssertEqual(firstBlock, 0); ExcAssertEqual(lastBlock, 1);
-                auto data = std::make_shared<std::string>();
-                data->append(firstValue, blocks[0].data() + blocks[0].size());
-                data->append(blocks[1].data(), lastValue);
-                keep.emplace_back(std::move(data));
-                return { keep.back()->data(), keep.back()->size(); };
-            }
-        };
-#endif
 
         return true;
     }
@@ -486,6 +400,131 @@ struct ForEachLineProcessor: public ProcessingState {
         std::vector<std::shared_ptr<const void>> keep;
     };
 
+    // Information passed from one chunk to the next
+    size_t outputChunkNumber = 0;
+    size_t outputStartOffset = 0;
+    size_t outputLineNumber = 0;
+    CoalescedRange<const char> chunkData;
+    std::any splitterState;
+    std::vector<std::shared_ptr<const void>> keep;  // pins for each block in chunkData
+
+    bool handle_next_chunk(Chunk chunk)
+    {
+        cerr << "handling in-order chunk " << chunk.chunkNumber << endl;
+        cerr << "chunkData.range_count() = " << chunkData.range_count() << endl;
+        cerr << "keep.size() = " << keep.size() << endl;
+
+        // Precondition: chunks_done_ is equal to this chunk number
+        // Only one thread in this block at a time, which is staisfied by the condition above
+        ExcAssertEqual(chunks_done_, chunk.chunkNumber);
+        ExcAssertEqual(chunkData.range_count(), keep.size());
+
+        chunkData.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size());
+        keep.emplace_back(chunk.keep);
+
+        LineBlock lineBlock;
+        lineBlock.keep = keep;
+        lineBlock.blockNumber = outputChunkNumber;
+        lineBlock.startLine = outputLineNumber;
+        lineBlock.startOffset = outputStartOffset;
+        lineBlock.lastBlock = chunk.lastChunk;
+
+        auto & lines = lineBlock.lines;
+
+        auto it = chunkData.begin(), end = chunkData.end();
+
+        while (it != end) {
+            auto another = options.splitter->nextRecord(chunkData, it, chunk.lastChunk, splitterState);
+            if (!another)
+                break;
+            auto [next_it, next_state] = another.value();
+
+            if (auto lineSpan = chunkData.get_span(it, next_it)) {
+                // Push the contiguous line
+                lines.push_back(std::move(lineSpan.value()));
+            }
+            else {
+                // Line is not in a contiguous range; need to extract as a string
+                size_t len = next_it - it;
+                std::shared_ptr<char[]> contiguous(new char[len]);
+                using std::copy;
+                copy(it, next_it, contiguous.get());
+                lineBlock.lines.emplace_back(contiguous.get(), len);
+                lineBlock.keep.emplace_back(std::move(contiguous));
+            }
+            splitterState = std::move(next_state);
+            it = next_it;
+        }
+
+        size_t lineCount = lines.size();
+
+        cerr << "found " << lineCount << " lines" << endl;
+        cerr << "outputLineNumber = " << outputLineNumber << endl;
+        cerr << "options.maxLines = " << options.maxLines << endl;
+
+        if (options.maxLines != -1 && lineCount + outputLineNumber >= options.maxLines) {
+            // We've reached the maximum number of lines
+            lineBlock.lines.resize(options.maxLines - outputLineNumber);
+            lineBlock.lastBlock = true;
+        }
+
+        // Reduce the chunk data to the leftover parts and remove the associated
+        // data pins.
+
+        ExcAssertEqual(keep.size(), chunkData.range_count());
+        auto [firstChunk, lastChunk] = chunkData.reduce(it, end);
+        cerr << "keeping chunks " << firstChunk << " to " << lastChunk << " of " << keep.size() << endl;
+        keep.erase(keep.begin() + lastChunk, keep.end());
+        keep.erase(keep.begin(), keep.begin() + firstChunk);
+
+        ExcAssertEqual(keep.size(), chunkData.range_count());
+
+        if (lineCount > 0) {
+            // Submit the line block for processing before we schedule another chunk so
+            // we don't get ahead of ourselves.
+            int priority = 1;
+
+            std::function<void ()> job = [lineBlock=std::move(lineBlock),this] ()
+            {
+                if (this->stopped())
+                    return;
+                if (!this->handle_line_block(std::move(lineBlock)))
+                    this->stop();
+            };
+
+            if (options.maxParallelism > 1) {
+                submit(priority, "process_line_block " + std::to_string(chunk.chunkNumber), std::move(job));
+            }
+            else {
+                // We're not processing in parallel, so there is no other thread
+                try {
+                    job();
+                } MLDB_CATCH_ALL {
+                    takeException("handle_line_block");
+                }
+            }
+            ++outputChunkNumber;
+        }
+        outputLineNumber += lineCount;
+        outputStartOffset = chunk.startOffset + chunk.data.size();
+
+        // Allow another chunk to happen
+        {
+            std::unique_lock guard{chunks_mutex_};
+            // Nothing should have happened in the meantime...
+            ExcAssertEqual(chunks_done_, chunk.chunkNumber);
+            ++chunks_done_;
+            if (chunk.lastChunk) {
+                // We're done
+                chunksFinished = true;
+            }
+        }
+        
+        return true;
+    }
+
+    std::function<bool (LineBlock)> handle_line_block;
+
     template<typename Source>
     bool process(Source&& source, 
                  std::function<bool (const char * line,
@@ -495,17 +534,13 @@ struct ForEachLineProcessor: public ProcessingState {
                  std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> startBlock,
                  std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> endBlock)
     {
-        chunk_source(source);
-        return false;
-
-#if 0
-        std::function<bool (LineBlock)> handle_block = [onLine,startBlock,endBlock] (LineBlock block)
+        handle_line_block = [onLine,startBlock,endBlock] (LineBlock block)
         {
             if (startBlock && !startBlock(block.blockNumber, block.startLine, block.lines.size()))
                 return false;
 
-            for (size_t i = 0; i < lines.size();  ++i) {
-                if (onLine && !onLine(lines[i].data(), lines[i].size(), block.blockNumber, block.startLine + i))
+            for (size_t i = 0; i < block.lines.size();  ++i) {
+                if (onLine && !onLine(block.lines[i].data(), block.lines[i].size(), block.blockNumber, block.startLine + i))
                     return false;
             }
 
@@ -514,7 +549,9 @@ struct ForEachLineProcessor: public ProcessingState {
 
             return true;
         };
-#endif
+
+        return chunk_source(source);
+
 
 #if 0
         auto pipeline
@@ -531,8 +568,7 @@ struct ForEachLineProcessor: public ProcessingState {
     mutable std::mutex chunks_mutex_;
     std::map<size_t, Chunk> chunks_;
     std::atomic<size_t> chunks_done_ = 0;
-
-    LeftoverChunk leftover;
+    std::atomic<bool> chunksFinished = false;
 };
 
 } // file scope
