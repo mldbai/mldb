@@ -76,7 +76,6 @@ TEST_CASE("coalesced range reduce")
     range.add(span<const char>("world", 5));
     range.add(span<const char>("\n", 1));
 
-#if 1
     SECTION("no-op reduce") {
         auto [first, last] = range.reduce(range.begin(), range.end());
         CHECK(first == 0);
@@ -106,10 +105,8 @@ TEST_CASE("coalesced range reduce")
             SECTION("keep " + to_string(keep)) {
                 for (size_t i = 0; i < range.size() - keep; ++i) {
                     SECTION("position " + to_string(i)) {
-                        cerr << "keep " << keep << " at " << i << endl;
                         auto it = range.begin() + i, end = range.begin() + i + keep;
                         string str(it, end);
-                        cerr << "got iterators" << endl;
                         auto [first, last] = range.reduce(it, end);
                         CHECK(first <= last);
                         CHECK(range.to_string() == str);
@@ -119,7 +116,6 @@ TEST_CASE("coalesced range reduce")
             }
         }
     }
-#endif
 
     SECTION("reduce remove first word") {
         auto [first, last] = range.reduce(range.begin(), range.begin() + 5);
@@ -133,5 +129,42 @@ TEST_CASE("coalesced range reduce")
         CHECK(first == 2);
         CHECK(last == 3);
         CHECK(range.to_string() == "world");
+    }
+}
+
+TEST_CASE("coalesced range to_string()")
+{
+    CoalescedRange<const char> range;
+
+    range.add(span<const char>("hello", 5));
+    range.add(span<const char>(" ", 1));
+    range.add(span<const char>("world", 5));
+    range.add(span<const char>("\n", 1));
+
+    SECTION("full range") {
+        CHECK(range.to_string() == "hello world\n");
+    }
+
+    SECTION("partial range") {
+        CHECK(range.to_string(range.begin() + 6, range.end()) == "world\n");
+    }
+
+    SECTION("empty range") {
+        CHECK(range.to_string(range.end(), range.end()) == "");
+        CHECK(range.to_string(range.begin(), range.begin()) == "");
+    }
+
+    SECTION("keep n characters") {
+        for (size_t keep = 0; keep < range.size(); ++keep) {
+            SECTION("keep " + to_string(keep)) {
+                for (size_t i = 0; i < range.size() - keep; ++i) {
+                    SECTION("position " + to_string(i)) {
+                        auto it = range.begin() + i, end = range.begin() + i + keep;
+                        string str(it, end);
+                        CHECK(range.to_string(it, end) == str);
+                    }
+                }
+            }
+        }
     }
 }

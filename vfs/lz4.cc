@@ -14,6 +14,7 @@
 #include "mldb/arch/endian.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/compute_context.h"
 #include <iostream>
 #include "mldb/base/scope.h"
 #include <cstring>
@@ -615,10 +616,12 @@ struct Lz4Decompressor: public Decompressor {
                          const GetDataFunction & getData,
                          const ForEachBlockFunction & onBlock,
                          const Allocate & allocate,
-                         int maxParallelism) override
+                         ComputeContext & compute,
+                         const PriorityFn<int (size_t chunkNum)> & priority) override
     {
         //return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock);
-        ThreadWorkGroup tp(maxParallelism);
+
+        ComputeContext block_compute(compute);
 
         std::shared_ptr<const char> buf;
         size_t bufLen = 0;
@@ -712,8 +715,11 @@ struct Lz4Decompressor: public Decompressor {
                                  this,
                                  &aborted,
                                  &onBlock,
-                                 &allocate] ()
+                                 &allocate,
+                                 &compute] ()
                 {
+                    if (compute.relaxed_stopped())
+                        return;
 
                     std::shared_ptr<const char> outputData;
                     size_t outputLength;
@@ -734,15 +740,16 @@ struct Lz4Decompressor: public Decompressor {
             blockOffset += blockSize;
             
             // Finish processing in a new thread
-            if (maxParallelism > 1)
-                tp.add(std::move(processBlock));
-            else processBlock();
+            if (compute.single_threaded())
+                processBlock();
+            else
+                compute.submit(priority(blockNumber), "lz4 decompress block", std::move(processBlock));
             
             // Start of a new block again
             setCur(BLOCK_HEADER, blockHeader);
         }
 
-        tp.waitForAll();
+        block_compute.work_until_finished();
         
         return !aborted;
     }

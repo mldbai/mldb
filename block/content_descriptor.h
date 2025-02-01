@@ -19,6 +19,7 @@
 #include "mldb/block/memory_region.h"
 #include "mldb/vfs/fs_utils.h"
 #include "mldb/watch/watch.h"
+#include "mldb/base/compute_context.h"
 
 namespace MLDB {
 
@@ -164,10 +165,9 @@ struct ContentHandler {
     virtual bool
     forEachBlockParallel(uint64_t startOffset,
                          uint64_t requestedBlockSize,
-                         int maxParallelism,
-                         std::function<bool (size_t blockNum, uint64_t blockOffset,
-                                             FrozenMemoryRegion block)> fn)
-        const;
+                         ComputeContext & compute,
+                         const PriorityFn<int (size_t chunkNum)> & priority,
+                         const ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block)> & onBlock) const;
     
     virtual FrozenMemoryRegion getRange(uint64_t offset = 0,
                                         int64_t length = -1) const;

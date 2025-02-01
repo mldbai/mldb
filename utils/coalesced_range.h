@@ -227,6 +227,23 @@ struct CoalescedRange {
         return result;
     }
 
+    std::basic_string<std::remove_cv_t<value_type>> to_string(const_iterator first, const_iterator last) const
+    {
+        ExcCheck(first.ranges_ == &ranges_ && last.ranges_ == &ranges_, "Attempt to convert span from wrong ranges");
+        ExcCheck(first <= last, "Attempt to convert backwards span");
+
+        size_t n = std::distance(first, last);
+        std::basic_string<std::remove_cv_t<value_type>> result;
+        result.reserve(n);
+        for (size_t i = first.range_; i <= last.range_ && i < ranges_.size(); ++i) {
+            auto start_ofs = i == first.range_ ? first.offset_ : 0;
+            auto end_ofs = i == last.range_ ? last.offset_ : ranges_[i].size();
+            result.append(ranges_[i].data() + start_ofs, ranges_[i].data() + end_ofs);
+        }
+        return result;
+    }
+
+
     // Reduce it to contain just the mentioned range
     // It may lead to the list of ranges shrinking
     // The result gives the indexes (first and past-the-end) of the new range in the

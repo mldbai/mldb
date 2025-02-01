@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include "mldb/types/string.h"
+#include "mldb/base/compute_context_fwd.h"
 
 namespace MLDB {
 
@@ -186,10 +187,10 @@ struct Decompressor {
                         const Allocate & allocate);
 
 
-    typedef std::function<bool (size_t blockNumber,
-                                uint64_t blockOffset,
-                                std::shared_ptr<const char> blockStart,
-                                size_t blockLength)>
+    typedef ContinuationFn<bool (size_t blockNumber,
+                                 uint64_t blockOffset,
+                                 std::shared_ptr<const char> blockStart,
+                                 size_t blockLength)>
         ForEachBlockFunction;
 
     typedef std::function<std::pair<std::shared_ptr<const char>, size_t> (size_t)>
@@ -199,7 +200,8 @@ struct Decompressor {
                                       const GetDataFunction & getData,
                                       const ForEachBlockFunction & onBlock,
                                       const Allocate & allocate,
-                                      int maxParallelism = -1);
+                                      ComputeContext & compute,
+                                      const PriorityFn<int (size_t chunkNum)> & priority);
     
     /** Create a compressor with the given scheme.  Returns nullptr if
         the given compression scheme isn't found.

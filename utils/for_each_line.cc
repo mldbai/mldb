@@ -27,7 +27,7 @@
 #include "mldb/base/scope.h"
 #include "mldb/utils/scoreboard.h"
 #include "mldb/utils/coalesced_range.h"
-#include "mldb/base/processing_state.h"
+#include "mldb/base/compute_context.h"
 
 using namespace std;
 using moodycamel::BlockingConcurrentQueue;
@@ -52,10 +52,10 @@ struct ForEachLineOptions {
     const BlockSplitter * splitter = &newLineSplitter;
 };
 
-struct ForEachLineProcessor: public ProcessingState {
+struct ForEachLineProcessor: public ComputeContext {
 
     ForEachLineProcessor(ForEachLineOptions options)
-        : ProcessingState(options.maxParallelism), options(options)
+        : ComputeContext(options.maxParallelism), options(options)
     {
     }
 
@@ -116,7 +116,7 @@ struct ForEachLineProcessor: public ProcessingState {
         bool lastChunk = false;
 
         for (size_t chunkNumber = 0; stream; ++chunkNumber) {
-            if (stopped()) return false;
+            if (relaxed_stopped()) return false;
             size_t chunkOffset = stream.tellg();
             stream.read(reinterpret_cast<char *>(block.get()), blockSize + extraCapacity);
             ssize_t bytesRead = stream.gcount();
@@ -150,7 +150,7 @@ struct ForEachLineProcessor: public ProcessingState {
         const std::byte * e = p + mem.size();
 
         for (size_t chunkNumber = 0; p < e; p += blockSize) {
-            if (stopped()) return false;
+            if (relaxed_stopped()) return false;
             const std::byte * eb = std::min(e, p + blockSize);
             std::span<const std::byte> mem(p, eb-p);
             size_t chunkOffset = startOffset + p - mem.data();
@@ -168,13 +168,15 @@ struct ForEachLineProcessor: public ProcessingState {
 
         auto doBlock = [&] (size_t chunkNumber, uint64_t chunkOffset, FrozenMemoryRegion region)
         {
-            if (stopped()) return false;
+            if (relaxed_stopped()) return false;
             bool lastChunk = chunkOffset + region.length() == contentSize;
             std::span<const std::byte> mem(reinterpret_cast<const std::byte *>(region.data()), region.length());
             return handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}});
         };
     
-        return content.forEachBlockParallel(options.startOffset, blockSize, options.maxParallelism, doBlock);
+        auto getPriority = [] (size_t chunkNumber) -> int { return CHUNK_STREAM_PRIORITY; };
+        auto res = content.forEachBlockParallel(options.startOffset, blockSize, *this /*compute*/, getPriority, doBlock);
+        return res;
     }
 
     bool handle_chunk(Chunk chunk)
@@ -197,7 +199,7 @@ struct ForEachLineProcessor: public ProcessingState {
         
         // Slow down the production of chunks if there are too many by contributing to
         // other work.
-        while (numChunksOutstanding > numCpus() && !stopped()) {
+        while (numChunksOutstanding > numCpus() && !relaxed_stopped()) {
             {
                 // Make sure there is no data race on chunksFinished
                 // We could remove this lock if it becomes a problem by using the right sequencing
@@ -206,7 +208,7 @@ struct ForEachLineProcessor: public ProcessingState {
                     break;
             }
 
-            tp_.work();
+            work();
 
             std::unique_lock guard{chunks_mutex_};
             numChunksOutstanding = chunks_.size();
@@ -311,7 +313,7 @@ struct ForEachLineProcessor: public ProcessingState {
 
             std::function<void ()> job = [lineBlock=std::move(lineBlock),this] ()
             {
-                if (this->stopped())
+                if (this->relaxed_stopped())
                     return;
                 if (!this->handle_line_block(std::move(lineBlock)))
                     this->stop();
@@ -396,12 +398,6 @@ struct ForEachLineProcessor: public ProcessingState {
     std::atomic<bool> chunksFinished = false;
 };
 
-// Structure that keep track of the overall status of processing
-struct Processing: public ProcessingState {
-    Processing(int numThreads) : ProcessingState(numThreads) {}
-    BlockingConcurrentQueue<pair<int64_t, vector<string> > > decompressedLines;
-};
-
 } // file scope
 
 size_t
@@ -417,7 +413,7 @@ forEachLine(std::istream & stream,
         processLine(line.c_str(), line.size(), lineNum);
     };
 
-    return forEachLineStr(stream, onLineStr, logger, numThreads,
+    return forEachLine(stream, onLineStr, logger, numThreads,
                           ignoreStreamExceptions, maxLines);
 }
 

@@ -17,6 +17,7 @@
 #include "mldb/utils/for_each_line.h"
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/block/content_descriptor.h"
+#include "mldb/utils/coalesced_range.h"
 #include "mldb/utils/testing/mldb_catch2.h"
 
 using namespace std;
@@ -184,7 +185,7 @@ TEST_CASE(" test_forEachLineStr_data ")
     };
 
     auto logger = getMldbLog("test");
-    forEachLineStr(stream, processLine, logger);
+    forEachLine(stream, processLine, logger);
     CHECK(result == expected);
 }
 
@@ -205,7 +206,7 @@ TEST_CASE(" test_forEachLine_throw ")
     };
 
     auto logger = getMldbLog("test");
-    CHECK_THROWS(forEachLineStr(stream, processLine, logger));
+    CHECK_THROWS(forEachLine(stream, processLine, logger));
 }
 
 TEST_CASE("split newlines")
@@ -244,42 +245,20 @@ TEST_CASE("split newlines")
             const char * p = data;
 
             auto currentState = splitter.newState();
-            //const char * lineStart = p;
-            //const char * blockStart = p;
-            std::string currentBlock;
+            TextBlock block;
 
             for (; p < end; p += blockSize) {
-                const char * e = p + blockSize;
-                if (e > end) e = end;
+                // Add a new block
+                block.add(p, std::min(p + blockSize, end));
+                bool isLastBlock = p + blockSize == end;
 
-                std::string nextBlock(p, e);
-
-                bool isLastBlock = e == end;
-                auto [newline_pos, newState] = splitter.nextBlock(currentBlock.c_str(), currentBlock.size(), nextBlock.c_str(), nextBlock.size(),
-                                                               isLastBlock, currentState);
+                auto splitter_res = splitter.nextRecord(block, block.begin(), isLastBlock, currentState);
+                if (!splitter_res) continue; // No newline, we need a new block
+                auto [newline_pos, newState] = splitter_res.value();
                 currentState = std::move(newState);
-
-                std::string line;
-                if (newline_pos == 0) {
-                    // No newline, we need a new block
-                    currentBlock += nextBlock;
-                    continue;
-                }
-                else if (newline_pos >= currentBlock.c_str() && newline_pos < currentBlock.c_str() + currentBlock.size()) {
-                    // newline is in the current block
-                    CHECK(*newline_pos == '\n');
-                    line = std::string(currentBlock.c_str(), newline_pos);
-                    currentBlock = std::string(currentBlock, newline_pos - currentBlock.c_str() + 1);
-                }
-                else if (newline_pos >= nextBlock.c_str() && newline_pos < nextBlock.c_str() + nextBlock.size()) {
-                    // Newline is in the next block
-                    CHECK(*newline_pos == '\n');
-                    line = currentBlock + std::string(nextBlock.c_str(), newline_pos);
-                    currentBlock = std::string(nextBlock, newline_pos - nextBlock.c_str() + 1);
-                }
-                else {
-                    REQUIRE(false);
-                }
+                CHECK(*newline_pos == '\n');
+                std::string line = block.to_string(block.begin(), newline_pos);
+                block.reduce(newline_pos + 1, block.end());
 
                 checkLine(line);
             }

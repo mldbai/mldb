@@ -15,6 +15,7 @@
 #include "mldb/watch/watch_impl.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/iostream_adaptors.h"
+#include "mldb/base/processing_state.h"
 
 
 using namespace std;
@@ -380,8 +381,9 @@ bool
 ContentHandler::
 forEachBlockParallel(uint64_t startOffset,
                      uint64_t requestedBlockSize,
-                     int maxParallelism,
-                     std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const
+                     ComputeContext & compute,
+                     const PriorityFn<int (size_t chunkNum)> & priority,
+                     const ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block)> & onBlock) const
 {
     constexpr bool debug = false;
     if (debug) cerr << "ContentHandler foreachblockparallel" << endl;
@@ -389,11 +391,11 @@ forEachBlockParallel(uint64_t startOffset,
 
     std::atomic<bool> finished(false);
     
-    ThreadWorkGroup tp(maxParallelism);
+    ComputeContext block_compute(compute);
 
     size_t blockNumber = 0;
-    
-    while (!finished && !tp.hasException()) {
+
+    while (!finished && !compute.relaxed_stopped()) {
         uint64_t startOffset;
         FrozenMemoryRegion region;
 
@@ -413,21 +415,21 @@ forEachBlockParallel(uint64_t startOffset,
              << startOffset << " len " << region.length() << endl;
 
         auto processBlock
-            = [myBlockNumber, startOffset, region, &fn, &finished] ()
+            = [myBlockNumber, startOffset, region, &onBlock, &finished] ()
             {
-                if (!fn(myBlockNumber, startOffset, region))
+                if (!onBlock(myBlockNumber, startOffset, region))
                     finished = true;
             };
 
-        if (maxParallelism == 0)
+        if (compute.single_threaded())
             processBlock();
         else
-            tp.add(std::move(processBlock));
+            block_compute.submit(priority(blockNumber), "ContentHandler::forEachBlockParallel", std::move(processBlock));
 
         offset = startOffset + region.length();
     }
 
-    tp.waitForAll();
+    block_compute.work_until_finished();
 
     return !finished;
 }
@@ -850,8 +852,9 @@ struct ContentDecompressor
     virtual bool
     forEachBlockParallel(uint64_t startOffset,
                          uint64_t requestedBlockSize,
-                         int maxParallelism,
-                         std::function<bool (size_t, uint64_t, FrozenMemoryRegion)> fn) const override
+                         ComputeContext & compute,
+                         const PriorityFn<int (size_t chunkNum)> & priority,
+                         const ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block)> & fn) const override
     {
         //maxParallelism = 1;
 
@@ -913,7 +916,7 @@ struct ContentDecompressor
             };
         
         return decompressor->forEachBlockParallel(requestedBlockSize, getData, onBlock,
-                                                  allocate, maxParallelism);
+                                                  allocate, compute, priority);
     }
     
     virtual std::pair<uint64_t, FrozenMemoryRegion>

@@ -41,9 +41,17 @@ struct ThreadPool {
 
     /** Add the given job to the thread pool.
 
-        The job MUST NOT throw an exception; any exception thrown within the
-        job WILL CRASH THE PROGRAM.  (The lambda will be marked noexcept at
-        a later date).
+        If the ThreadPool is constructued with handleExceptions = false:
+
+            The job MUST NOT throw an exception; any exception thrown within the
+            job WILL CRASH THE PROGRAM.  (The lambda will be marked noexcept at
+            a later date).
+
+        If the ThreadPool is constructed with handleExceptions = true:
+
+            The job MAY throw an exception.  If it does, then the exception will
+            be caught and stored.  The first exception thrown will be rethrown
+            from waitForAll().
 
         The job may either:
         1.  Be run before the add() function terminates
@@ -122,7 +130,7 @@ private:
     std::shared_ptr<Itl> itl;
 };
 
-
+#if 0
 /*****************************************************************************/
 /* THREAD WORK GROUP                                                         */
 /*****************************************************************************/
@@ -133,6 +141,12 @@ struct ThreadWorkGroup: public ThreadPool {
         : ThreadPool(ThreadPool::instance(), maxParallelism, true /* handle exceptions */)
     {
     }
+
+    ThreadWorkGroup(ThreadPool & parent, int maxParallelism = -1)
+        : ThreadPool(parent, maxParallelism, true /* handle exceptions */)
+    {
+    }
 };
+#endif
 
 } // namespace MLDB

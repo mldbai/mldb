@@ -13,6 +13,7 @@
 #include <map>
 #include <cstring>
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/compute_context.h"
 #include <deque>
 
 
@@ -180,15 +181,14 @@ forEachBlockParallel(size_t requestedBlockSize,
                      const GetDataFunction & getData,
                      const ForEachBlockFunction & onBlock,
                      const Allocate & allocate,
-                     int maxParallelism)
+                     ComputeContext & compute,
+                     const PriorityFn<int (size_t chunkNum)> & priority)
 {
     bool finished = false;
     size_t blockNumber = 0;
     size_t currentOffset = 0;
     size_t numChars = 0;
     std::shared_ptr<const char> buf;
-
-    ThreadWorkGroup tp(maxParallelism);
 
     // We queue them up as we want to ensure they run in sequence
     std::mutex jobsMutex;
@@ -225,12 +225,12 @@ forEachBlockParallel(size_t requestedBlockSize,
                     }
                 };
 
-                if (maxParallelism > 0) {
+                if (!compute.single_threaded()) {
                     {
                         std::unique_lock guard{jobsMutex};
                         jobs.push_back(std::move(doBlock));
                     }
-                    tp.add(doOne);
+                    compute.submit(priority(myBlockNumber), "Decompressor::forEachBlockParallel", doOne);
                 }
                 else {
                     doBlock();
@@ -243,7 +243,7 @@ forEachBlockParallel(size_t requestedBlockSize,
         decompress(buf, numChars, onData, allocate);
     }
 
-    tp.waitForAll();
+    compute.work_until_finished();
     
     return !finished;
 }

@@ -174,9 +174,10 @@ struct ZStandardDecompressor: public Decompressor {
                          const GetDataFunction & getData,
                          const ForEachBlockFunction & onBlock,
                          const Allocate & allocate,
-                         int maxParallelism) override
+                         ComputeContext & compute,
+                         const PriorityFn<int (size_t chunkNum)> & priority) override
     {
-        return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock, allocate, maxParallelism);
+        return Decompressor::forEachBlockParallel(requestedBlockSize, getData, onBlock, allocate, compute, priority);
         // To do this, we would need to:
         // - Get fixed sized chunks from the underlying stream
         // - Pass each to a stream

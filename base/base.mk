@@ -4,6 +4,7 @@
 LIBBASE_SOURCES := \
     parse_context.cc \
 	thread_pool.cc \
+	processing_state.cc \
 	parallel.cc \
 	optimized_path.cc \
 	hex_dump.cc \
