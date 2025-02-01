@@ -176,7 +176,9 @@ BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
         return true;
     };
 
-    handler->forEachBlockParallel(0, 1024 * 1024 /* requested block size */, 16 /* maxParallelism */, onBlock);
+    ComputeContext compute(16 /* maxParallelism */);
+
+    handler->forEachBlockParallel(0, 1024 * 1024 /* requested block size */, compute, 1 /* priority */, onBlock);
 
     cerr << "maxNumParallel = " << maxNumParallel << endl;
 

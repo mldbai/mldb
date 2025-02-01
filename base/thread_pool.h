@@ -130,23 +130,4 @@ private:
     std::shared_ptr<Itl> itl;
 };
 
-#if 0
-/*****************************************************************************/
-/* THREAD WORK GROUP                                                         */
-/*****************************************************************************/
-
-struct ThreadWorkGroup: public ThreadPool {
-
-    ThreadWorkGroup(int maxParallelism = -1)
-        : ThreadPool(ThreadPool::instance(), maxParallelism, true /* handle exceptions */)
-    {
-    }
-
-    ThreadWorkGroup(ThreadPool & parent, int maxParallelism = -1)
-        : ThreadPool(parent, maxParallelism, true /* handle exceptions */)
-    {
-    }
-};
-#endif
-
 } // namespace MLDB

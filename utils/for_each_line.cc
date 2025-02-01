@@ -327,7 +327,7 @@ struct ForEachLineProcessor: public ComputeContext {
                 try {
                     job();
                 } MLDB_CATCH_ALL {
-                    takeException("handle_line_block");
+                    take_exception("handle_line_block");
                 }
             }
             ++outputChunkNumber;
@@ -353,25 +353,35 @@ struct ForEachLineProcessor: public ComputeContext {
     std::function<bool (LineBlock)> handle_line_block;
 
     template<typename Source>
-    bool process(Source&& source, 
-                 std::function<bool (const char * line,
-                                     size_t lineLength,
-                                     int64_t blockNumber,
-                                     int64_t lineNumber)> onLine,
-                 std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> startBlock,
-                 std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> endBlock)
+    bool process(Source&& source,
+                 const LineContinuationFn & onLine,
+                 const BlockContinuationFn & startBlock,
+                 const BlockContinuationFn & endBlock)
     {
-        handle_line_block = [onLine,startBlock,endBlock] (LineBlock block)
+        handle_line_block = [&] (LineBlock block)
         {
-            if (startBlock && !startBlock(block.blockNumber, block.startLine, block.lines.size()))
+            LineBlockInfo blockInfo {
+                .blockNumber     = static_cast<int64_t>(block.blockNumber),
+                .startOffset     = static_cast<int64_t>(block.startOffset),
+                .lineNumber      = static_cast<int64_t>(block.startLine),
+                .numLinesInBlock = static_cast<int64_t>(block.lines.size()),
+            };
+
+            if (startBlock && !startBlock(blockInfo))
                 return false;
 
             for (size_t i = 0; i < block.lines.size();  ++i) {
-                if (onLine && !onLine(block.lines[i].data(), block.lines[i].size(), block.blockNumber, block.startLine + i))
+                LineInfo lineInfo {
+                    .line         = std::string_view(block.lines[i].data(), block.lines[i].size()),
+                    .lineNumber   = static_cast<int64_t>(block.startLine + i),
+                    .blockNumber  = static_cast<int64_t>(block.blockNumber),
+                };
+
+                if (onLine && !onLine(lineInfo))
                     return false;
             }
 
-            if (endBlock && !endBlock(block.blockNumber, block.startLine, block.lines.size()))
+            if (endBlock && !endBlock(blockInfo))
                 return false;
 
             return true;
@@ -402,29 +412,11 @@ struct ForEachLineProcessor: public ComputeContext {
 
 size_t
 forEachLine(std::istream & stream,
-            const std::function<void (const char *, size_t,
-                                      int64_t)> & processLine,
+            const LineContinuationFn & processLine,
             shared_ptr<spdlog::logger> logger,
             int numThreads,
             bool ignoreStreamExceptions,
             int64_t maxLines)
-{
-    auto onLineStr = [&] (const string & line, int64_t lineNum) {
-        processLine(line.c_str(), line.size(), lineNum);
-    };
-
-    return forEachLine(stream, onLineStr, logger, numThreads,
-                          ignoreStreamExceptions, maxLines);
-}
-
-size_t
-forEachLineStr(std::istream & stream,
-               const std::function<void (const std::string &,
-                                         int64_t)> & processLine,
-               shared_ptr<spdlog::logger> logger,
-               int numThreads,
-               bool ignoreStreamExceptions,
-               int64_t maxLines)
 {
 
     ForEachLineOptions options;
@@ -442,9 +434,11 @@ forEachLineStr(std::istream & stream,
 
     auto onLine = [&] (const char * line, size_t length, int64_t blockNumber, int64_t lineNumber) -> bool
     {
-        string lineStr(line, length);
+        LineInfo lineInfo { std::string_view(line, length), lineNumber, blockNumber };
         try {
-            processLine(lineStr, lineNumber);
+            bool res = processLine(lineInfo);
+            if (!res)
+                return false;
             auto new_done = done.fetch_add(1) + 1;
 
             if (new_done % 1000000 == 0 && 
@@ -461,7 +455,7 @@ forEachLineStr(std::istream & stream,
                 lastCheck = now;
             }
         } MLDB_CATCH_ALL {
-            WARNING_MSG(logger) << "error dealing with line " << lineStr
+            WARNING_MSG(logger) << "error dealing with line " << lineInfo.line
                                 << ": " << getExceptionString();
             if (!ignoreStreamExceptions) {
                 throw;
@@ -473,46 +467,17 @@ forEachLineStr(std::istream & stream,
     return processor.process(stream, onLine, nullptr /* startBlock */, nullptr /* endBlock */);
 }
 
-size_t
-forEachLine(const std::string & filename,
-            const std::function<void (const char *, size_t, int64_t)> & processLine,
-            shared_ptr<spdlog::logger> logger,
-            int numThreads,
-            bool ignoreStreamExceptions,
-            int64_t maxLines)
-{
-    filter_istream stream(filename);
-    return forEachLine(stream, processLine, logger, numThreads,
-                       ignoreStreamExceptions, maxLines);
-}
-
-size_t
-forEachLineStr(const std::string & filename,
-               const std::function<void (const std::string &, int64_t)> & processLine,
-               shared_ptr<spdlog::logger> logger,
-               int numThreads,
-               bool ignoreStreamExceptions,
-               int64_t maxLines)
-{
-    filter_istream stream(filename);
-    return forEachLineStr(stream, processLine, logger, numThreads,
-                          ignoreStreamExceptions, maxLines);
-}
-
 
 /*****************************************************************************/
 /* FOR EACH LINE BLOCK (ISTREAM)                                             */
 /*****************************************************************************/
 
 bool forEachLineBlock(std::istream & stream,
-                      std::function<bool (const char * line,
-                                          size_t lineLength,
-                                          int64_t blockNumber,
-                                          int64_t lineNumber)> onLine,
+                      const LineContinuationFn & onLine,
                       int64_t maxLines,
                       int maxParallelism,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> startBlock,
-                      std::function<bool (int64_t blockNumber, int64_t lineNumber, uint64_t numLinesInBlock)> endBlock,
+                      const BlockContinuationFn & startBlock,
+                      const BlockContinuationFn & endBlock,
                       ssize_t defaultBlockSize,
                       const BlockSplitter & splitter)
 {
@@ -534,18 +499,11 @@ bool forEachLineBlock(std::istream & stream,
 
 bool forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       uint64_t startOffset,
-                      std::function<bool (const char * line,
-                                          size_t lineLength,
-                                          int64_t blockNumber,
-                                          int64_t lineNumber)> onLine,
+                      const LineContinuationFn & onLine,
                       int64_t maxLines,
                       int maxParallelism,
-                      std::function<bool (int64_t blockNumber,
-                                          int64_t lineNumber,
-                                          uint64_t numLinesInBlock)> startBlock,
-                      std::function<bool (int64_t blockNumber,
-                                          int64_t lineNumber,
-                                          uint64_t numLinesInBlock)> endBlock,
+                      const BlockContinuationFn & startBlock,
+                      const BlockContinuationFn & endBlock,
                       size_t blockSize,
                       const BlockSplitter & splitter)
 {
@@ -567,9 +525,7 @@ bool forEachLineBlock(std::shared_ptr<const ContentHandler> content,
 /*****************************************************************************/
 
 void forEachChunk(std::istream & stream,
-                  std::function<bool (const char * chunk,
-                                      size_t chunkLength,
-                                      int64_t chunkNumber)> onChunk,
+                  const ChunkContinuationFn & onChunk,
                   size_t chunkLength,
                   int64_t maxChunks,
                   int maxParallelism)
@@ -611,7 +567,14 @@ void forEachChunk(std::istream & stream,
                     tp.add(doBlock);
                 }
 
-                if (!onChunk(block.get(), bytesRead, myChunkNumber)) {
+                MLDB::ChunkInfo chunkInfo {
+                    .data = std::span<const char>(block.get(), bytesRead),
+                    .chunkNumber = static_cast<int64_t>(myChunkNumber),
+                    .startOffset = static_cast<int64_t>(myChunkNumber * chunkLength),
+                    .lastChunk = !stream || stream.eof(),
+                };
+
+                if (!onChunk(chunkInfo)) {
                     // We decided to stop.  We should probably stop everything
                     // else, too.
                     stop = true;

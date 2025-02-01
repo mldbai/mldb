@@ -15,7 +15,7 @@
 #include "mldb/watch/watch_impl.h"
 #include "mldb/base/thread_pool.h"
 #include "mldb/base/iostream_adaptors.h"
-#include "mldb/base/processing_state.h"
+#include "mldb/base/compute_context.h"
 
 
 using namespace std;

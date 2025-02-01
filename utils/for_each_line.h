@@ -24,13 +24,24 @@
 
 namespace MLDB {
 
+template<typename Fn, typename... Args>
+struct is_callable_with {
+    template<typename F, typename... A> static auto test(int) -> decltype(std::declval<F>()(std::declval<A>()...), std::true_type());
+    template<typename F, typename... A> static auto test(...) -> std::false_type;
+    using type = decltype(test<Fn, Args...>(0));
+    static constexpr bool value = type::value;
+};
+
+template<typename Fn, typename... Args> constexpr bool is_callable_with_v = is_callable_with<Fn, Args...>::value;
+template<typename Fn, typename... Args> using is_callable_with_t = is_callable_with<Fn, Args...>::type;
+
 struct ContentHandler;
 
 struct LineInfo {
     std::string_view line;
     int64_t lineNumber = -1;
     int64_t blockNumber = -1;
-    int64_t startOffset = -1;
+    //int64_t startOffset = -1;
 };
 
 struct LineContinuationFn: public ContinuationFn<bool (LineInfo line)> {
@@ -38,28 +49,29 @@ struct LineContinuationFn: public ContinuationFn<bool (LineInfo line)> {
     //template<typename... Args> LineContinuationFn(Args&&... args, std::enable_if_t<std::is_constructible_v<Base, Args...>> * = 0): Base(std::forward<Args>(args)...) {}
     using Base::Base;
 
-#if 1
     // Constructor for a function<bool/void (const char *, size_t, int64_t lineNumber, size_t numLinesInBlock)>
-    template<typename Callable/*, typename Return = decltype(std::declval<Callable>()(std::declval<const char *>(), std::declval<int64_t>(), std::declval<int64_t>(), std::declval<int64_t>()))*/>
-    LineContinuationFn(Callable fn, std::enable_if_t<std::is_void_v<decltype(fn("hello",5,1,2))> || std::is_convertible_v<bool, decltype(fn("hello",5,0,0))>> * = 0)
+    template<typename Callable>
+    LineContinuationFn(Callable fn, std::enable_if_t<is_callable_with_v<Callable, const char *, size_t, int64_t, size_t>
+                                                     && !is_callable_with_v<Callable, const char *, size_t, int64_t>> * = 0)
         : Base([fn = std::forward<Callable>(fn)] (LineInfo line) { return fn(line.line.data(), line.line.size(), line.blockNumber, line.lineNumber); }) { }
 
-    template<typename Callable/*, typename Return = decltype(std::declval<Callable>()(std::declval<const char *>(), std::declval<int64_t>(), std::declval<int64_t>(), std::declval<int64_t>()))*/>
-    LineContinuationFn(Callable fn, std::enable_if_t<std::is_void_v<decltype(fn(std::declval<std::string>(),2))> || std::is_convertible_v<bool, decltype(fn(std::declval<std::string>(),2))>> * = 0)
+    // Constructor for a function<bool/void (std::string line, int64_t lineNumber)>
+    template<typename Callable>
+    LineContinuationFn(Callable fn, std::enable_if_t<is_callable_with_v<Callable, std::string, int64_t>> * = 0)
         : Base([fn = std::forward<Callable>(fn)] (LineInfo line) { return fn(std::string(line.line.data(), line.line.data() + line.line.size()), line.lineNumber); }) { }
 
+    // Constructor for a function<bool/void (const char *, size_t, int64_t lineNumber)>
     template<typename Callable>
-    LineContinuationFn(Callable fn, std::enable_if_t<std::is_void_v<decltype(fn("hello",1,2))> || std::is_convertible_v<bool, decltype(fn("hello",1,2))>> * = 0)
+    LineContinuationFn(Callable fn, std::enable_if_t<is_callable_with_v<Callable, const char *, size_t, int64_t>> * = 0)
         : Base([fn = std::forward<Callable>(fn)] (LineInfo line) { return fn(line.line.data(), line.line.size(), line.lineNumber); }) { }
-#endif
 };
 
 struct LineBlockInfo {
-    std::span<const char> block;
     int64_t blockNumber = -1;
     int64_t startOffset = -1;
     int64_t lineNumber = -1;
     int64_t numLinesInBlock = -1;
+    bool lastBlock = false;
 };
 
 struct BlockContinuationFn: public ContinuationFn<bool (LineBlockInfo block)> {
@@ -75,9 +87,10 @@ struct BlockContinuationFn: public ContinuationFn<bool (LineBlockInfo block)> {
 };
 
 struct ChunkInfo {
-    std::span<const char> chunk;
+    std::span<const char> data;
     int64_t chunkNumber = -1;
     int64_t startOffset = -1;
+    bool lastChunk = false;
 };
 
 struct ChunkContinuationFn: public ContinuationFn<bool (ChunkInfo)> {
@@ -124,10 +137,7 @@ forEachLine(std::istream & stream,
 */
 
 bool forEachLineBlock(std::istream & stream,
-                      std::function<bool (const char * line,
-                                          size_t lineLength,
-                                          int64_t blockNumber,
-                                          int64_t lineNumber)> onLine,
+                      const LineContinuationFn & onLine,
                       int64_t maxLines = -1,
                       int maxParallelism = 8,
                       const BlockContinuationFn & startBlock = nullptr,
@@ -155,8 +165,8 @@ bool forEachLineBlock(std::shared_ptr<const ContentHandler> content,
                       const LineContinuationFn & onLine,
                       int64_t maxLines = -1,
                       int maxParallelism = 8,
-                      BlockContinuationFn startBlock = nullptr,
-                      BlockContinuationFn endBlock = nullptr,
+                      const BlockContinuationFn & startBlock = nullptr,
+                      const BlockContinuationFn & endBlock = nullptr,
                       size_t blockSize = 20'000'000,
                       const BlockSplitter & splitter = newLineSplitter);
 
