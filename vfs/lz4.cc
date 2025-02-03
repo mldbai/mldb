@@ -678,14 +678,16 @@ struct Lz4Decompressor: public Decompressor {
         size_t blockNumber = 0;
         size_t blockOffset = 0;
         size_t blockSize = header.blockSize();
-
         
-        while (state != FINISHED && state != STREAM_CHECKSUM && !aborted) {
+        while (!aborted) {
             while (state != FINISHED && state != STREAM_CHECKSUM && state != BLOCK_DATA)
                 pumpState();
 
-            if (state == FINISHED || state == STREAM_CHECKSUM || aborted)
+            if (state == FINISHED || state == STREAM_CHECKSUM) {
+                if (!onBlock(blockNumber, blockOffset, nullptr, 0, true))
+                    aborted = true;
                 break;
+            }
 
             std::shared_ptr<const char> ourBlockData;
             
@@ -716,9 +718,9 @@ struct Lz4Decompressor: public Decompressor {
                                  &aborted,
                                  &onBlock,
                                  &allocate,
-                                 &compute] ()
+                                 &block_compute] ()
                 {
-                    if (compute.relaxed_stopped())
+                    if (block_compute.relaxed_stopped())
                         return;
 
                     std::shared_ptr<const char> outputData;
@@ -727,8 +729,7 @@ struct Lz4Decompressor: public Decompressor {
                     std::tie(outputData, outputLength)
                         = decompressBlock(std::move(ourBlockData),
                                           blockHeader, blockChecksum, allocate);
-                    if (!onBlock(blockNumber, blockOffset,
-                                 outputData, outputLength))
+                    if (!onBlock(blockNumber, blockOffset, outputData, outputLength, false /* lastBlock */))
                         aborted = true;
 
                     //if (header.streamChecksum()) {
@@ -740,10 +741,10 @@ struct Lz4Decompressor: public Decompressor {
             blockOffset += blockSize;
             
             // Finish processing in a new thread
-            if (compute.single_threaded())
+            if (block_compute.single_threaded())
                 processBlock();
             else
-                compute.submit(priority(blockNumber), "lz4 decompress block", std::move(processBlock));
+                block_compute.submit(priority(blockNumber), "lz4 decompress block", std::move(processBlock));
             
             // Start of a new block again
             setCur(BLOCK_HEADER, blockHeader);

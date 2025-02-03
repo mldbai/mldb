@@ -13,7 +13,6 @@
 #include <thread>
 #include <cstring>
 #include <coroutine>
-#include "mldb/ext/concurrentqueue/blockingconcurrentqueue.h"
 #include <future>
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/base/thread_pool.h"
@@ -30,7 +29,6 @@
 #include "mldb/base/compute_context.h"
 
 using namespace std;
-using moodycamel::BlockingConcurrentQueue;
 
 
 namespace MLDB {
@@ -89,6 +87,7 @@ struct ForEachLineProcessor: public ComputeContext {
     };
 
     // Pushes a series of jobs that call onChunk
+    // Returns true if and only if all continuations returned true
     bool chunk_source(std::istream & stream)
     {
         filter_istream * fistream = dynamic_cast<filter_istream *>(&stream);
@@ -116,7 +115,7 @@ struct ForEachLineProcessor: public ComputeContext {
         bool lastChunk = false;
 
         for (size_t chunkNumber = 0; stream; ++chunkNumber) {
-            if (relaxed_stopped()) return false;
+            if (relaxed_stopped() || chunks_in_finished_ || chunks_out_finished_) return false;
             size_t chunkOffset = stream.tellg();
             stream.read(reinterpret_cast<char *>(block.get()), blockSize + extraCapacity);
             ssize_t bytesRead = stream.gcount();
@@ -125,7 +124,7 @@ struct ForEachLineProcessor: public ComputeContext {
             if (!stream)
                 lastChunk = true;
             std::span<const std::byte> mem(block.get(), bytesRead);
-            if (!handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {block}}))
+            if (!handle_out_of_order_chunk({chunkNumber, chunkOffset, lastChunk, mem, {block}}))
                 return false;
         }
         return true;
@@ -141,6 +140,7 @@ struct ForEachLineProcessor: public ComputeContext {
         return blockSize;
     }
 
+    // Returns true if and only if all continuations returned true
     bool chunk_source(std::span<const std::byte> mem, size_t startOffset)
     {
         size_t numBytes = mem.size();
@@ -149,13 +149,13 @@ struct ForEachLineProcessor: public ComputeContext {
         const std::byte * p = mem.data();
         const std::byte * e = p + mem.size();
 
-        for (size_t chunkNumber = 0; p < e; p += blockSize) {
-            if (relaxed_stopped()) return false;
+        for (size_t chunkNumber = 0; p < e; p += blockSize, ++chunkNumber) {
+            if (relaxed_stopped() || chunks_in_finished_ || chunks_out_finished_) return false;
             const std::byte * eb = std::min(e, p + blockSize);
             std::span<const std::byte> mem(p, eb-p);
             size_t chunkOffset = startOffset + p - mem.data();
             bool lastChunk = eb == e;
-            if (!handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}}))
+            if (!handle_out_of_order_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}}))
                 return false;
         }
         return true;
@@ -166,12 +166,12 @@ struct ForEachLineProcessor: public ComputeContext {
         size_t contentSize = content.getSize();
         size_t blockSize = block_size_for_content_length(contentSize);
 
-        auto doBlock = [&] (size_t chunkNumber, uint64_t chunkOffset, FrozenMemoryRegion region)
+        auto doBlock = [&] (size_t chunkNumber, uint64_t chunkOffset, FrozenMemoryRegion region, bool lastBlock)
         {
-            if (relaxed_stopped()) return false;
-            bool lastChunk = chunkOffset + region.length() == contentSize;
+            if (relaxed_stopped() || chunks_in_finished_ || chunks_out_finished_) return false;
+            bool lastChunk = lastBlock || chunkOffset + region.length() == contentSize;
             std::span<const std::byte> mem(reinterpret_cast<const std::byte *>(region.data()), region.length());
-            return handle_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}});
+            return handle_out_of_order_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}});
         };
     
         auto getPriority = [] (size_t chunkNumber) -> int { return CHUNK_STREAM_PRIORITY; };
@@ -179,32 +179,64 @@ struct ForEachLineProcessor: public ComputeContext {
         return res;
     }
 
-    bool handle_chunk(Chunk chunk)
+    bool handle_out_of_order_chunk(Chunk chunk)
     {
-        cerr << "handling chunk " << chunk.chunkNumber << " last " << chunk.lastChunk << endl;
-        size_t numChunksOutstanding = 0;
-        {
-            std::unique_lock guard{chunks_mutex_};
-            if (chunk.chunkNumber == chunks_done_) {
-                if (chunksFinished)
-                    return true;
-                guard.unlock();
-                return handle_next_chunk(std::move(chunk));
+        // The chunks need to be processed in order by handle_next_chunk
+        // This function is called from multiple threads, so we need to reassemble and sychronize them.
+        //
+        // Basically:
+        // - Take a lock on the queue
+        // - Add it to the queue
+        // - For as long as the chunk at the beginning of the queue is the next in-order one
+        //   - drop the lock
+        //   - process it (only we will do se because no other thread will get the next in-order chunk)
+        //   - grab the lock again
+        // - Otherwise
+        // Note that this is the ONLY function which touches the queue. No other functions should touch it.
+
+        std::unique_lock guard{chunks_mutex_};
+        auto [it, inserted] = chunks_.emplace(chunk.chunkNumber, std::move(chunk));
+        ExcAssert(inserted); // Failure means that chunk numbers are repeated by the upstream functions
+
+        while (!chunks_.empty() && it->first == chunks_done_) {
+            Chunk & chunk = it->second;
+
+            guard.unlock();
+            handle_next_chunk(it->second);
+            guard.lock();
+
+            // Nothing should have happened in the meantime...
+            ExcAssertEqual(chunks_done_, chunk.chunkNumber);
+
+            if (chunk.lastChunk || (options.maxLines != -1 && outputLineNumber >= options.maxLines)) {
+                chunks_in_finished_ = true;
+                chunks_out_finished_ = true;
+                chunks_.clear();
+                break;
             }
-            else {
-                chunks_.emplace(chunk.chunkNumber, std::move(chunk));
-                numChunksOutstanding = chunks_.size();
-            }
+            chunks_.erase(it);
+            ++chunks_done_;
+            it = chunks_.begin();
         }
-        
+        guard.unlock();
+
+        // At this point, we have processed all the chunks we can
+        // TODO: if the list of chunks is too big, start slowing down the chunk producers by making them
+        // contribute to work
+
+        //work();
+
+        return !relaxed_stopped() && !chunks_out_finished_;
+
+#if 0
         // Slow down the production of chunks if there are too many by contributing to
         // other work.
-        while (numChunksOutstanding > numCpus() && !relaxed_stopped()) {
+        while (numChunksOutstanding > numCpus() && !relaxed_stopped() && !chunks_out_finished_) {
             {
-                // Make sure there is no data race on chunksFinished
+                // Make sure there is no data race on chunks_out_finished_
                 // We could remove this lock if it becomes a problem by using the right sequencing
                 std::unique_lock guard{chunks_mutex_};
-                if (chunksFinished)
+                if (chunks_out_finished_)
                     break;
             }
 
@@ -212,9 +244,17 @@ struct ForEachLineProcessor: public ComputeContext {
 
             std::unique_lock guard{chunks_mutex_};
             numChunksOutstanding = chunks_.size();
+            if (!chunks_.empty() && chunks_.begin()->first == chunks_done_) {
+                if (chunks_.begin()->second.lastChunk)
+                    chunks_in_finished_ = true;
+                guard.unlock();
+                if (!handle_next_chunk(chunks_.begin()->second))
+                    return false;
+            }
         }
 
         return true;
+#endif
     }
 
     struct LineBlock {
@@ -235,19 +275,24 @@ struct ForEachLineProcessor: public ComputeContext {
     std::any splitterState;
     std::vector<std::shared_ptr<const void>> keep;  // pins for each block in chunkData
 
-    bool handle_next_chunk(Chunk chunk)
+    // Handle the next chunk, which will be done in-order and one at a time. This should do the
+    // smallest amount of work possible, submitting any further processing as a job to be
+    // handled by another thread (if there is one).
+    void handle_next_chunk(Chunk chunk)
     {
-        cerr << "handling in-order chunk " << chunk.chunkNumber << endl;
-        cerr << "chunkData.range_count() = " << chunkData.range_count() << endl;
-        cerr << "keep.size() = " << keep.size() << endl;
+        if (chunks_out_finished_ || relaxed_stopped())
+            return;
+
+        // TODO: If there are too many chunks, then consolidate them
+        // (needs careful thought as to how...)
 
         // Precondition: chunks_done_ is equal to this chunk number
         // Only one thread in this block at a time, which is staisfied by the condition above
         ExcAssertEqual(chunks_done_, chunk.chunkNumber);
         ExcAssertEqual(chunkData.range_count(), keep.size());
 
-        chunkData.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size());
-        keep.emplace_back(chunk.keep);
+        if (chunkData.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size()))
+            keep.emplace_back(chunk.keep);
 
         LineBlock lineBlock;
         lineBlock.keep = keep;
@@ -285,10 +330,6 @@ struct ForEachLineProcessor: public ComputeContext {
 
         size_t lineCount = lines.size();
 
-        cerr << "found " << lineCount << " lines" << endl;
-        cerr << "outputLineNumber = " << outputLineNumber << endl;
-        cerr << "options.maxLines = " << options.maxLines << endl;
-
         if (options.maxLines != -1 && lineCount + outputLineNumber >= options.maxLines) {
             // We've reached the maximum number of lines
             lines.resize(options.maxLines - outputLineNumber);
@@ -300,7 +341,6 @@ struct ForEachLineProcessor: public ComputeContext {
 
         ExcAssertEqual(keep.size(), chunkData.range_count());
         auto [firstChunk, lastChunk] = chunkData.reduce(it, end);
-        cerr << "keeping chunks " << firstChunk << " to " << lastChunk << " of " << keep.size() << endl;
         keep.erase(keep.begin() + lastChunk, keep.end());
         keep.erase(keep.begin(), keep.begin() + firstChunk);
 
@@ -316,10 +356,10 @@ struct ForEachLineProcessor: public ComputeContext {
                 if (this->relaxed_stopped())
                     return;
                 if (!this->handle_line_block(std::move(lineBlock)))
-                    this->stop();
+                    this->stop(ComputeContext::STOPPED_USER);
             };
 
-            if (options.maxParallelism > 1) {
+            if (options.maxParallelism > 0) {
                 submit(priority, "process_line_block " + std::to_string(chunk.chunkNumber), std::move(job));
             }
             else {
@@ -335,19 +375,6 @@ struct ForEachLineProcessor: public ComputeContext {
         outputLineNumber += lineCount;
         outputStartOffset = chunk.startOffset + chunk.data.size();
 
-        // Allow another chunk to happen
-        {
-            std::unique_lock guard{chunks_mutex_};
-            // Nothing should have happened in the meantime...
-            ExcAssertEqual(chunks_done_, chunk.chunkNumber);
-            ++chunks_done_;
-            if (lineBlock.lastBlock) {
-                // We're done
-                chunksFinished = true;
-            }
-        }
-        
-        return true;
     }
 
     std::function<bool (LineBlock)> handle_line_block;
@@ -365,16 +392,19 @@ struct ForEachLineProcessor: public ComputeContext {
                 .startOffset     = static_cast<int64_t>(block.startOffset),
                 .lineNumber      = static_cast<int64_t>(block.startLine),
                 .numLinesInBlock = static_cast<int64_t>(block.lines.size()),
+                .lastBlock       = block.lastBlock,
             };
 
             if (startBlock && !startBlock(blockInfo))
                 return false;
 
             for (size_t i = 0; i < block.lines.size();  ++i) {
+                auto fixedup = options.splitter->fixupBlock({block.lines[i].data(), block.lines[i].size()});
                 LineInfo lineInfo {
-                    .line         = std::string_view(block.lines[i].data(), block.lines[i].size()),
+                    .line         = { fixedup.data(), fixedup.size() },
                     .lineNumber   = static_cast<int64_t>(block.startLine + i),
                     .blockNumber  = static_cast<int64_t>(block.blockNumber),
+                    .lastLine     = block.lastBlock && i == block.lines.size() - 1,
                 };
 
                 if (onLine && !onLine(lineInfo))
@@ -387,7 +417,10 @@ struct ForEachLineProcessor: public ComputeContext {
             return true;
         };
 
-        return chunk_source(source);
+        bool res = chunk_source(source);
+        work_until_finished();
+        rethrow_if_exception();
+        return res && !is_stopped();
 
 
 #if 0
@@ -405,7 +438,8 @@ struct ForEachLineProcessor: public ComputeContext {
     mutable std::mutex chunks_mutex_;
     std::map<size_t, Chunk> chunks_;
     std::atomic<size_t> chunks_done_ = 0;
-    std::atomic<bool> chunksFinished = false;
+    std::atomic<bool> chunks_in_finished_ = false;
+    std::atomic<bool> chunks_out_finished_ = false;
 };
 
 } // file scope

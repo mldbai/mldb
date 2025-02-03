@@ -41,6 +41,7 @@ struct LineInfo {
     std::string_view line;
     int64_t lineNumber = -1;
     int64_t blockNumber = -1;
+    bool lastLine = false;
     //int64_t startOffset = -1;
 };
 

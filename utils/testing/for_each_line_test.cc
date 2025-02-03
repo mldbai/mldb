@@ -30,7 +30,8 @@ namespace {
 void testForEachLineBlock(const std::string & data,
                           size_t blockSize,
                           size_t startOffset,
-                          int64_t maxLines = -1)
+                          int64_t maxLines = -1,
+                          int maxParallelism = 1)
 {
     std::vector<std::string> splitLines = split(string(data, startOffset), '\n');
     for (auto & l: splitLines) {
@@ -85,11 +86,16 @@ void testForEachLineBlock(const std::string & data,
             ++numBlocksFinished;
             return true;
         };
-    
+
+    std::mutex onLineMutex;
+
     auto onLine = [&] (const char * line, size_t length,
                        int64_t blockNumber, int64_t lineNumber) -> bool
         {
-            CHECK(lineNumber == numLines);
+            std::unique_lock lock{onLineMutex};
+            if (maxParallelism == 0) {
+                CHECK(lineNumber == numLines);
+            }
             CHECK(lineNumber < splitLines.size());
             if (lineNumber < splitLines.size()) {
                 if (splitLines[lineNumber] != string(line, length))
@@ -99,8 +105,6 @@ void testForEachLineBlock(const std::string & data,
             ++numLines;
             return true;
         };
-
-    int maxParallelism = 1;
 
     forEachLineBlock(content, startOffset, onLine, maxLines, maxParallelism,
                      onStartBlock, onEndBlock, blockSize);
@@ -115,32 +119,39 @@ void testForEachLineBlock(const std::string & data,
 
 TEST_CASE("test_forEachLineBlock")
 {
-    /* 1 */ testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */);
-    /* 2 */ testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */);
-    /* 3 */ testForEachLineBlock("\n", 1 /* blockSize */, 1 /* startOffset */);
-    /* 4 */ testForEachLineBlock("          ", 1 /* blockSize */, 0 /* startOffset */);
-    /* 5 */ testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 1 /* blockSize */, 0 /* startOffset */);
-    /* 6 */ testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 100 /* blockSize */, 0 /* startOffset */);
-    /* 7 */ testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 100 /* blockSize */, 10 /* startOffset */);
-    /* 8 */ testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 1 /* blockSize */, 10 /* startOffset */);
-    /* 9 */ testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 2 /* blockSize */, 0 /* startOffset */);
-    /* 10 */ testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 2 /* blockSize */, 1 /* startOffset */);
-    /* 11 */ testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 100 /* blockSize */, 0 /* startOffset */);
-    /* 12 */ testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 1 /* blockSize */, 0 /* startOffset */);
-    /* 13 */ testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 2 /* blockSize */, 0 /* startOffset */);
-    /* 14 */ testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 5 /* blockSize */, 0 /* startOffset */);
-
-    /* 15 */ testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */);
-    /* 16 */ testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */);
-    /* 17 */ testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 1 /* max lines */);
-    /* 18 */ testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 2 /* max lines */);
-    /* 19 */ testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */);
-    /* 20 */ testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 1 /* max lines */);
-    /* 21 */ testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 2 /* max lines */);
-    /* 22 */ testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 3 /* max lines */);
-    /* 23 */ testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 4 /* max lines */);
-    
-    /* 24 */ testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n", 5 /* blockSize */, 0 /* startOffset */);
+    for (auto parallelism: { 0 , 1, -1 }) {
+        SECTION("parallelism " + std::to_string(parallelism)) {
+#if 1
+            SECTION("test 1") { testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 2") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 3") { testForEachLineBlock("\n", 1 /* blockSize */, 1 /* startOffset */, -1, parallelism); }
+#endif
+            SECTION("test 4") { testForEachLineBlock("          ", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+#if 1
+            SECTION("test 5") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 6") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 100 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 7") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 100 /* blockSize */, 10 /* startOffset */, -1, parallelism); }
+            SECTION("test 8") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 1 /* blockSize */, 10 /* startOffset */, -1, parallelism); }
+            SECTION("test 9") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 2 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 10") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 2 /* blockSize */, 1 /* startOffset */, -1, parallelism); }
+            SECTION("test 11") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 100 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 12") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 13") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 2 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 14") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 5 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+            SECTION("test 15") { testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */, parallelism); }
+            SECTION("test 16") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */, parallelism); }
+            SECTION("test 17") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 1 /* max lines */, parallelism); }
+            SECTION("test 18") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 2 /* max lines */, parallelism); }
+            SECTION("test 19") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */, parallelism); }
+            SECTION("test 20") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 1 /* max lines */, parallelism); }
+            SECTION("test 21") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 2 /* max lines */, parallelism); }
+            SECTION("test 22") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 3 /* max lines */, parallelism); }
+            SECTION("test 23") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 4 /* max lines */, parallelism); }
+            SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n", 5 /* blockSize */, 0 /* startOffset */, parallelism); }
+            SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n", 5 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+#endif
+        }
+    }
 }
 
 vector<string> dataStrings{"line1", "line2", "", "line forty 2"};
@@ -489,11 +500,11 @@ TEST_CASE("for_each_line newline splitter")
 {
     for (auto parallelism: { 0, 1, -1 }) {
         SECTION("parallelism " + std::to_string(parallelism)) {
-            cerr << "parallelism " << parallelism << endl;
+            //cerr << "parallelism " << parallelism << endl;
             for (auto blockSize: { -1, 1, 2, 3, 5, 17, 1000000 }) {
                 SECTION("blockSize " + std::to_string(blockSize)) {
-                    cerr << "blockSize " << blockSize << endl;
-#if 1
+                    //cerr << "blockSize " << blockSize << endl;
+
                     SECTION("blocked stream") {
                         ForEachLineTester tester;
                         tester.processUsingBlockedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
@@ -506,23 +517,19 @@ TEST_CASE("for_each_line newline splitter")
                         tester.processUsingBlockedMappedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
                         tester.validate();
                     }
-#endif
 
                     SECTION("blocked gzip stream") {
                         ForEachLineTester tester;
-                        tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, 64000 /* maxLines */);
+                        tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, blockSize > 5 ? 64000: 640 /* maxLines */);
                         tester.validate();
                     }
 
-#if 1
                     SECTION("line by line") {
                         ForEachLineTester tester;
                         tester.processUsingLineByLine("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", 1000 /* maxLines */);
                         tester.validate();
                     };
-#endif
 
-#if 1
                     SECTION("blocked content descriptor") {
                         ForEachLineTester tester;
                         tester.processUsingContentDescriptor("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
@@ -536,11 +543,11 @@ TEST_CASE("for_each_line newline splitter")
                             tester.validate();
                         }
                     }
-#endif
                 }
             }
         }
     }
+
 #if 0
     SECTION("blocked filter stream") {
         ForEachLineTester tester;

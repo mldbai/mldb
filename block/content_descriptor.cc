@@ -383,7 +383,7 @@ forEachBlockParallel(uint64_t startOffset,
                      uint64_t requestedBlockSize,
                      ComputeContext & compute,
                      const PriorityFn<int (size_t chunkNum)> & priority,
-                     const ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block)> & onBlock) const
+                     const OnBlockFn & onBlock) const
 {
     constexpr bool debug = false;
     if (debug) cerr << "ContentHandler foreachblockparallel" << endl;
@@ -395,6 +395,14 @@ forEachBlockParallel(uint64_t startOffset,
 
     size_t blockNumber = 0;
 
+    auto submitBlockJob = [&] (auto && block)
+    {
+        if (compute.single_threaded())
+            block();
+        else
+            block_compute.submit(priority(blockNumber), "ContentHandler::forEachBlockParallel", std::move(block));
+    };
+
     while (!finished && !compute.relaxed_stopped()) {
         uint64_t startOffset;
         FrozenMemoryRegion region;
@@ -404,8 +412,15 @@ forEachBlockParallel(uint64_t startOffset,
 
         if (debug) cerr << "startOffset = " << startOffset << " region = " << (bool)region << endl;
 
-        if (!region)
+        if (!region && !finished) {
+            // This is the last block
+            submitBlockJob([blockNumber, startOffset, &onBlock, &finished] ()
+                           {
+                               if (!onBlock(blockNumber, startOffset, FrozenMemoryRegion(), true /* lastBlock */))
+                                    finished = true;
+                           });
             break;
+        }
         
         uint64_t toSkip = startOffset - offset;
         ExcAssertEqual(toSkip, 0);
@@ -417,14 +432,12 @@ forEachBlockParallel(uint64_t startOffset,
         auto processBlock
             = [myBlockNumber, startOffset, region, &onBlock, &finished] ()
             {
-                if (!onBlock(myBlockNumber, startOffset, region))
+                if (!onBlock(myBlockNumber, startOffset, region, false /* lastBlock */)) {
                     finished = true;
+                }
             };
 
-        if (compute.single_threaded())
-            processBlock();
-        else
-            block_compute.submit(priority(blockNumber), "ContentHandler::forEachBlockParallel", std::move(processBlock));
+        submitBlockJob(std::move(processBlock));
 
         offset = startOffset + region.length();
     }
@@ -854,7 +867,7 @@ struct ContentDecompressor
                          uint64_t requestedBlockSize,
                          ComputeContext & compute,
                          const PriorityFn<int (size_t chunkNum)> & priority,
-                         const ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block)> & fn) const override
+                         const OnBlockFn & fn) const override
     {
         //maxParallelism = 1;
 
@@ -894,7 +907,8 @@ struct ContentDecompressor
         auto onBlock = [&] (size_t blockNumber,
                             uint64_t blockStartOffset,
                             std::shared_ptr<const char> mem,
-                            size_t length) -> bool
+                            size_t length,
+                            bool lastBlock) -> bool
             {
                 if (blockStartOffset + length < startOffset)
                     return true;
@@ -907,7 +921,7 @@ struct ContentDecompressor
                 }
 
                 FrozenMemoryRegion region(mem, mem.get(), length);
-                return fn(blockNumber, blockStartOffset, std::move(region));
+                return fn(blockNumber, blockStartOffset, std::move(region), lastBlock);
             };
 
         auto allocate = [&] (size_t len) -> std::shared_ptr<char>

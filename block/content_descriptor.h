@@ -162,12 +162,14 @@ struct ContentHandler {
 
     virtual AccessPattern getPattern() const = 0;
 
+    using OnBlockFn = ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block, bool lastBlock)>;
+
     virtual bool
     forEachBlockParallel(uint64_t startOffset,
                          uint64_t requestedBlockSize,
                          ComputeContext & compute,
                          const PriorityFn<int (size_t chunkNum)> & priority,
-                         const ContinuationFn<bool (size_t blockNum, uint64_t blockOffset, FrozenMemoryRegion block)> & onBlock) const;
+                         const OnBlockFn & onBlock) const;
     
     virtual FrozenMemoryRegion getRange(uint64_t offset = 0,
                                         int64_t length = -1) const;

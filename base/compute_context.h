@@ -129,7 +129,7 @@ struct ComputeContext {
     bool relaxed_stopped() const { return state_.load(std::memory_order_relaxed) != RUNNING; }
 
     // Stop the processing
-    void stop();
+    void stop(State reason);
 
     // Submit a job with the given priority to be processed.
     void submit(int priority, std::string info, std::function<void ()> fn);

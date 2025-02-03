@@ -112,6 +112,10 @@ struct ThreadPool {
     /** Lend the calling thread to the thread pool for one job. */
     void work() const;
 
+    /** Lend the calling thread to the thread pool for one job, or return
+        immediately if there is no work to do. */
+    void tryWork() const;
+
     size_t numThreads() const;
 
     uint64_t jobsRunning() const;

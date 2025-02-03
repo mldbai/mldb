@@ -6,16 +6,12 @@
    This file is part of MLDB. Copyright 2015 mldb.ai inc. All rights reserved.
 */
 
-#define BOOST_TEST_MAIN
-#define BOOST_TEST_DYN_LINK
-
 #include "mldb/vfs/filter_streams.h"
 #include "mldb/block/content_descriptor.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/json.h"
 #include "mldb/arch/atomic_min_max.h"
-
-#include <boost/test/unit_test.hpp>
+#include "mldb/utils/testing/mldb_catch2.h"
 
 using namespace std;
 using namespace MLDB;
@@ -149,17 +145,27 @@ BOOST_AUTO_TEST_CASE( test_compressed_random_access )
     
 }
 
-BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
+
+struct TestParallelDecompressData {
+    size_t numBlocks = 0, totalLength = 0, maxNumParallel = 0, minBlock = 10000000, maxBlock = 0;
+    bool hasLastBlock = false;
+};
+
+TestParallelDecompressData testParallelDecompress(string input_file, int maxParallelism = 16)
 {
-    string input_file = "mldb_test_data/reviews_Digital_Music_5.json.zstd";
     ContentDescriptor descriptor = jsonDecode<ContentDescriptor>("file://" + input_file);
     std::shared_ptr<ContentHandler> handler = getDecompressedContent(descriptor);
 
     std::atomic<size_t> numBlocks{0}, totalLength{0}, numParallel{0}, maxNumParallel{0}, minBlock(10000000), maxBlock(0);
+    bool hasLastBlock = false;
 
     auto onBlock = [&] (size_t blockNum, uint64_t blockOffset,
-                        FrozenMemoryRegion block)
+                        FrozenMemoryRegion block, bool lastBlock)
     {
+        if (lastBlock) {
+            BOOST_CHECK(!hasLastBlock);
+            hasLastBlock = true;
+        }
         auto par = numParallel.fetch_add(1) + 1;
         atomic_max(maxNumParallel, par);
         atomic_min(minBlock, blockNum);
@@ -176,16 +182,72 @@ BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
         return true;
     };
 
-    ComputeContext compute(16 /* maxParallelism */);
+    ComputeContext compute(maxParallelism);
 
     handler->forEachBlockParallel(0, 1024 * 1024 /* requested block size */, compute, 1 /* priority */, onBlock);
+    BOOST_CHECK_EQUAL(numParallel, 0);
 
     cerr << "maxNumParallel = " << maxNumParallel << endl;
+    return { numBlocks, totalLength, maxNumParallel, minBlock, maxBlock, hasLastBlock };
+}
 
-    BOOST_CHECK_EQUAL(numBlocks, 679);
-    BOOST_CHECK_EQUAL(totalLength, 88964528);
-    BOOST_CHECK_EQUAL(numParallel, 0);
-    BOOST_CHECK_GT(maxNumParallel, 1);
-    BOOST_CHECK_EQUAL(minBlock, 0);
-    BOOST_CHECK_EQUAL(maxBlock, 678);
+
+BOOST_AUTO_TEST_CASE( test_parallel_decompress_zstd )
+{
+    string input_file = "mldb_test_data/reviews_Digital_Music_5.json.zstd";
+
+    for (auto maxParallelism: {0, 1, 4, 16}) {
+        SECTION("maxParallelism = " + to_string(maxParallelism)) {
+
+            auto [numBlocks, totalLength, maxNumParallel, minBlock, maxBlock, hasLastBlock]
+                = testParallelDecompress(input_file, 16 /* maxParallelism */);
+
+            BOOST_CHECK_EQUAL(hasLastBlock, true);
+            BOOST_CHECK_EQUAL(numBlocks, 680);
+            BOOST_CHECK_EQUAL(totalLength, 88964528);
+            if (maxParallelism > 0)
+                BOOST_CHECK_GT(maxNumParallel, 1);
+            BOOST_CHECK_EQUAL(minBlock, 0);
+            BOOST_CHECK_EQUAL(maxBlock, 679);
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_parallel_decompress_lz4 )
+{
+    string input_file = "mldb_test_data/train-1m.csv.lz4";
+    for (auto maxParallelism: {0, 1, 4, 16}) {
+        SECTION("maxParallelism = " + to_string(maxParallelism)) {
+
+            auto [numBlocks, totalLength, maxNumParallel, minBlock, maxBlock, hasLastBlock]
+                = testParallelDecompress(input_file, maxParallelism);
+
+            BOOST_CHECK_EQUAL(hasLastBlock, true);
+            BOOST_CHECK_EQUAL(numBlocks, 13);
+            BOOST_CHECK_EQUAL(totalLength, 48882727);
+            if (maxParallelism > 0)
+                BOOST_CHECK_GT(maxNumParallel, 1);
+            BOOST_CHECK_EQUAL(minBlock, 0);
+            BOOST_CHECK_EQUAL(maxBlock, 12);
+        }
+    }
+}
+
+BOOST_AUTO_TEST_CASE( test_parallel_decompress_gzip )
+{
+    string input_file = "mldb_test_data/enron.csv.gz";
+    for (auto maxParallelism: {0, 1, 4, 16}) {
+        SECTION("maxParallelism = " + to_string(maxParallelism)) {
+            auto [numBlocks, totalLength, maxNumParallel, minBlock, maxBlock, hasLastBlock]
+                = testParallelDecompress(input_file, 16 /* maxParallelism */);
+
+            BOOST_CHECK_EQUAL(hasLastBlock, true);
+            BOOST_CHECK_EQUAL(numBlocks, 408);
+            BOOST_CHECK_EQUAL(totalLength, 52229289);
+            if (maxParallelism > 0)
+                BOOST_CHECK_GT(maxNumParallel, 1);
+            BOOST_CHECK_EQUAL(minBlock, 0);
+            BOOST_CHECK_EQUAL(maxBlock, 407);
+        }
+    }
 }

@@ -184,7 +184,7 @@ forEachBlockParallel(size_t requestedBlockSize,
                      ComputeContext & compute,
                      const PriorityFn<int (size_t chunkNum)> & priority)
 {
-    bool finished = false;
+    std::atomic<bool> finished = false;
     size_t blockNumber = 0;
     size_t currentOffset = 0;
     size_t numChars = 0;
@@ -206,7 +206,21 @@ forEachBlockParallel(size_t requestedBlockSize,
         job();
     };
 
-    while (std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
+    auto submitJob = [&] (ThreadJob job)
+    {
+        if (!compute.single_threaded()) {
+            {
+                std::unique_lock guard{jobsMutex};
+                jobs.push_back(std::move(job));
+            }
+            compute.submit(priority(blockNumber), "Decompressor::forEachBlockParallel", doOne);
+        }
+        else {
+            job();
+        }
+    };
+
+    while (!finished.load(std::memory_order_relaxed) && std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
         auto onData = [&] (std::shared_ptr<const char> data, size_t len) -> size_t
             {
                 if (finished)
@@ -218,29 +232,31 @@ forEachBlockParallel(size_t requestedBlockSize,
                 auto doBlock = [myBlockNumber, myOffset, data = std::move(data),
                                 len, &finished, &onBlock] ()
                 {
-                    if (finished)
+                    if (finished.load(std::memory_order_relaxed))
                         return;
-                    if (!onBlock(myBlockNumber, myOffset, std::move(data), len)) {
+                    if (!onBlock(myBlockNumber, myOffset, std::move(data), len, false /* lastBlock */)) {
                         finished = true;
                     }
                 };
 
-                if (!compute.single_threaded()) {
-                    {
-                        std::unique_lock guard{jobsMutex};
-                        jobs.push_back(std::move(doBlock));
-                    }
-                    compute.submit(priority(myBlockNumber), "Decompressor::forEachBlockParallel", doOne);
-                }
-                else {
-                    doBlock();
-                }
+                submitJob(doBlock);
                 
                 currentOffset += len;
                 return len;
             };
         
         decompress(buf, numChars, onData, allocate);
+    }
+
+    if (!finished) {
+        auto doLastBlock = [&] ()
+        {
+            if (finished.load(std::memory_order_relaxed))
+                return;
+            if (!onBlock(blockNumber, currentOffset, std::shared_ptr<const char>(), 0, true /* lastBlock */))
+                finished = true;
+        };
+        submitJob(doLastBlock);
     }
 
     compute.work_until_finished();

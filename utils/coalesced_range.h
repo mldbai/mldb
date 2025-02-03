@@ -180,6 +180,12 @@ struct CoalescedRangeIterator {
     size_t block_offset() const { return offset_; }
     bool at_the_end() const { return range_ == ranges_->size(); }
 
+    // Used in the implementation of some algorithms which work better if the off_the_end is represented
+    // by a range_ pointing to the last range and offset_ pointing to the end of that range. Note that
+    // the iterator to which this is done is no longer usable as an iterator.
+
+    void flip_ate() { if (at_the_end() && range_ > 0) { --range_; offset_ = range_size(); } }
+
     template<typename T, typename R> friend struct CoalescedRange;
 };
 
@@ -200,18 +206,21 @@ struct CoalescedRange {
     // Add something to the ranges. Invalidates iterators.
     // If it is empty, it will not be added.
     // If it is an extension of the previous range, then it will be extended.
-    template<typename... Args> void add(Args&&... args) { return add(range_type(std::forward<Args>(args)...)); }
+    // Returns true if and only if the length of ranges_ increased
+    template<typename... Args> bool add(Args&&... args) { return add(range_type(std::forward<Args>(args)...)); }
 
-    void add(range_type range)
+    bool add(range_type range)
     {
         if (range.empty())
-            return;
+            return false;
         else if (!ranges_.empty() && ranges_.back().data() + ranges_.back().size() == range.data()) {
             // Contiguous, combine them
             ranges_.back() = {ranges_.back().data(), ranges_.back().size() + range.size()};
+            return false;
         }
         else {
             ranges_.push_back(range);
+            return true;
         }
     }
 
@@ -292,12 +301,17 @@ struct CoalescedRange {
     // span of memory between them. Otherwise, a null option is returned.
     std::optional<range_type> get_span(const_iterator begin, const_iterator end) const
     {
-        ExcCheck(begin < end, "Attempt to extract backwards span");
+        ExcCheck(begin <= end, "Attempt to extract backwards span");
         ExcCheck(begin.ranges_ == &ranges_ && end.ranges_ == &ranges_, "Attempt to extract span from wrong ranges");
+
+        if (begin == end)
+            return range_type();
+
+        end.flip_ate();
+
         if (begin.range_ != end.range_)
             return std::nullopt;
-        if (begin.range_ == ranges_.size())
-            return range_type();
+
         auto first = begin.range_it();
         auto last = end.range_it();
         return range_type(first, last - first);    

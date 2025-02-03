@@ -168,3 +168,50 @@ TEST_CASE("coalesced range to_string()")
         }
     }
 }
+
+TEST_CASE("coalesced range get_span")
+{
+    CoalescedRange<const char> range;
+
+    range.add(span<const char>("hello, world!", 13));
+
+    SECTION("full range") {
+        auto found = range.get_span(range.begin(), range.end());
+        REQUIRE(found.has_value());
+        CHECK(std::string(found->data(), found->data() + found->size()) == "hello, world!");
+    }
+
+    SECTION("partial range at end") {
+        auto found = range.get_span(range.begin() + 7, range.end());
+        REQUIRE(found.has_value());
+        CHECK(std::string(found->data(), found->data() + found->size()) == "world!");
+    }
+
+    SECTION("partial range at beginning") {
+        auto found = range.get_span(range.begin(), range.begin() + 5);
+        REQUIRE(found.has_value());
+        CHECK(std::string(found->data(), found->data() + found->size()) == "hello");
+    }
+
+    SECTION("empty range at beginning") {
+        auto found = range.get_span(range.begin(), range.begin());
+        CHECK(found.has_value());
+        CHECK(found->size() == 0);
+    }
+
+    SECTION("empty range at end") {
+        auto found = range.get_span(range.end(), range.end());
+        CHECK(found.has_value());
+        CHECK(found->size() == 0);
+    }
+
+    SECTION("empty range in middle") {
+        auto found = range.get_span(range.begin() + 5, range.begin() + 5);
+        CHECK(found.has_value());
+        CHECK(found->size() == 0);
+    }
+
+    SECTION("backwards range") {
+        CHECK_THROWS(range.get_span(range.end(), range.begin()));
+    }
+}

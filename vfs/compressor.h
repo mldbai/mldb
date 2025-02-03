@@ -190,7 +190,8 @@ struct Decompressor {
     typedef ContinuationFn<bool (size_t blockNumber,
                                  uint64_t blockOffset,
                                  std::shared_ptr<const char> blockStart,
-                                 size_t blockLength)>
+                                 size_t blockLength,
+                                 bool lastBlock)>
         ForEachBlockFunction;
 
     typedef std::function<std::pair<std::shared_ptr<const char>, size_t> (size_t)>
