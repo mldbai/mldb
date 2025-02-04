@@ -190,7 +190,7 @@ BOOST_AUTO_TEST_CASE(threadPoolBindingAdd)
 
 BOOST_AUTO_TEST_CASE(threadPoolExceptionCatching)
 {
-    ThreadWorkGroup workGroup;
+    ThreadPool workGroup(-1 /* num threads */, true /* catch exceptions */);
 
     workGroup.add([] () { throw Exception("hello"); });
 
@@ -208,7 +208,7 @@ BOOST_AUTO_TEST_CASE(threadPoolExceptionCatching)
 
 BOOST_AUTO_TEST_CASE(threadPoolMultiExceptionCatching)
 {
-    ThreadWorkGroup workGroup;
+    ThreadPool workGroup(-1 /* num threads */, true /* catch exceptions */);
 
     for (size_t i = 0;  i < 100;  ++i) {
         workGroup.add([] () { throw Exception("hello"); });

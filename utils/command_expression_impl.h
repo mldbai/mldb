@@ -214,17 +214,61 @@ bindFunction(const std::function<void (A1, A2, A3, A4, A5)> & fn)
 struct CommandExpressionDescription
     : public ValueDescriptionT<std::shared_ptr<CommandExpression> > {
 
-    virtual void parseJsonTyped(std::shared_ptr<CommandExpression> * val,
-                                JsonParsingContext & context) const
+    virtual bool isDefaultTyped(const std::shared_ptr<CommandExpression> * val) const override
     {
+        return !(*val);
+    }
+
+    virtual void parseJsonTyped(std::shared_ptr<CommandExpression> * val,
+                                JsonParsingContext & context) const override
+    {
+        if (context.isNull()) {
+            *val = nullptr;
+            return;
+        }
         std::string str = context.expectStringAscii();
         ParseContext pcontext(str, str.c_str(), str.c_str() + str.size());
         *val = CommandExpression::parseExpression(pcontext, false);
     }
 
     virtual void printJsonTyped(const std::shared_ptr<CommandExpression> * val,
-                                JsonPrintingContext & context) const
+                                JsonPrintingContext & context) const override
     {
+        if (!(*val)) {
+            context.writeNull();
+            return;
+        }
+        context.writeString((*val)->surfaceForm);
+    }
+};
+
+struct ConstCommandExpressionDescription
+    : public ValueDescriptionT<std::shared_ptr<const CommandExpression> > {
+
+    virtual bool isDefaultTyped(const std::shared_ptr<const CommandExpression> * val) const override
+    {
+        return !(*val);
+    }
+
+    virtual void parseJsonTyped(std::shared_ptr<const CommandExpression> * val,
+                                JsonParsingContext & context) const override
+    {
+        if (context.isNull()) {
+            *val = nullptr;
+            return;
+        }
+        std::string str = context.expectStringAscii();
+        ParseContext pcontext(str, str.c_str(), str.c_str() + str.size());
+        *val = CommandExpression::parseExpression(pcontext, false);
+    }
+
+    virtual void printJsonTyped(const std::shared_ptr<const CommandExpression> * val,
+                                JsonPrintingContext & context) const override
+    {
+        if (!(*val)) {
+            context.writeNull();
+            return;
+        }
         context.writeString((*val)->surfaceForm);
     }
 };

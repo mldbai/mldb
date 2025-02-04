@@ -9,7 +9,7 @@ set(LIBVFS_SOURCES
     http_streambuf.cc
     compressor.cc
     exception_ptr.cc
-    libdb_initialization.cc
+    libdb_init.cc
     gzip.cc
     bzip2.cc
     lzma.cc
@@ -21,7 +21,6 @@ set(LIBVFS_SOURCES
 # Define the libraries to link with the VFS library
 set(LIBVFS_LINK
     arch
-    Boost::iostreams
     types
     http
     lz4

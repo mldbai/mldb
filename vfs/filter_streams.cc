@@ -18,11 +18,6 @@
 #include "compressor.h"
 #include <fstream>
 #include <mutex>
-#include <boost/iostreams/filtering_stream.hpp>
-#include <boost/iostreams/device/file.hpp>
-#include <boost/iostreams/device/file_descriptor.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
-#include <boost/version.hpp>
 #include "mldb/arch/exception.h"
 #include <errno.h>
 #include <sstream>
@@ -30,13 +25,21 @@
 #include <unordered_map>
 #include "fs_utils.h"
 #include "mldb/base/exc_assert.h"
+#include "mldb/base/scope.h"
 #include "mldb/utils/lexical_cast.h"
 #include "mldb/utils/split.h"
-
+#include "mldb/arch/vm.h"
+#include "mldb/base/iostream_adaptors.h"
+#include <unistd.h>
 
 using namespace std;
 
 namespace MLDB {
+
+
+/*****************************************************************************/
+/* URI HANDLING                                                              */
+/*****************************************************************************/
 
 const UriHandlerFactory &
 getUriHandler(const std::string & scheme);
@@ -65,27 +68,37 @@ UriHandler(std::streambuf * buf,
 
 
 /*****************************************************************************/
-/* BOOST COMPRESSOR                                                          */
+/* STREAM COMPRESSOR                                                         */
 /*****************************************************************************/
 
-/** Adaptor to allow boost::iostreams to be served by a compressor object. */
+struct StreamCompressor {
+    using is_filter = std::true_type;
 
-struct BoostCompressor: public boost::iostreams::multichar_output_filter {
-
-    BoostCompressor(Compressor * compressor)
-        : compressor(compressor)
+    StreamCompressor(Compressor * compressor, std::streambuf & buf)
+        : compressor(compressor), buf(buf)
     {
+        // Record the start position so that once we know the actual written
+        // size we can go back and rewrite the header with the right size.
+        if (compressor->canFixupLength()) {
+            try {
+                MLDB_TRACE_EXCEPTIONS(false);
+                startPos = buf.pubseekoff(0, ios::cur, ios_base::in);
+            } catch (std::ios_base::failure exc) {
+                startPos = -1;
+            }
+        }
     }
 
     template<typename Sink>
     void writeAll(Sink& sink, const char* data, size_t size)
     {
         while (size > 0) {
-            size_t written = boost::iostreams::write(sink, data, size);
+            size_t written = write_stream(sink, data, size);
             if (!written) throw Exception("unable to write data");
             
             data += written;
             size -= written;
+            bytesWritten += written;
         }
     }
 
@@ -99,19 +112,40 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
             };
         
         compressor->compress(s, n, onData);
+        bytesRead += n;
         return n;
     }
 
     template<typename Sink>
     void close(Sink& sink)
     {
+        if (alreadyClosed)
+            return;
+
         auto onData = [&] (const char * data, size_t len) -> size_t
             {
                 writeAll(sink, data, len);
                 return len;
             };
         
+        if (bytesRead == 0) {
+            compressor->notifyInputSize(0);            
+        }
         compressor->finish(onData);
+
+        if (bytesRead != 0 && startPos != -1 && compressor->canFixupLength()) {
+            std::string data = compressor->newHeaderForLength(bytesRead);
+            {
+                std::ostream stream(&buf);
+                auto oldPos = stream.tellp();
+                stream.seekp(startPos, std::ios::beg);
+                stream.write(data.data(), data.size());
+                stream.flush();
+                stream.seekp(oldPos, std::ios::beg);
+            }
+        }
+
+        alreadyClosed = true;
     }
 
     template<typename Sink>
@@ -127,25 +161,25 @@ struct BoostCompressor: public boost::iostreams::multichar_output_filter {
     }
 
     std::shared_ptr<Compressor> compressor;
+    std::streambuf & buf;
+    uint64_t bytesWritten = 0;
+    uint64_t bytesRead = 0;
+    int64_t startPos = -1;
+    bool alreadyClosed = false;
 };
 
 
 /*****************************************************************************/
-/* BOOST DECOMPRESSOR                                                        */
+/* STREAM DECOMPRESSOR                                                        */
 /*****************************************************************************/
 
-/** Adaptor to allow boost::iostreams to be served by a decompressor object. */
+/** Adaptor to allow iostreams to be served by a decompressor object. */
 
-struct BoostDecompressor {
+struct StreamDecompressor {
+    using is_filter = std::true_type;
     typedef char char_type;
     
-    struct category
-        : public boost::iostreams::filter_tag,
-          public boost::iostreams::input_seekable,
-          public boost::iostreams::multichar_tag {
-    };
-
-    BoostDecompressor(Decompressor * decompressor)
+    StreamDecompressor(Decompressor * decompressor)
         : decompressor(decompressor)
     {
         inbuf.resize(4096);
@@ -172,8 +206,11 @@ struct BoostDecompressor {
             outbufPos = 0;
         }
 
-        if (n == 0)
+        if (n == 0) {
+            if (s == sBefore && eof)
+                return EOF;
             return s - sBefore;
+        }
 
         // Now, call the decompressor
 
@@ -193,9 +230,10 @@ struct BoostDecompressor {
             };
         
         while (n > 0) {
-            ssize_t numRead = boost::iostreams::read(src, inbuf.data(), inbuf.size());
+            ssize_t numRead = read_stream(src, inbuf.data(), inbuf.size());
             if (numRead <= 0) {
                 decompressor->finish(onData);
+                eof = true;
                 break;
             }
             else {
@@ -203,7 +241,7 @@ struct BoostDecompressor {
             }
         }
 
-        return s - sBefore;
+        return (s == sBefore && eof) ? EOF : s - sBefore;
     }
     
     template<typename Source>
@@ -235,7 +273,8 @@ struct BoostDecompressor {
     std::string outbuf; ///< Characters returned from decompressor but not yet written
     size_t outbufPos = 0;   ///< Position in outbuf
     uint64_t streamPos = 0;
-    
+    bool eof = false;
+
     std::shared_ptr<Decompressor> decompressor;
 };
 
@@ -318,7 +357,7 @@ filter_ostream::
         close();
     }
     catch (...) {
-        cerr << "~filter_ostream: ignored exception\n";
+        cerr << "~filter_ostream: ignored exception\n" + MLDB::getExceptionString() + "\n";
     }
 }
 
@@ -343,13 +382,11 @@ operator = (filter_ostream && other)
 namespace {
 
 void addCompression(streambuf & buf,
-                    boost::iostreams::filtering_ostream & stream,
+                    filtering_ostream & stream,
                     const Utf8String & resource,
                     const std::string & compression,
                     int compressionLevel)
 {
-    using namespace boost::iostreams;
-
     if (compression == "none") {
         // nothing to do
     }
@@ -358,7 +395,7 @@ void addCompression(streambuf & buf,
             = Compressor::create(compression, compressionLevel);
         if (!compressor)
             throw MLDB::Exception("unknown filter compression " + compression);
-        stream.push(BoostCompressor(compressor));
+        stream.push(StreamCompressor(compressor, buf));
     }
     else {
         std::string compressionFromFilename
@@ -368,13 +405,13 @@ void addCompression(streambuf & buf,
                 = Compressor::create(compressionFromFilename, compressionLevel);
             if (!compressor)
                 throw MLDB::Exception("unknown filter compression " + compression);
-            stream.push(BoostCompressor(compressor));
+            stream.push(StreamCompressor(compressor, buf));
         }
     }
 }
 
 void addCompression(streambuf & buf,
-                    boost::iostreams::filtering_ostream & stream,
+                    filtering_ostream & stream,
                     const Utf8String & resource,
                     const std::map<std::string, std::string> & options)
 {
@@ -399,12 +436,12 @@ createOptions(std::ios_base::openmode mode,
               int compressionLevel)
 {
     /* 
-app	(append) Set the stream's position indicator to the end of the stream before each output operation.
-ate	(at end) Set the stream's position indicator to the end of the stream on opening.
-binary	(binary) Consider stream as binary rather than text.
-in	(input) Allow input operations on the stream.
-out	(output) Allow output operations on the stream.
-trunc	(truncate) Any current content is discarded, assuming a length of zero on opening.
+        app	(append) Set the stream's position indicator to the end of the stream before each output operation.
+        ate	(at end) Set the stream's position indicator to the end of the stream on opening.
+        binary	(binary) Consider stream as binary rather than text.
+        in	(input) Allow input operations on the stream.
+        out	(output) Allow output operations on the stream.
+        trunc	(truncate) Any current content is discarded, assuming a length of zero on opening.
     */
 
     string modeStr;
@@ -499,8 +536,6 @@ filter_ostream::
 open(const Utf8String & uri,
      const std::map<std::string, std::string> & options)
 {
-    using namespace boost::iostreams;
-
     auto [scheme, resource] = getScheme(uri);
 
     std::ios_base::openmode mode = getMode(options);
@@ -549,10 +584,7 @@ openFromStreambuf(std::streambuf * buf,
                   const Utf8String & resource,
                   const std::map<std::string, std::string> & options)
 {
-
     // TODO: exception safety for buf
-
-    using namespace boost::iostreams;
 
     //cerr << "buf = " << (void *)buf << endl;
     //cerr << "weOwnBuf = " << weOwnBuf << endl;
@@ -597,8 +629,6 @@ open(int fd, std::ios_base::openmode mode,
 void filter_ostream::
 open(int fd, const std::map<std::string, std::string> & options)
 {
-    using namespace boost::iostreams;
-    
     unique_ptr<filtering_ostream> new_stream
         (new filtering_ostream());
 
@@ -612,12 +642,8 @@ open(int fd, const std::map<std::string, std::string> & options)
         }
     }
 
-#if (BOOST_VERSION < 104100)
-    new_stream->push(file_descriptor_sink(fd));
-#else
-    new_stream->push(file_descriptor_sink(fd,
-                                          boost::iostreams::never_close_handle));
-#endif
+    new_stream->push(file_descriptor_sink(fd, never_close_handle));
+
     stream.reset(new_stream.release());
     sink.reset();
     rdbuf(stream->rdbuf());
@@ -629,13 +655,13 @@ void
 filter_ostream::
 close()
 {
-    if (stream) {
-        boost::iostreams::flush(*stream);
-        boost::iostreams::close(*stream);
+    if (rdbuf()) {
+        flush_stream(*rdbuf());
+        close_stream(*rdbuf());
     }
-    exceptions(ios::goodbit);
-    rdbuf(0);
     stream.reset();
+    exceptions(ios::goodbit);
+    rdbuf(nullptr);
     sink.reset();
     options.clear();
     if (deferredExcPtr) {
@@ -847,20 +873,18 @@ openFromStreambuf(std::streambuf * buf,
 {
     // TODO: exception safety for buf
 
-    using namespace boost::iostreams;
-
     unique_ptr<filtering_istream> new_stream
         (new filtering_istream());
 
     if (compression == "") {
         std::string compression = Compressor::filenameToCompression(resource);
         if (compression != "") {
-            new_stream->push(BoostDecompressor(Decompressor::create(compression)));
+            new_stream->push(StreamDecompressor(Decompressor::create(compression)));
         }
     } else if (compression == "none") {
         // no-op
     } else {
-        new_stream->push(BoostDecompressor(Decompressor::create(compression)));
+        new_stream->push(StreamDecompressor(Decompressor::create(compression)));
     }
 
     if (!new_stream->empty()) {
@@ -888,8 +912,8 @@ filter_istream::
 close()
 {
     if (stream) {
-        boost::iostreams::flush(*stream);
-        boost::iostreams::close(*stream);
+        flush_stream(*stream);
+        close_stream(*stream);
     }
     exceptions(ios::goodbit);
     rdbuf(0);
@@ -962,11 +986,11 @@ fork(const std::map<std::string, std::string> & options) const
     return result;
 }
 
-std::pair<const char *, size_t>
+std::tuple<const char *, size_t, size_t>
 filter_istream::
 mapped() const
 {
-    return { handlerOptions.mapped, handlerOptions.mappedSize };
+    return { handlerOptions.mapped, handlerOptions.mappedSize, handlerOptions.mappedCapacity };
 }
 
 FsObjectInfo
@@ -1031,8 +1055,6 @@ struct RegisterFileHandler {
                    const std::map<std::string, std::string> & options,
                    const OnUriHandlerException & onException)
     {
-        using namespace boost::iostreams;
-
         if (resource == "")
             resource = "/dev/null";
 
@@ -1061,13 +1083,26 @@ struct RegisterFileHandler {
             } 
             else {
                 try {
-                    mapped_file_source source(resource.rawString());
-                    shared_ptr<std::streambuf> buf(new stream_buffer<mapped_file_source>(source));
+                    // Here is where we stick things we need to 
+                    using KeepMeAround = std::vector<std::shared_ptr<const void>>;
+                    auto keepMe = std::make_shared<KeepMeAround>();
+
+                    mapped_file_params params(resource.rawString());
+                    params.extra_capacity = MAPPING_EXTRA_CAPACITY;
+                    mapped_file_source source(params);
+
+                    auto buf = std::make_shared<source_istreambuf<mapped_file_source>>(source);
                 
                     UriHandlerOptions options;
                     options.mapped = source.data();
-                    options.mappedSize = source.size();
-                    return UriHandler(buf.get(), buf, info, options);
+                    options.mappedSize = buf->source().size();
+                    options.mappedCapacity = buf->source().capacity();
+                    ExcCheckGreaterEqual(buf->source().extra_capacity(), MAPPING_EXTRA_CAPACITY,
+                                         "mapped file extra capacity not respected");
+
+                    keepMe->emplace_back(buf);
+
+                    return UriHandler(buf.get(), std::move(keepMe), info, options);
                 } catch (const std::exception & exc) {
                     throw MLDB::Exception("Opening file " + resource + ": "
                                         + exc.what());
@@ -1166,12 +1201,6 @@ struct MemStreamingInOut {
 };
 
 struct MemStreamingIn : public MemStreamingInOut {
-    struct category
-        : public boost::iostreams::input_seekable,
-          public boost::iostreams::device_tag,
-          public boost::iostreams::closable_tag
-    {
-    };
 
     MemStreamingIn(string & targetString)
         : MemStreamingInOut(targetString)
@@ -1196,6 +1225,12 @@ struct MemStreamingIn : public MemStreamingInOut {
         }
 
         return res;
+    }
+
+    streamsize avail()
+    {
+        unique_lock<mutex> guard(memStringsLock);
+        return targetString_.size() - pos_;
     }
 
     std::streampos seek(std::streamsize where, std::ios_base::seekdir dir)
@@ -1233,12 +1268,6 @@ struct MemStreamingIn : public MemStreamingInOut {
 };
 
 struct MemStreamingOut : public MemStreamingInOut {
-    struct category
-        : public boost::iostreams::output,
-          public boost::iostreams::device_tag,
-          public boost::iostreams::closable_tag
-    {
-    };
 
     MemStreamingOut(string & targetString)
         : MemStreamingInOut(targetString)
@@ -1256,6 +1285,8 @@ struct MemStreamingOut : public MemStreamingInOut {
 
         return n;
     }
+
+    void flush() {}
 };
 
 struct RegisterMemHandler {
@@ -1278,12 +1309,10 @@ struct RegisterMemHandler {
 
         shared_ptr<std::streambuf> streamBuf;
         if (mode == ios::in) {
-            streamBuf.reset(new boost::iostreams::stream_buffer<MemStreamingIn>(MemStreamingIn(targetString),
-                                                                                4096));
+            streamBuf.reset(new source_istreambuf<MemStreamingIn>(MemStreamingIn(targetString), 4096));
         }
         else if (mode == ios::out) {
-            streamBuf.reset(new boost::iostreams::stream_buffer<MemStreamingOut>(MemStreamingOut(targetString),
-                                                                                 4096));
+            streamBuf.reset(new sink_ostreambuf<MemStreamingOut>(MemStreamingOut(targetString), 4096));
         }
         else {
             throw MLDB::Exception("unable to create mem handler");

@@ -593,8 +593,9 @@ PythonInterpreter(InitializationContext context)
 
             if (auto venv_path = std::getenv("MLDB_VIRTUAL_ENV")) {
                 std::wstring venv(venv_path, venv_path + strlen(venv_path));
-                venv += L"/bin";
-                //venv += L"/lib/python" + std::wstring(pythonMajorMinor.begin(), pythonMajorMinor.end()) + L"/site-packages";
+                //venv += L"/bin";
+                venv += L"/lib/python" + std::wstring(pythonMajorDotMinor.begin(), pythonMajorDotMinor.end()) + L"/site-packages";
+                cerr << "adding virtual env path " << venv << endl;
                 checkStatus(PyWideStringList_Append(&config.module_search_paths, venv.c_str()));
             }
 

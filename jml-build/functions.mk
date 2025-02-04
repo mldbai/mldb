@@ -575,6 +575,7 @@ LINK_$(1)_COMMAND:=$$(CXX) $$(CXXFLAGS) $$(CXXEXEFLAGS) $$(CXXNODEBUGFLAGS) -o $
 $(TESTS)/$(1):	$(TESTS)/.dir_exists $(TEST_TMP)/.dir_exists  $$($(1)_OBJFILES) $$(foreach lib,$(2),$$(LIB_$$(lib)_DEPS)) $$(LIB)/libexception_hook$(SO_EXTENSION)
 	$$(if $(verbose_build),@echo $$(LINK_$(1)_COMMAND),@echo "       $(COLOR_BLUE)[TESTBIN]$(COLOR_RESET)                     	$(1)")
 	@$$(LINK_$(1)_COMMAND)
+	$(if $(POST_LINK_COMMAND)$(POST_LINK_COMMAND_$(1)),@$(if $(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND_$(1)),$(POST_LINK_COMMAND)) $$@)
 
 tests:	$(TESTS)/$(1)
 $$(CURRENT)_tests: $(TESTS)/$(1)

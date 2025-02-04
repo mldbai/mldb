@@ -3637,7 +3637,9 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
 
                     const char * mappedAddr;
                     size_t mappedSize;
-                    std::tie(mappedAddr, mappedSize) = stream.mapped();
+                    size_t mappedCapacity;
+                    
+                    std::tie(mappedAddr, mappedSize, mappedCapacity) = stream.mapped();
 
                     CellValue blob;
                     if (mappedAddr) {
@@ -3645,7 +3647,16 @@ BoundFunction fetcher(const std::vector<BoundSqlExpression> & args)
                     }
                     else {
                         std::ostringstream streamo;
-                        streamo << stream.rdbuf();
+
+                        // Could do stream << streambuf, but that eats exceptions which the
+                        // users need to be able to see any fetcher errors
+                        constexpr size_t BUFFER_SIZE = 16384;
+                        while (stream) {
+                            char buffer[BUFFER_SIZE];
+                            stream.read(buffer, BUFFER_SIZE);
+                            streamo.write(buffer, stream.gcount());
+                        }
+
                         blob = CellValue::blob(streamo.str());
                     }
                     stream.close();

@@ -13,6 +13,8 @@
 #include <map>
 #include <cstring>
 #include "mldb/base/thread_pool.h"
+#include "mldb/base/compute_context.h"
+#include <deque>
 
 
 using namespace std;
@@ -43,6 +45,20 @@ std::map<std::string, Compressor::Info> compressors;
 std::map<std::string, Decompressor::Info> decompressors;
 
 } // file scope
+
+bool
+Compressor::
+canFixupLength() const
+{
+    return false;
+}
+
+std::string
+Compressor::
+newHeaderForLength(uint64_t lengthWritten) const
+{
+    throw MLDB::Exception("Attempt to call newHeaderForLength for class that doesn't support it");
+}
 
 std::string
 Compressor::
@@ -165,17 +181,46 @@ forEachBlockParallel(size_t requestedBlockSize,
                      const GetDataFunction & getData,
                      const ForEachBlockFunction & onBlock,
                      const Allocate & allocate,
-                     int maxParallelism)
+                     ComputeContext & compute,
+                     const PriorityFn<int (size_t chunkNum)> & priority)
 {
-    bool finished = false;
+    std::atomic<bool> finished = false;
     size_t blockNumber = 0;
     size_t currentOffset = 0;
     size_t numChars = 0;
     std::shared_ptr<const char> buf;
 
-    ThreadWorkGroup tp(maxParallelism);
-    
-    while (std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
+    // We queue them up as we want to ensure they run in sequence
+    std::mutex jobsMutex;
+    std::deque<ThreadJob> jobs;
+
+    auto doOne = [&] ()
+    {
+        ThreadJob job;
+        {
+            std::unique_lock guard{jobsMutex};
+            ExcAssert(!jobs.empty());
+            job = std::move(jobs.front());
+            jobs.pop_front();
+        }
+        job();
+    };
+
+    auto submitJob = [&] (ThreadJob job)
+    {
+        if (!compute.single_threaded()) {
+            {
+                std::unique_lock guard{jobsMutex};
+                jobs.push_back(std::move(job));
+            }
+            compute.submit(priority(blockNumber), "Decompressor::forEachBlockParallel", doOne);
+        }
+        else {
+            job();
+        }
+    };
+
+    while (!finished.load(std::memory_order_relaxed) && std::get<0>((std::tie(buf, numChars) = getData(requestedBlockSize)))) {
         auto onData = [&] (std::shared_ptr<const char> data, size_t len) -> size_t
             {
                 if (finished)
@@ -187,19 +232,14 @@ forEachBlockParallel(size_t requestedBlockSize,
                 auto doBlock = [myBlockNumber, myOffset, data = std::move(data),
                                 len, &finished, &onBlock] ()
                 {
-                    if (finished)
+                    if (finished.load(std::memory_order_relaxed))
                         return;
-                    if (!onBlock(myBlockNumber, myOffset, std::move(data), len)) {
+                    if (!onBlock(myBlockNumber, myOffset, std::move(data), len, false /* lastBlock */)) {
                         finished = true;
                     }
                 };
 
-                if (maxParallelism > 0) {
-                    tp.add(std::move(doBlock));
-                }
-                else {
-                    doBlock();
-                }
+                submitJob(doBlock);
                 
                 currentOffset += len;
                 return len;
@@ -208,7 +248,18 @@ forEachBlockParallel(size_t requestedBlockSize,
         decompress(buf, numChars, onData, allocate);
     }
 
-    tp.waitForAll();
+    if (!finished) {
+        auto doLastBlock = [&] ()
+        {
+            if (finished.load(std::memory_order_relaxed))
+                return;
+            if (!onBlock(blockNumber, currentOffset, std::shared_ptr<const char>(), 0, true /* lastBlock */))
+                finished = true;
+        };
+        submitJob(doLastBlock);
+    }
+
+    compute.work_until_finished();
     
     return !finished;
 }

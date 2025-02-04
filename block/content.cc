@@ -6,7 +6,6 @@
 */
 
 #include <atomic>
-#include <boost/iostreams/stream_buffer.hpp>
 #include "mldb/http/http_rest_proxy.h"
 #include "mldb/vfs/filter_streams_registry.h"
 #include "mldb/vfs/fs_utils.h"

@@ -11,7 +11,6 @@
 #include <exception>
 #include <thread>
 #include <chrono>
-#include <boost/iostreams/stream_buffer.hpp>
 #include "mldb/utils/string_functions.h"
 #include "mldb/base/exc_assert.h"
 #include "mldb/base/hash.h"
@@ -23,6 +22,9 @@
 #include "mldb/arch/wait_on_address.h"
 #include "mldb/utils/split.h"
 #include "mldb/utils/starts_with.h"
+#include "mldb/base/iostream_adaptors.h"
+#include <unistd.h>
+
 
 using namespace std;
 using namespace MLDB;
@@ -485,12 +487,16 @@ struct StreamingDownloadSource {
     }
 
     typedef char char_type;
+    using is_source = std::true_type;
+
+#if 0
     struct category
         : //input_seekable,
         boost::iostreams::input,
         boost::iostreams::device_tag,
         boost::iostreams::closable_tag
     { };
+#endif
 
     std::streamsize read(char_type * s, std::streamsize n)
     {
@@ -519,7 +525,7 @@ makeStreamingDownload(const Utf8String & uri)
 {
     std::unique_ptr<std::streambuf> result;
     StreamingDownloadSource source(uri);
-    result.reset(new boost::iostreams::stream_buffer<StreamingDownloadSource>
+    result.reset(new source_istreambuf<StreamingDownloadSource>
                  (source,131072));
     return make_pair(std::move(result), source.info());
 }
@@ -755,12 +761,16 @@ struct StreamingUploadSource {
     }
 
     typedef char char_type;
+
+    using is_sink = std::true_type;
+#if 0
     struct category
         : public boost::iostreams::output,
           public boost::iostreams::device_tag,
           public boost::iostreams::closable_tag
     {
     };
+#endif
 
     std::streamsize write(const char_type* s, std::streamsize n)
     {
@@ -789,7 +799,7 @@ makeStreamingUpload(const Utf8String & uri,
                     const S3Api::ObjectMetadata & metadata)
 {
     std::unique_ptr<std::streambuf> result;
-    result.reset(new boost::iostreams::stream_buffer<StreamingUploadSource>
+    result.reset(new sink_ostreambuf<StreamingUploadSource>
                  (StreamingUploadSource(uri, onException, metadata),
                   131072));
     return result;

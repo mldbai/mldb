@@ -13,6 +13,7 @@ LIBUTILS_SOURCES := \
 	confidence_intervals.cc \
 	quadtree.cc \
 	for_each_line.cc \
+	block_splitter.cc \
 	tmpdir.cc \
 
 LIBUTILS_LINK := \
@@ -24,7 +25,8 @@ LIBUTILS_LINK := \
 	arch \
 	base \
 	types \
-	$(STD_FILESYSTEM_LIBNAME)
+	value_description \
+	$(STD_FILESYSTEM_LIBNAME) \
 
 $(eval $(call library,utils,$(LIBUTILS_SOURCES),$(LIBUTILS_LINK)))
 

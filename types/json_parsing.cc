@@ -898,24 +898,6 @@ bool matchJsonNumber(ParseContext & context, JsonNumber & result)
     return true;
 }
 
-#if 0
-/** Match a JSON number. */
-bool matchJsonNumber(ParseContext & context, JsonNumber & num)
-{
-    ParseContext::Revert_Token token(context);
-    try {
-        MLDB_TRACE_EXCEPTIONS(false);
-        auto res = expectJsonNumber(context);
-        token.ignore();
-        num = res;
-        return true;
-    }
-    MLDB_CATCH_ALL {
-        return false;
-    }
-}
-#endif
-
 /*****************************************************************************/
 /* JSON PATH ENTRY                                                           */
 /*****************************************************************************/

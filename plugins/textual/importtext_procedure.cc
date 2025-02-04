@@ -1013,7 +1013,7 @@ struct ImportTextProcedureWorkInstance
 
         PerThreadAccumulator<ThreadAccum> accum;
 
-        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        auto startChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
                 threadAccum.threadRecorder = recorder.newChunk(chunkNumber);
@@ -1024,7 +1024,7 @@ struct ImportTextProcedureWorkInstance
                 return true;
             };
 
-        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber)
+        auto doneChunk = [&] (int64_t chunkNumber, size_t lineNumber, int64_t numLinesInChunk)
             {
                 auto & threadAccum = accum.get();
                 ExcAssert(threadAccum.threadRecorder.get());
@@ -1038,11 +1038,13 @@ struct ImportTextProcedureWorkInstance
         
         atomic<ssize_t> lineCount(0);
         atomic<ssize_t> byteCount(0);
-        auto onLine = [&] (const char * line,
-                           size_t length,
-                           int chunkNum,
-                           int64_t lineNum)
+
+        auto onLine = [&] (LineInfo lineInfo)
         {
+            auto lineNum = lineInfo.lineNumber;
+            const char * line = lineInfo.line.data();
+            size_t length = lineInfo.line.size();
+
             try {
                 auto & threadAccum = accum.get();
 
@@ -1083,9 +1085,11 @@ struct ImportTextProcedureWorkInstance
                         return true;
                 }
                 
-                // MLDB-1111 empty lines are treated as error
-                if (length == 0)
+                // MLDB-1111 empty lines are treated as error, unless they are
+                // at the end of the file
+                if (length == 0) {
                     return handleError("empty line", actualLineNum, 0, "");
+                }
 
 
                 // Values that come in from the CSV file
@@ -1313,9 +1317,8 @@ struct ImportTextProcedureWorkInstance
 
 
         if(!config.allowMultiLines) {
-            forEachLineBlock(stream, onLine, config.limit,
-                             numCpus() /* parallelism */,
-                             startChunk, doneChunk);
+            namespace o = ForEachLine::options;
+            forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines=config.limit, o::outputTrailingEmptyLines=false);
         }
         else {
             // very simplistic and not efficient way of doing multi-line. we send
@@ -1323,7 +1326,7 @@ struct ImportTextProcedureWorkInstance
             // we get an error that probably is caused by a multi-
             // line string, we concat the current line with the next
             // one and try again. 
-            startChunk(0, 0);
+            startChunk(0, 0, -1 /* numLinesInChunk; unused */);
 
             string line;
             string t_line;
@@ -1337,8 +1340,12 @@ struct ImportTextProcedureWorkInstance
                     line += ' ' + t_line;
                 }
 
-                if(!onLine(line.c_str(), line.size(),
-                           0 /* chunkNum */, lineNum)) {
+                LineInfo lineInfo {
+                    .line = line,
+                    .lineNumber = lineNum,
+                    .lastLine = false,
+                };
+                if(!onLine(lineInfo)) {
                     prevLine.assign(std::move(line));
                 } else {
                     prevLine.erase();
@@ -1349,7 +1356,7 @@ struct ImportTextProcedureWorkInstance
                     break;
             }
 
-            doneChunk(0, lineNum);
+            doneChunk(0, lineNum, -1 /* numLinesInChunk */);
         }
 
         // Accumulate any from the end

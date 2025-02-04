@@ -10,6 +10,7 @@
 #include "mldb/types/hash_wrapper.h"
 #include "mldb/types/value_description.h"
 #include "mldb/types/vector_description.h"
+#include "mldb/types/comparable_value_descriptions.h"
 #include "mldb/types/annotated_exception.h"
 #include "mldb/ext/highwayhash.h"
 #include "mldb/types/itoa.h"
@@ -1556,7 +1557,7 @@ operator >> (std::istream & stream, Path & id)
 /*****************************************************************************/
 
 struct PathElementDescription
-    : public ValueDescriptionI<PathElement, ValueKind::ATOM, PathElementDescription> {
+    : public OrderedComparableValueDescriptionI<PathElement, ValueKind::ATOM, PathElementDescription> {
 
     virtual void parseJsonTyped(PathElement * val,
                                 JsonParsingContext & context) const;
@@ -1610,7 +1611,7 @@ isDefaultTyped(const PathElement * val) const
 }
 
 struct PathDescription
-    : public ValueDescriptionI<Path, ValueKind::ATOM, PathDescription> {
+    : public OrderedComparableValueDescriptionI<Path, ValueKind::ATOM, PathDescription> {
 
     virtual void parseJsonTyped(Path * val,
                                 JsonParsingContext & context) const;

@@ -51,6 +51,9 @@ int numCpus()
     threads, but not being able to do much itself.  So the ability to
     handle lots of work being submitted by a given thread but not much being
     done by it is important.
+
+    It's important that pool threads not block or sleep, as this can cause
+    deadlocks.
 */
 
 struct ThreadPool::Itl: public std::enable_shared_from_this<ThreadPool::Itl> {

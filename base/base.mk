@@ -4,10 +4,12 @@
 LIBBASE_SOURCES := \
     parse_context.cc \
 	thread_pool.cc \
+	compute_context.cc \
 	parallel.cc \
 	optimized_path.cc \
 	hex_dump.cc \
 	../types/string.cc \
+	iostream_adaptors.cc \
 
 LIBBASE_LINK :=	\
 	arch \

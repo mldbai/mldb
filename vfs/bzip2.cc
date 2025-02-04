@@ -112,8 +112,8 @@ struct BzlibStreamCommon: public bz_stream {
     {
         int bzlibFlushLevel;
         switch (flushLevel) {
-        case Compressor::FLUSH_NONE:       bzlibFlushLevel = BZ_RUN;       break;
-        case Compressor::FLUSH_AVAILABLE:  bzlibFlushLevel = BZ_RUN;       break;
+        case Compressor::FLUSH_NONE:       return 0;
+        case Compressor::FLUSH_AVAILABLE:  return 0;
         case Compressor::FLUSH_SYNC:       bzlibFlushLevel = BZ_FLUSH;     break;
         case Compressor::FLUSH_RESTART:    bzlibFlushLevel = BZ_FINISH;    break;
         default:

@@ -24,6 +24,10 @@ namespace MLDB {
 
 struct FsObjectInfo;  // Structure for file system or URL metadata; in fs_utils.h
 
+// We always attempt to map this number of extra zero bytes beyond the end
+// of a memory mapping so that algorithms that need to read beyond the end
+// for efficiency reasons can do so without copying the whole memory buffer.
+constexpr size_t MAPPING_EXTRA_CAPACITY = 64;
 
 /*****************************************************************************/
 /* BASE STRUCTURES                                                           */
@@ -38,23 +42,16 @@ UriForkFunction;
 
 /// Structure that provides extra options about a URI handler
 struct UriHandlerOptions {
-    UriHandlerOptions()
-        : isForwardSeekable(false),
-          isRandomSeekable(false),
-          mapped(nullptr),
-          mappedSize(0)
-    {
-    }
-
-    bool isForwardSeekable;              ///< Can we seek forwards in the stream?
-    bool isRandomSeekable;               ///< Can we seek at random in the stream?
+    bool isForwardSeekable = false;              ///< Can we seek forwards in the stream?
+    bool isRandomSeekable = false;               ///< Can we seek at random in the stream?
     
     /// Function used to fork the handler.  If null, forking is not possible
     UriForkFunction fork;
 
-    /// If it's a mapped stream, returns the location and size
-    const char * mapped;
-    size_t mappedSize;
+    /// If it's a mapped stream, returns the location and size as well as the readable capacity
+    const char * mapped = nullptr;
+    size_t mappedSize = 0;
+    size_t mappedCapacity = 0;
 };
 
 struct UriHandler {
@@ -310,8 +307,18 @@ public:
         they have this available.
 
         If it's not mapped, it will return (nullptr, 0).
+
+        It returns { data, size, capacity }.  The third capacity value
+        needs some explanation.  It is the amount of data beyond the
+        end of the mapping that can be safely read (the values will be
+        zero).  It will always be at least as large as size.  Some
+        algorithms need to be able to read beyond the end for performance
+        reasons or otherwise are required to copy their data into a
+        padded buffer; knowing the extra capacity allows them to avoid
+        doing so.  The system will always make a best effort to allocate
+        MAPPING_EXTRA_CAPACITY bytes beyond the end.
     */
-    std::pair<const char *, size_t>
+    std::tuple<const char *, size_t, size_t>
     mapped() const;
 
     /** Return the information and metadata about the underlying object,
