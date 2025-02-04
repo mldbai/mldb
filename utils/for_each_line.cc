@@ -217,7 +217,9 @@ struct ForEachLineProcessor: public ComputeContext {
         // TODO: if the list of chunks is too big, start slowing down the chunk producers by making them
         // contribute to work
 
-        //work();
+        // TODO: uncommenting this and running with ASAN uncovers a bug in the ThreadPool whereby one
+        // thread trying to steal work from another has its data freed. We should deal with that bug!
+        work();
 
         return !relaxed_stopped() && !chunks_out_finished_;
 
