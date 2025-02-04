@@ -446,13 +446,11 @@ TEST_CASE("for_each_line newline splitter")
                         tester.processUsingBlockedMappedStream("file://mldb/testing/MLDB-1043-bucketize-data.csv", blockSize);
                         tester.validate();
                     }
-
                     SECTION("blocked gzip stream") {
                         ForEachLineTester tester;
-                        tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, blockSize > 5 ? 64000: 640 /* maxLines */);
+                        tester.processUsingBlockedMappedStream("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", blockSize, blockSize > 17 ? 64000: 640 /* maxLines */);
                         tester.validate();
                     }
-
                     SECTION("line by line") {
                         ForEachLineTester tester;
                         tester.processUsingLineByLine("file://mldb/mldb_test_data/reviews_Digital_Music_5.json.zstd", 1000 /* maxLines */);

@@ -203,6 +203,8 @@ struct CoalescedRange {
     const_iterator begin() const { return {&ranges_, 0, 0}; }
     const_iterator end()   const { return {&ranges_, ranges_.size(), 0}; }
 
+    void clear() { ranges_.clear(); }
+
     // Add something to the ranges. Invalidates iterators.
     // If it is empty, it will not be added.
     // If it is an extension of the previous range, then it will be extended.

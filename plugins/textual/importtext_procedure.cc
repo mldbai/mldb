@@ -1318,7 +1318,7 @@ struct ImportTextProcedureWorkInstance
 
         if(!config.allowMultiLines) {
             namespace o = ForEachLine::options;
-            forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines=config.limit, o::outputTrailingEmptyLine=false);
+            forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines=config.limit, o::outputTrailingEmptyLines=false);
         }
         else {
             // very simplistic and not efficient way of doing multi-line. we send

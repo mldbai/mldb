@@ -327,6 +327,10 @@ struct ForEachLineProcessor: public ComputeContext {
     std::any splitterState;
     std::vector<std::shared_ptr<const void>> keep;  // pins for each block in chunkData
     size_t numTrailingEmptyLines = 0;
+    std::shared_ptr<char[]> consolidated_;
+    size_t consolidated_size_ = 0;
+    size_t consolidated_capacity_ = 0;
+    size_t consolidated_allocate_ = 1024;
 
     // Handle the next chunk, which will be done in-order and one at a time. This should do the
     // smallest amount of work possible, submitting any further processing as a job to be
@@ -344,8 +348,36 @@ struct ForEachLineProcessor: public ComputeContext {
         ExcAssertEqual(chunks_done_, chunk.chunkNumber);
         ExcAssertEqual(chunkData.range_count(), keep.size());
 
-        if (chunkData.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size()))
-            keep.emplace_back(chunk.keep);
+        // If our chunk size is much smaller than our line size, the algorithm becomes
+        // inefficient. We need to consolidate chunks until we have a reasonable size.
+        if (consolidated_ || chunkData.range_count() > 10) {
+            if (!consolidated_ || consolidated_size_ + chunk.data.size() > consolidated_capacity_) {
+
+                // Doesn't fit. Make consolidated bigger
+                auto required_capacity = consolidated_size_ + chunk.data.size();
+                if (required_capacity > consolidated_allocate_)
+                    consolidated_allocate_ = std::max(required_capacity, consolidated_allocate_ * 2);
+                std::shared_ptr<char[]> new_consolidated(new char[consolidated_allocate_]);
+                std::copy(consolidated_.get(), consolidated_.get() + consolidated_size_, new_consolidated.get());
+                consolidated_ = new_consolidated;
+                consolidated_capacity_ = consolidated_allocate_;
+                chunkData.clear();
+                chunkData.add(consolidated_.get(), consolidated_size_);
+                keep = { consolidated_ };
+            }
+
+            // This new chunk fits in the already-allocated capacity
+            char * first = consolidated_.get() + consolidated_size_;
+            std::copy((const char *)chunk.data.data(), (const char *)chunk.data.data() + chunk.data.size(), first);
+            consolidated_size_ += chunk.data.size();
+            chunkData.add({first, chunk.data.size()});
+            ExcAssertEqual(chunkData.range_count(), 1);
+        }
+        else {
+            // Add this chunk
+            if (chunkData.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size()))
+                keep.emplace_back(chunk.keep);
+        }
 
 
         LineBlock lineBlock {
@@ -456,6 +488,8 @@ struct ForEachLineProcessor: public ComputeContext {
                 }
             }
             ++outputChunkNumber;
+            consolidated_ = nullptr;
+            consolidated_size_ = 0;
         }
     }
 
@@ -476,7 +510,7 @@ struct ForEachLineProcessor: public ComputeContext {
                 .blockNumber     = static_cast<int64_t>(block.blockNumber),
                 .startOffset     = static_cast<int64_t>(block.startOffset),
                 .lineNumber      = static_cast<int64_t>(block.startLine),
-                .numLinesInBlock = static_cast<int64_t>(block.lines.size()),
+                .numLinesInBlock = static_cast<int64_t>(block.lineCount()),
                 .lastBlock       = block.lastBlock,
             };
 
