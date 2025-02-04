@@ -219,7 +219,8 @@ struct ForEachLineProcessor: public ComputeContext {
 
         // TODO: uncommenting this and running with ASAN uncovers a bug in the ThreadPool whereby one
         // thread trying to steal work from another has its data freed. We should deal with that bug!
-        work();
+        // nice make -j16 -k SANITIZERS=address for_each_line_test
+        //work();
 
         return !relaxed_stopped() && !chunks_out_finished_;
 
