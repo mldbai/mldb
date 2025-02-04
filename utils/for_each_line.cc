@@ -40,29 +40,22 @@ namespace MLDB {
 
 namespace {
 
-
-struct ForEachLineOptions {
-    int maxParallelism = -1;
-    ssize_t defaultBlockSize = -1;
-    size_t startOffset = 0;
-    size_t skipLines = 0;
-    ssize_t maxLines = -1;
-    const BlockSplitter * splitter = &newLineSplitter;
-};
-
 struct ForEachLineProcessor: public ComputeContext {
 
     ForEachLineProcessor(ForEachLineOptions options)
-        : ComputeContext(options.maxParallelism), options(options)
+        : ComputeContext(options.maxParallelism), options(std::move(options))
     {
     }
 
     ForEachLineOptions options;
 
+#if 0
     enum {
         CHUNK_STREAM_PRIORITY = 5,
     };
+#endif
 
+#if 0
     struct JobPromise;
 
     struct CoroutineJob: public std::coroutine_handle<JobPromise> {
@@ -76,6 +69,7 @@ struct ForEachLineProcessor: public ComputeContext {
         void return_void() {}
         void unhandled_exception() {}
     };
+#endif
 
     // A chunk of memory plus metadata
     struct Chunk {
@@ -174,8 +168,7 @@ struct ForEachLineProcessor: public ComputeContext {
             return handle_out_of_order_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}});
         };
     
-        auto getPriority = [] (size_t chunkNumber) -> int { return CHUNK_STREAM_PRIORITY; };
-        auto res = content.forEachBlockParallel(options.startOffset, blockSize, *this /*compute*/, getPriority, doBlock);
+        auto res = content.forEachBlockParallel(options.startOffset, blockSize, *this /*compute*/, 5 /* priority */, doBlock);
         return res;
     }
 
@@ -304,12 +297,14 @@ struct ForEachLineProcessor: public ComputeContext {
         auto & lines = lineBlock.lines;
 
         auto it = chunkData.begin(), end = chunkData.end();
+        bool trailingSeparator = false;
 
         while (it != end) {
-            auto another = options.splitter->nextRecord(chunkData, it, chunk.lastChunk, splitterState);
-            if (!another)
+            auto [found_record, skip_to_end, skip_separator, next_state]
+                = options.splitter->nextRecord(chunkData, it, chunk.lastChunk, splitterState);
+            if (!found_record)
                 break;
-            auto [next_it, next_state] = another.value();
+            auto next_it = it + skip_to_end;
 
             if (auto lineSpan = chunkData.get_span(it, next_it)) {
                 // Push the contiguous line
@@ -325,7 +320,14 @@ struct ForEachLineProcessor: public ComputeContext {
                 lineBlock.keep.emplace_back(std::move(contiguous));
             }
             splitterState = std::move(next_state);
-            it = next_it;
+            it = next_it + skip_separator;
+            trailingSeparator = skip_separator > 0;
+        }
+
+        if (options.outputTrailingEmptyLine && trailingSeparator && chunk.lastChunk) {
+            // We have a trailing separator at the end of the last chunk
+            // We need to add an empty line
+            lines.push_back({});
         }
 
         size_t lineCount = lines.size();
@@ -385,6 +387,9 @@ struct ForEachLineProcessor: public ComputeContext {
                  const BlockContinuationFn & startBlock,
                  const BlockContinuationFn & endBlock)
     {
+        std::atomic<size_t> done = 0;
+        Date start = Date::now(), lastCheck = start;
+
         handle_line_block = [&] (LineBlock block)
         {
             LineBlockInfo blockInfo {
@@ -399,9 +404,26 @@ struct ForEachLineProcessor: public ComputeContext {
                 return false;
 
             for (size_t i = 0; i < block.lines.size();  ++i) {
-                auto fixedup = options.splitter->fixupBlock({block.lines[i].data(), block.lines[i].size()});
+                if (options.logger) {
+                    auto new_done = done.fetch_add(1) + 1;
+
+                    if (new_done % options.logInterval == 0 && 
+                        options.logger->should_log(spdlog::level::info)) {
+
+                        options.logger->info() << "done " << new_done << " lines";
+                        Date now = Date::now();
+
+                        double elapsed = now.secondsSince(start);
+                        double instElapsed = now.secondsSince(lastCheck);
+                        options.logger->info() << MLDB::format("doing %.3fMlines/second total, %.3f instantaneous",
+                                                    done / elapsed / 1000000.0,
+                                                    options.logInterval / instElapsed / 1000000.0);
+                        lastCheck = now;
+                    }
+                }
+
                 LineInfo lineInfo {
-                    .line         = { fixedup.data(), fixedup.size() },
+                    .line         = { block.lines[i].data(), block.lines[i].size() },
                     .lineNumber   = static_cast<int64_t>(block.startLine + i),
                     .blockNumber  = static_cast<int64_t>(block.blockNumber),
                     .lastLine     = block.lastBlock && i == block.lines.size() - 1,
@@ -447,58 +469,10 @@ struct ForEachLineProcessor: public ComputeContext {
 size_t
 forEachLine(std::istream & stream,
             const LineContinuationFn & processLine,
-            shared_ptr<spdlog::logger> logger,
-            int numThreads,
-            bool ignoreStreamExceptions,
-            int64_t maxLines)
+            const ForEachLineOptions & options)
 {
-
-    ForEachLineOptions options;
-    options.maxParallelism = numThreads;
-    options.defaultBlockSize = -1;
-    options.startOffset = 0;
-    options.skipLines = 0;
-    options.maxLines = maxLines;
-    options.splitter = &newLineSplitter;
-
     ForEachLineProcessor processor(options);
-    std::atomic<int64_t> done(0);
-    Date start = Date::now();
-    Date lastCheck = start;
-
-    auto onLine = [&] (const char * line, size_t length, int64_t blockNumber, int64_t lineNumber) -> bool
-    {
-        LineInfo lineInfo { std::string_view(line, length), lineNumber, blockNumber };
-        try {
-            bool res = processLine(lineInfo);
-            if (!res)
-                return false;
-            auto new_done = done.fetch_add(1) + 1;
-
-            if (new_done % 1000000 == 0 && 
-                logger->should_log(spdlog::level::info)) {
-
-                logger->info() << "done " << new_done << " lines";
-                Date now = Date::now();
-
-                double elapsed = now.secondsSince(start);
-                double instElapsed = now.secondsSince(lastCheck);
-                logger->info() << MLDB::format("doing %.3fMlines/second total, %.3f instantaneous",
-                                               done / elapsed / 1000000.0,
-                                               1000000 / instElapsed / 1000000.0);
-                lastCheck = now;
-            }
-        } MLDB_CATCH_ALL {
-            WARNING_MSG(logger) << "error dealing with line " << lineInfo.line
-                                << ": " << getExceptionString();
-            if (!ignoreStreamExceptions) {
-                throw;
-            }
-        }
-        return true;
-    };
-
-    return processor.process(stream, onLine, nullptr /* startBlock */, nullptr /* endBlock */);
+    return processor.process(stream, processLine, nullptr /* startBlock */, nullptr /* endBlock */);
 }
 
 
@@ -508,52 +482,30 @@ forEachLine(std::istream & stream,
 
 bool forEachLineBlock(std::istream & stream,
                       const LineContinuationFn & onLine,
-                      int64_t maxLines,
-                      int maxParallelism,
                       const BlockContinuationFn & startBlock,
                       const BlockContinuationFn & endBlock,
-                      ssize_t defaultBlockSize,
-                      const BlockSplitter & splitter)
+                      const ForEachLineOptions & options)
 {
-    ForEachLineOptions options;
-    options.maxParallelism = maxParallelism;
-    options.defaultBlockSize = defaultBlockSize;
-    options.startOffset = 0;
-    options.skipLines = 0;
-    options.maxLines = maxLines;
-    options.splitter = &splitter;
-
     ForEachLineProcessor processor(options);
     return processor.process(stream, onLine, startBlock, endBlock);
 }
+
 
 /*****************************************************************************/
 /* FOR EACH LINE BLOCK (CONTENT HANDLER)                                     */
 /*****************************************************************************/
 
 bool forEachLineBlock(std::shared_ptr<const ContentHandler> content,
-                      uint64_t startOffset,
                       const LineContinuationFn & onLine,
-                      int64_t maxLines,
-                      int maxParallelism,
                       const BlockContinuationFn & startBlock,
                       const BlockContinuationFn & endBlock,
-                      size_t blockSize,
-                      const BlockSplitter & splitter)
+                      const ForEachLineOptions & options)
 {
-    ForEachLineOptions options;
-    options.maxParallelism = maxParallelism;
-    options.defaultBlockSize = blockSize;
-    options.startOffset = startOffset;
-    options.skipLines = 0;
-    options.maxLines = maxLines;
-    options.splitter = &splitter;
-
     ForEachLineProcessor processor(options);
     return processor.process(*content, onLine, startBlock, endBlock);
 }
 
-
+#if 0
 /*****************************************************************************/
 /* FOR EACH CHUNK                                                            */
 /*****************************************************************************/
@@ -630,5 +582,6 @@ void forEachChunk(std::istream & stream,
         std::rethrow_exception(exc);
     }
 }
+#endif
 
 } // namespace MLDB

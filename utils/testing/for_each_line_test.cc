@@ -23,7 +23,7 @@
 using namespace std;
 using namespace std::placeholders;
 using namespace MLDB;
-
+namespace o = ForEachLine::options;
 
 namespace {
 
@@ -106,8 +106,8 @@ void testForEachLineBlock(const std::string & data,
             return true;
         };
 
-    forEachLineBlock(content, startOffset, onLine, maxLines, maxParallelism,
-                     onStartBlock, onEndBlock, blockSize);
+    forEachLineBlock(content, onLine, onStartBlock, onEndBlock,
+                     o::maxParallelism=maxParallelism, o::defaultBlockSize=blockSize, o::startOffset=startOffset, o::maxLines=maxLines);
 
     CHECK(numLines == splitLines.size());
     if (maxLines == -1)
@@ -158,7 +158,7 @@ vector<string> dataStrings{"line1", "line2", "", "line forty 2"};
 
 }
 
-TEST_CASE(" test_forEachLine_data ")
+TEST_CASE("test_forEachLine_data trailing newline")
 {
     vector<string> expected(dataStrings);
     expected.emplace_back("");
@@ -174,20 +174,19 @@ TEST_CASE(" test_forEachLine_data ")
         result.emplace_back(data, dataSize);
     };
 
-    auto logger = getMldbLog("test");
-    forEachLine(stream, processLine, logger);
+    forEachLine(stream, processLine, o::outputTrailingEmptyLine=true);
     CHECK(result == expected);
 }
 
-TEST_CASE(" test_forEachLineStr_data ")
+TEST_CASE("test_forEachLine_data no trailing newline")
 {
     vector<string> expected(dataStrings);
-    expected.emplace_back("");
 
     string data;
     for (const auto & line: dataStrings) {
         data += line + "\n";
     }
+    data.pop_back();
     istringstream stream(data);
 
     vector<string> result;
@@ -195,12 +194,11 @@ TEST_CASE(" test_forEachLineStr_data ")
         result.emplace_back(data);
     };
 
-    auto logger = getMldbLog("test");
-    forEachLine(stream, processLine, logger);
+    forEachLine(stream, processLine);
     CHECK(result == expected);
 }
 
-TEST_CASE(" test_forEachLine_throw ")
+TEST_CASE("test_forEachLine_throw")
 {
     string data;
     for (int i = 0; i < 1000; i++) {
@@ -216,76 +214,7 @@ TEST_CASE(" test_forEachLine_throw ")
         }
     };
 
-    auto logger = getMldbLog("test");
-    CHECK_THROWS(forEachLine(stream, processLine, logger));
-}
-
-TEST_CASE("split newlines")
-{
-    return;
-    const auto & splitter = newLineSplitter;
-
-    for (auto filename: { "file://mldb/testing/MLDB-1043-bucketize-data.csv"}) {
-        filter_istream stream(filename);
-
-        std::vector<std::string> lines;
-        std::string withNewLines;
-        std::string withDosNewLines;
-
-        while (stream) {
-            std::string line;
-            std::getline(stream, line);
-            lines.push_back(line);
-            withNewLines += line + "\n";
-            withDosNewLines += line + "\r\n";
-        }
-
-        // Make sure the block padding is respected
-        withNewLines.reserve(withNewLines.size() + splitter.requiredBlockPadding());
-        withDosNewLines.reserve(withDosNewLines.size() + splitter.requiredBlockPadding());
-
-        auto testSplitter = [&] (size_t blockSize, const char * data, const char * end)
-        {
-            int lineNum = 0;
-            auto checkLine = [&] (const std::string & line)
-            {
-                CHECK(line == lines[lineNum]);
-                ++lineNum;
-            };
-
-            const char * p = data;
-
-            auto currentState = splitter.newState();
-            TextBlock block;
-
-            for (; p < end; p += blockSize) {
-                // Add a new block
-                block.add(p, std::min(p + blockSize, end));
-                bool isLastBlock = p + blockSize == end;
-
-                auto splitter_res = splitter.nextRecord(block, block.begin(), isLastBlock, currentState);
-                if (!splitter_res) continue; // No newline, we need a new block
-                auto [newline_pos, newState] = splitter_res.value();
-                currentState = std::move(newState);
-                CHECK(*newline_pos == '\n');
-                std::string line = block.to_string(block.begin(), newline_pos);
-                block.reduce(newline_pos + 1, block.end());
-
-                checkLine(line);
-            }
-        };
-
-        for (auto blockSize: { 1, 5, 8, 11, 17, 231, 1024 }) {
-            SECTION("blockSize " + std::to_string(blockSize)) {
-                SECTION("Unix line endings") {
-                    testSplitter(blockSize, withNewLines.c_str(), withNewLines.c_str() + withNewLines.size());
-                }
-                SECTION("DOS line endings") {
-                    testSplitter(blockSize, withDosNewLines.c_str(), withDosNewLines.c_str() + withDosNewLines.size());
-                }
-            }
-        }
-    }
+    CHECK_THROWS(forEachLine(stream, processLine));
 }
 
 struct ForEachLineTester {
@@ -375,11 +304,9 @@ struct ForEachLineTester {
 
         forEachLineBlock(stream,
                          std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
-                         maxLines, maxParallelism,
                          std::bind(&ForEachLineTester::startBlock, this, _1, _2, _3),
                          std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
-                         blockSize,
-                         *splitter);
+                         o::maxParallelism=maxParallelism, o::defaultBlockSize=blockSize, o::maxLines=maxLines, o::splitter=splitter.get());
 
         this->maxLines = maxLines;
     }
@@ -391,11 +318,9 @@ struct ForEachLineTester {
 
         forEachLineBlock(stream,
                          std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
-                         maxLines, maxParallelism,
                          std::bind(&ForEachLineTester::startBlock, this, _1, _2, _3),
                          std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
-                         blockSize,
-                         *splitter);
+                         o::maxParallelism=maxParallelism, o::defaultBlockSize=blockSize, o::maxLines=maxLines, o::splitter=splitter.get());
 
         this->maxLines = maxLines;
     }
@@ -408,10 +333,7 @@ struct ForEachLineTester {
 
         forEachLine(stream,
                     std::bind(&ForEachLineTester::processLine, this, _1, _2, 0, _3),
-                    getMldbLog("test"),
-                    maxParallelism,
-                    false /* ignore exceptions */,
-                    maxLines);
+                    o::maxParallelism=maxParallelism, o::maxLines=maxLines, o::splitter=splitter.get());
 
         this->maxLines = maxLines;
     }
@@ -423,13 +345,10 @@ struct ForEachLineTester {
         auto content = getContent(descriptor);
 
         forEachLineBlock(content,
-                         0 /* startOffset */,
                          std::bind(&ForEachLineTester::processLine, this, _1, _2, _3, _4),
-                         maxLines, maxParallelism,
                          std::bind(&ForEachLineTester::startBlock, this, _1, _2, _3),
                          std::bind(&ForEachLineTester::endBlock, this, _1, _2, _3),
-                         blockSize,
-                         *splitter);
+                         o::maxParallelism=maxParallelism, o::defaultBlockSize=blockSize, o::maxLines=maxLines, o::splitter=splitter.get());
 
         this->maxLines = maxLines;
     }

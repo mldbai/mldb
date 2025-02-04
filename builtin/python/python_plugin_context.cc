@@ -728,9 +728,8 @@ readLines(const std::string & path, int maxLines)
             lines.append(line);
         };
 
-    auto logger = getMldbLog("python");
-    forEachLine(stream, onLine, logger, 1 /* numThreads */, false /* ignore exc */,
-                maxLines);
+    namespace o = ForEachLine::options;
+    forEachLine(stream, onLine, o::maxParallelism = 0, o::maxLines = maxLines);
 
     return lines;
 }

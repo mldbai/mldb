@@ -215,3 +215,47 @@ TEST_CASE("coalesced range get_span")
         CHECK_THROWS(range.get_span(range.end(), range.begin()));
     }
 }
+
+TEST_CASE("iterators")
+{
+    CoalescedRange<const char> range;
+    range.add(span<const char>("hello, world!", 13));
+
+    SECTION("at begin") {
+        auto it = range.begin();
+        CHECK_THROWS(it[-1]);
+        CHECK(it[0] == 'h');
+        CHECK(it[1] == 'e');
+        CHECK(it[2] == 'l');
+        CHECK(it[12] == '!');
+        CHECK_THROWS(it[13]);
+    }
+
+    SECTION("at end") {
+        auto it = range.end();
+        CHECK_THROWS(it[0]);
+        CHECK(it[-1] == '!');
+        CHECK(it[-13] == 'h');
+        CHECK_THROWS(it[-14]);
+    }
+
+    range.add(span<const char>("\n", 1));
+
+    SECTION("at begin with newline") {
+        auto it = range.begin();
+        CHECK_THROWS(it[-1]);
+        CHECK(it[0] == 'h');
+        CHECK(it[1] == 'e');
+        CHECK(it[2] == 'l');
+        CHECK(it[13] == '\n');
+        CHECK_THROWS(it[14]);
+    }
+
+    SECTION("at end with newline") {
+        auto it = range.end();
+        CHECK_THROWS(it[0]);
+        CHECK(it[-14] == 'h');
+        CHECK(it[-1] == '\n');
+        CHECK(it[-2] == '!');
+    }
+}

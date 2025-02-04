@@ -10,7 +10,9 @@
 #pragma once
 
 #include "mldb/utils/log_fwd.h"
+#include "mldb/block/content_descriptor_fwd.h"
 #include "mldb/utils/block_splitter.h"
+#include "mldb/utils/is_callable_with.h"
 #include "mldb/base/compute_context.h"
 #include <iostream>
 #include <optional>
@@ -24,18 +26,83 @@
 
 namespace MLDB {
 
-template<typename Fn, typename... Args>
-struct is_callable_with {
-    template<typename F, typename... A> static auto test(int) -> decltype(std::declval<F>()(std::declval<A>()...), std::true_type());
-    template<typename F, typename... A> static auto test(...) -> std::false_type;
-    using type = decltype(test<Fn, Args...>(0));
-    static constexpr bool value = type::value;
+
+/*************************************************************************/
+/* FOR EACH LINE OPTIONS                                                 */
+/*************************************************************************/
+
+// Options for the for_each_line functions. Not all options apply to all
+// functions.
+struct ForEachLineOptions {
+    int maxParallelism = -1;                           // Controls the number of extra threads; 0 = use the main thread only, -1 = all available cores
+    ssize_t defaultBlockSize = -1;                     // Granularity of blocks being passed to the processing function
+    size_t startOffset = 0;                            // How much of the file to skip at the beginning
+    size_t skipLines = 0;                              // How many lines to skip at the beginning
+    ssize_t maxLines = -1;                             // Maximum number of lines to process
+    bool outputTrailingEmptyLine = false;              // Whether to output a trailing empty line if the file ends with a newline
+    std::shared_ptr<spdlog::logger> logger = nullptr;  // Logger to use for logging
+    size_t logInterval = 1000000;                      // How often to log a progress message to the logger (every n lines)
+    const BlockSplitter * splitter = &newLineSplitter; // Block splitter to split into lines
 };
 
-template<typename Fn, typename... Args> constexpr bool is_callable_with_v = is_callable_with<Fn, Args...>::value;
-template<typename Fn, typename... Args> using is_callable_with_t = is_callable_with<Fn, Args...>::type;
 
-struct ContentHandler;
+template<typename Struct, typename Result>
+struct OptionValue {
+    using Member = Result Struct::*;
+    Member member;
+    Result value;
+
+    constexpr OptionValue(Member member, Result value): member(member), value(std::move(value)) { }
+    void apply(ForEachLineOptions & opts) const { opts.*member = value; }
+};
+
+template<typename Struct, typename Result>
+struct OptionSpec {
+    using Type = Result Struct::*;
+    Type member;
+
+    template<typename Arg>
+    constexpr OptionValue<Struct, Result> operator = (Arg&& val) const {
+        return { member, Result(std::move(val)) };
+    }
+};
+
+#define DECLARE_OPTION_SPEC(Struct, Member) \
+    constexpr OptionSpec<Struct, decltype(Struct::Member)> Member = { &Struct::Member }
+
+namespace ForEachLine {
+namespace options {
+
+DECLARE_OPTION_SPEC(ForEachLineOptions, maxParallelism);
+DECLARE_OPTION_SPEC(ForEachLineOptions, defaultBlockSize);
+DECLARE_OPTION_SPEC(ForEachLineOptions, startOffset);
+DECLARE_OPTION_SPEC(ForEachLineOptions, skipLines);
+DECLARE_OPTION_SPEC(ForEachLineOptions, maxLines);
+DECLARE_OPTION_SPEC(ForEachLineOptions, outputTrailingEmptyLine);
+DECLARE_OPTION_SPEC(ForEachLineOptions, logger);
+DECLARE_OPTION_SPEC(ForEachLineOptions, logInterval);
+DECLARE_OPTION_SPEC(ForEachLineOptions, splitter);
+
+template<typename... Options>
+const inline ForEachLineOptions & apply_options(ForEachLineOptions & opts, Options&&... options)
+{
+    (void)std::initializer_list<int> { (void(options.apply(opts)), 0)... };
+    return opts;
+}
+
+const inline ForEachLineOptions & apply_options(ForEachLineOptions & opts, ForEachLineOptions & real_opts)
+{
+    return real_opts;
+}
+
+} // namespace ForEachLine
+} // namespace options
+
+using namespace ForEachLine;
+
+/*************************************************************************/
+/* LINE CONTINUATION FUNCTION                                            */
+/*************************************************************************/
 
 struct LineInfo {
     std::string_view line;
@@ -67,6 +134,11 @@ struct LineContinuationFn: public ContinuationFn<bool (LineInfo line)> {
         : Base([fn = std::forward<Callable>(fn)] (LineInfo line) { return fn(line.line.data(), line.line.size(), line.lineNumber); }) { }
 };
 
+
+/*************************************************************************/
+/* BLOCK CONTINUATION FUNCTION                                           */
+/*************************************************************************/
+
 struct LineBlockInfo {
     int64_t blockNumber = -1;
     int64_t startOffset = -1;
@@ -79,13 +151,16 @@ struct BlockContinuationFn: public ContinuationFn<bool (LineBlockInfo block)> {
     using Base = ContinuationFn<bool (LineBlockInfo)>;
     using Base::Base;
 
-#if 1
     // Constructor for a function<bool/void (int64_t blockNumber, int64_t lineNumber, size_t numLinesInBlock)>
     template<typename Callable>
     BlockContinuationFn(Callable && fn, decltype(fn(1,2,3)) * = 0)
         : Base([fn = std::move(fn)] (LineBlockInfo block) { return fn(block.blockNumber, block.lineNumber, block.numLinesInBlock); }) { }
-#endif
 };
+
+#if 0
+/*************************************************************************/
+/* CHUNK CONTINUATION FUNCTION                                           */
+/*************************************************************************/
 
 struct ChunkInfo {
     std::span<const char> data;
@@ -98,6 +173,11 @@ struct ChunkContinuationFn: public ContinuationFn<bool (ChunkInfo)> {
     using Base = ContinuationFn<bool (ChunkInfo)>;
     using Base::Base;
 };
+#endif
+
+/*************************************************************************/
+/* FOR EACH LINE FUNCTIONS                                               */
+/*************************************************************************/
 
 /** Run the given lambda over every line read from the stream, with the
     work distributed over the given number of threads.
@@ -110,10 +190,16 @@ struct ChunkContinuationFn: public ContinuationFn<bool (ChunkInfo)> {
 size_t
 forEachLine(std::istream & stream,
             const LineContinuationFn & processLine,
-            std::shared_ptr<spdlog::logger> logger,
-            int numThreads = 4,
-            bool ignoreStreamExceptions = false,
-            int64_t maxLines = -1);
+            const ForEachLineOptions & options);
+
+template<typename... Options>
+size_t forEachLine(std::istream & stream,
+                   const LineContinuationFn & processLine,
+                   Options&&... options)
+{
+    ForEachLineOptions opts;
+    return forEachLine(stream, processLine, ForEachLine::options::apply_options(opts, std::forward<Options>(options)...));
+}
 
 
 /** Run the given lambda over every line read from the file, with the
@@ -139,12 +225,20 @@ forEachLine(std::istream & stream,
 
 bool forEachLineBlock(std::istream & stream,
                       const LineContinuationFn & onLine,
-                      int64_t maxLines = -1,
-                      int maxParallelism = 8,
                       const BlockContinuationFn & startBlock = nullptr,
                       const BlockContinuationFn & endBlock = nullptr,
-                      ssize_t blockSize = -1,
-                      const BlockSplitter & splitter = newLineSplitter);
+                      const ForEachLineOptions & options = ForEachLineOptions());
+
+template<typename... Options>
+size_t forEachLineBlock(std::istream & stream,
+                        const LineContinuationFn & onLine,
+                        const BlockContinuationFn & startBlock = nullptr,
+                        const BlockContinuationFn & endBlock = nullptr,
+                        Options&&... options)
+{
+    ForEachLineOptions opts;
+    return forEachLineBlock(stream, onLine, startBlock, endBlock, ForEachLine::options::apply_options(opts, std::forward<Options>(options)...));
+}
 
 /** Run the given lambda over every line read from the file, with the
     work distributed over threads each of which receive one block.  The
@@ -162,15 +256,22 @@ bool forEachLineBlock(std::istream & stream,
 */
 
 bool forEachLineBlock(std::shared_ptr<const ContentHandler> content,
-                      uint64_t startOffset,
                       const LineContinuationFn & onLine,
-                      int64_t maxLines = -1,
-                      int maxParallelism = 8,
                       const BlockContinuationFn & startBlock = nullptr,
                       const BlockContinuationFn & endBlock = nullptr,
-                      size_t blockSize = 20'000'000,
-                      const BlockSplitter & splitter = newLineSplitter);
+                      const ForEachLineOptions & options = ForEachLineOptions());
 
+template<typename... Options>
+size_t forEachLineBlock(std::shared_ptr<const ContentHandler> content,
+                        const LineContinuationFn & onLine,
+                        const BlockContinuationFn & startBlock = nullptr,
+                        const BlockContinuationFn & endBlock = nullptr,
+                        Options&&... options)
+{
+    ForEachLineOptions opts;
+    return forEachLineBlock(content, onLine, startBlock, endBlock, ForEachLine::options::apply_options(opts, std::forward<Options>(options)...));
+}
+#if 0
 /** Run the given lambda over fixed size chunks read from the stream, in parallel
     as much as possible.  If there is a smaller chunk at the end (EOF is obtained),
     then the smaller chunk will be returned by itself.
@@ -186,5 +287,5 @@ void forEachChunk(std::istream & stream,
                   size_t chunkLength,
                   int64_t maxChunks,
                   int maxParallelism);
-    
+#endif
 } // namespace MLDB

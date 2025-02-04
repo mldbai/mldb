@@ -17,25 +17,23 @@ namespace MLDB {
 
 /* BlockSplitter with a specific state type. */
 template<typename State>
-std::optional<std::tuple<TextBlockIterator, std::any>>
+BlockSplitterT<State>::NextRecordResult
 BlockSplitterT<State>::
 nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const
 {
     const State & stateT = std::any_cast<State>(state);
-    auto [newPos, newState] = nextRecordT(data, noMoreData, stateT);
-    return { newPos, std::move(newState) };
+    auto [found, skip_end, skip_sep, new_state] = nextRecordT(data, noMoreData, stateT);
+    return { found, skip_end, skip_sep, std::move(new_state) };
 };
 
 /* BlockSplitter with no state. */
-std::optional<std::tuple<TextBlockIterator, std::any>>
+BlockSplitterT<void>::NextRecordResult
 BlockSplitterT<void>::
 nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const
 {
-    auto newPos = nextRecordT(data, curr, noMoreData);
-    if (!newPos)
-        return std::nullopt;
-    std::tuple<TextBlockIterator, std::any> result(*newPos, std::any());
-    return result;
+    auto [found, skip_end, skip_sep] = nextRecordT(data, curr, noMoreData);
+    if (!found) return { false };
+    return { true, skip_end, skip_sep, std::any() };
 }
 
 } // namespace MLDB

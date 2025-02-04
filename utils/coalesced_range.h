@@ -98,14 +98,14 @@ struct CoalescedRangeIterator {
             }
             return *this;
         }
-        else return operator -= (ofs);
+        else return operator -= (-ofs);
     }
 
     CoalescedRangeIterator & operator -= (ssize_t ofs)
     {
         if (ofs >= 0) {
             while (ofs) {
-                if (ofs >= offset_) {
+                if (ofs > offset_) {
                     ofs -= offset_;
                     ExcCheckGreater(range_, 0, "Coalesced range iterator before beginning");
                     --range_;

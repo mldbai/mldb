@@ -392,8 +392,9 @@ struct JSONImporter: public Procedure {
             return keepGoing;
         };
 
-        forEachLineBlock(stream, onLine, runProcConf.limit, 32,
-                         startChunk, doneChunk);
+        namespace o = ForEachLine::options;
+        forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines=runProcConf.limit);
+
         if (!keepGoing) {
             throw MLDB::CancellationException("Procedure import.json cancelled");
         }

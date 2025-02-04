@@ -14,31 +14,38 @@
 
 namespace MLDB {
 
+using namespace std;
+
 const NewlineSplitter newLineSplitter;
 
-std::span<const char>
-BlockSplitter::
-fixupBlock(std::span<const char> block) const
-{
-    return block;
-}
-
-std::optional<TextBlockIterator>
+NewlineSplitter::NextRecordResultT<void>
 NewlineSplitter::
 nextRecordT(const TextBlock & data, TextBlockIterator curr, bool noMoreData) const
 {
     auto result = data.find(curr, data.end(), '\n');
+    if (result != data.end()) {
+        // Found a newline, skip it and return
+        size_t skip = 1; // skip the newline
+        size_t record_end = result - curr;
 
-    // Found a newline, skip it and return
-    if (result != data.end())
-        return result + 1;
+        // Skip back through the \r if it's a DOS line ending
+        if (result != curr && result[-1] == '\r') {
+             ++skip;
+             --record_end;
+        };
+
+        return { true, record_end, skip };
+    }
 
     // No newline but EOF, return up to the last character
-    if (noMoreData)
-        return data.end();
+    if (noMoreData) {
+        size_t skip = 0;
+        if (curr != data.end() && result[-1] == '\r') { ++skip; --result; };
+        return { true, data.end() - curr - skip, skip };
+    }
 
     // No newline and not EOF, we need more data
-    return std::nullopt;
+    return { false };
 }
 
 std::span<const char>
@@ -50,13 +57,6 @@ removeNewlines(std::span<const char> block)
     if (e > p && e[-1] == '\n') --e;
     if (e > p && e[-1] == '\r') --e;
     return { p, size_t(e - p) };
-}
-
-std::span<const char>
-NewlineSplitter::
-fixupBlock(std::span<const char> block) const
-{
-    return removeNewlines(block);
 }
 
 } // namespace MLDB
