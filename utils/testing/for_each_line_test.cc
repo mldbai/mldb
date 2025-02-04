@@ -30,8 +30,9 @@ namespace {
 void testForEachLineBlock(const std::string & data,
                           size_t blockSize,
                           size_t startOffset,
-                          int64_t maxLines = -1,
-                          int maxParallelism = 1)
+                          int64_t maxLines,
+                          int maxParallelism,
+                          bool outputTrailingEmptyLines)
 {
     std::vector<std::string> splitLines = split(string(data, startOffset), '\n');
     for (auto & l: splitLines) {
@@ -40,7 +41,7 @@ void testForEachLineBlock(const std::string & data,
         }
     }
     
-    if (!data.empty() && data.back() == '\n' && !splitLines.empty())
+    while (!outputTrailingEmptyLines && !splitLines.empty() && splitLines.back().empty())
         splitLines.pop_back();
 
     if (maxLines >= 0 && maxLines < splitLines.size()) {
@@ -107,49 +108,57 @@ void testForEachLineBlock(const std::string & data,
         };
 
     forEachLineBlock(content, onLine, onStartBlock, onEndBlock,
-                     o::maxParallelism=maxParallelism, o::defaultBlockSize=blockSize, o::startOffset=startOffset, o::maxLines=maxLines);
+                     o::maxParallelism=maxParallelism,
+                     o::defaultBlockSize=blockSize,
+                     o::startOffset=startOffset,
+                     o::maxLines=maxLines,
+                     o::outputTrailingEmptyLines=outputTrailingEmptyLines);
 
     CHECK(numLines == splitLines.size());
     if (maxLines == -1)
         CHECK(numLinesInBlockTotal == numLines);
     CHECK(numBlocksStarted == numBlocksFinished);
-
-    //cerr << "did " << numBlocksStarted << " blocks" << endl;
 }
 
 TEST_CASE("test_forEachLineBlock")
 {
-    for (auto parallelism: { 0 , 1, -1 }) {
-        SECTION("parallelism " + std::to_string(parallelism)) {
+    for (auto empty: { false, true }) {
+        SECTION("output empty " + std::to_string(empty)) {
+            for (auto parallelism: { 0 /*, 1, -1*/ }) {
+                SECTION("parallelism " + std::to_string(parallelism)) {                                            //           blkSz startOfs maxLns  empty  parallelism
 #if 1
-            SECTION("test 1") { testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 2") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 3") { testForEachLineBlock("\n", 1 /* blockSize */, 1 /* startOffset */, -1, parallelism); }
+                    SECTION("test 01") { testForEachLineBlock("",                                                                   1,       0,    -1, empty, parallelism); }
+                    SECTION("test 02") { testForEachLineBlock("\n",                                                                 1,       0,    -1, empty, parallelism); }
+                    SECTION("test 03") { testForEachLineBlock("\n",                                                                 1,       1,    -1, empty, parallelism); }
+                    SECTION("test 04") { testForEachLineBlock("          ",                                                         1,       0,    -1, empty, parallelism); }
+                    SECTION("test 05") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n",                                               1,       0,    -1, empty, parallelism); }
+                    SECTION("test 06") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n",                                             100,       0,    -1, empty, parallelism); }
+                    SECTION("test 07") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n",                                             100,      10,    -1, empty, parallelism); }
+                    SECTION("test 08") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",                           1,      10,    -1, empty, parallelism); }
+                    SECTION("test 09") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",                           2,       0,    -1, empty, parallelism); }
+                    SECTION("test 10") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n",                           2,       1,    -1, empty, parallelism); }
+                    SECTION("test 11") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n",                    100,       0,    -1, empty, parallelism); }
+                    SECTION("test 12") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n",                      1,       0,    -1, empty, parallelism); }
+                    SECTION("test 13") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n",                      2,       0,    -1, empty, parallelism); }
+                    SECTION("test 14") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n",                      5,       0,    -1, empty, parallelism); }
+                    SECTION("test 15") { testForEachLineBlock("",                                                                   1,       0,     0, empty, parallelism); }
+                    SECTION("test 16") { testForEachLineBlock("\n",                                                                 1,       0,     0, empty, parallelism); }
 #endif
-            SECTION("test 4") { testForEachLineBlock("          ", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+                    SECTION("test 17") { testForEachLineBlock("\n",                                                                 1,       0,     1, empty, parallelism); }
+                    SECTION("test 18") { testForEachLineBlock("\n",                                                                 1,       0,     2, empty, parallelism); }
 #if 1
-            SECTION("test 5") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 6") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 100 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 7") { testForEachLineBlock("\n\n\n\n\n\n\n\n\n\n", 100 /* blockSize */, 10 /* startOffset */, -1, parallelism); }
-            SECTION("test 8") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 1 /* blockSize */, 10 /* startOffset */, -1, parallelism); }
-            SECTION("test 9") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 2 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 10") { testForEachLineBlock("\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n", 2 /* blockSize */, 1 /* startOffset */, -1, parallelism); }
-            SECTION("test 11") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 100 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 12") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 1 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 13") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 2 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 14") { testForEachLineBlock("a\nab\nabc\nabcd\nabcde\nabcd\nabc\nab\na\n\n", 5 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
-            SECTION("test 15") { testForEachLineBlock("", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */, parallelism); }
-            SECTION("test 16") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */, parallelism); }
-            SECTION("test 17") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 1 /* max lines */, parallelism); }
-            SECTION("test 18") { testForEachLineBlock("\n", 1 /* blockSize */, 0 /* startOffset */, 2 /* max lines */, parallelism); }
-            SECTION("test 19") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 0 /* max lines */, parallelism); }
-            SECTION("test 20") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 1 /* max lines */, parallelism); }
-            SECTION("test 21") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 2 /* max lines */, parallelism); }
-            SECTION("test 22") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 3 /* max lines */, parallelism); }
-            SECTION("test 23") { testForEachLineBlock("a\nb\nc\n", 1 /* blockSize */, 0 /* startOffset */, 4 /* max lines */, parallelism); }
-            SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n", 5 /* blockSize */, 0 /* startOffset */, parallelism); }
-            SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n", 5 /* blockSize */, 0 /* startOffset */, -1, parallelism); }
+                    SECTION("test 19") { testForEachLineBlock("a\nb\nc\n",                                                          1,       0,     0, empty, parallelism); }
+                    SECTION("test 20") { testForEachLineBlock("a\nb\nc\n",                                                          1,       0,     1, empty, parallelism); }
+                    SECTION("test 21") { testForEachLineBlock("a\nb\nc\n",                                                          1,       0,     2, empty, parallelism); }
+                    SECTION("test 22") { testForEachLineBlock("a\nb\nc\n",                                                          1,       0,     3, empty, parallelism); }
+                    SECTION("test 23") { testForEachLineBlock("a\nb\nc\n",                                                          1,       0,     4, empty, parallelism); }
+                    SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n",  5,       0,    -1, empty, parallelism); }
+                    SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n",  5,       0,     0, empty, parallelism); }
+                    SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n",  5,       0,     1, empty, parallelism); }
+                    SECTION("test 24") { testForEachLineBlock("a\r\nab\r\nabc\r\nabcd\r\nabcde\r\nabcd\r\nabc\r\nab\r\na\r\n\r\n",  5,       0,    -1, empty, parallelism); }
 #endif
+                }
+            }
         }
     }
 }
@@ -157,6 +166,7 @@ TEST_CASE("test_forEachLineBlock")
 vector<string> dataStrings{"line1", "line2", "", "line forty 2"};
 
 }
+
 
 TEST_CASE("test_forEachLine_data trailing newline")
 {
@@ -174,7 +184,7 @@ TEST_CASE("test_forEachLine_data trailing newline")
         result.emplace_back(data, dataSize);
     };
 
-    forEachLine(stream, processLine, o::outputTrailingEmptyLine=true);
+    forEachLine(stream, processLine, o::outputTrailingEmptyLines=true);
     CHECK(result == expected);
 }
 
@@ -194,7 +204,7 @@ TEST_CASE("test_forEachLine_data no trailing newline")
         result.emplace_back(data);
     };
 
-    forEachLine(stream, processLine);
+    forEachLine(stream, processLine, o::outputTrailingEmptyLines=false);
     CHECK(result == expected);
 }
 

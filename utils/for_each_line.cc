@@ -104,13 +104,13 @@ struct ForEachLineProcessor: public ComputeContext {
         size_t blockSize = options.defaultBlockSize == -1 ? 2'000'000 : options.defaultBlockSize;
         if (options.startOffset > 0)
             stream.seekg(options.startOffset);
-        std::shared_ptr<std::byte[]> block(new std::byte[blockSize]);
 
         bool lastChunk = false;
 
         for (size_t chunkNumber = 0; stream; ++chunkNumber) {
             if (relaxed_stopped() || chunks_in_finished_ || chunks_out_finished_) return false;
             size_t chunkOffset = stream.tellg();
+            std::shared_ptr<std::byte[]> block(new std::byte[blockSize]);
             stream.read(reinterpret_cast<char *>(block.get()), blockSize + extraCapacity);
             ssize_t bytesRead = stream.gcount();
             if (bytesRead <= 0)
@@ -259,8 +259,64 @@ struct ForEachLineProcessor: public ComputeContext {
         size_t startOffset = 0;
         size_t endOffset = 0;
         bool lastBlock = false;
-        std::vector<std::span<const char>> lines;
+        size_t numLeadingEmptyLines = 0;
+        std::vector<std::string_view> lines;
         std::vector<std::shared_ptr<const void>> keep;
+        size_t numTrailingEmptyLines = 0; // only for the last block
+        size_t lineCount() const { return numLeadingEmptyLines + lines.size() + numTrailingEmptyLines; }
+
+        void addLine(std::string_view line, std::shared_ptr<const void> keep = nullptr)
+        {
+            if (line.empty()) {
+                // Empty line, just accumulate it
+                ++numTrailingEmptyLines;
+            }
+            else {
+                // Add the empty line block we accumulated so far as it's no longer trailing
+                lines.resize(lines.size() + numTrailingEmptyLines);
+                numTrailingEmptyLines = 0;
+                lines.push_back(line);
+            }
+            if (keep)
+                this->keep.push_back(keep);
+        }
+
+        // Truncate to the given number of lines
+        void truncate(size_t maxLines)
+        {
+            if (lineCount() <= maxLines)
+                return;
+            if (maxLines <= numLeadingEmptyLines) {
+                numLeadingEmptyLines = maxLines;
+                lines.clear();
+                numTrailingEmptyLines = 0;
+                return;
+            }
+            maxLines -= numLeadingEmptyLines;
+            if (maxLines <= lines.size()) {
+                lines.resize(maxLines);
+                numTrailingEmptyLines = 0;
+                return;
+            }
+            maxLines -= lines.size();
+            ExcAssertLessEqual(maxLines, numTrailingEmptyLines);
+            numTrailingEmptyLines -= maxLines;
+        }
+
+        void pushEmptyLinesToTrailing()
+        {
+            if (lines.empty()) {
+                numTrailingEmptyLines += numLeadingEmptyLines;
+                numLeadingEmptyLines = 0;
+            }
+        }
+
+        void removeTrailingEmptyLines()
+        {
+            numTrailingEmptyLines = 0;
+            if (lines.empty())
+                numLeadingEmptyLines = 0;
+        }
     };
 
     // Information passed from one chunk to the next
@@ -270,6 +326,7 @@ struct ForEachLineProcessor: public ComputeContext {
     CoalescedRange<const char> chunkData;
     std::any splitterState;
     std::vector<std::shared_ptr<const void>> keep;  // pins for each block in chunkData
+    size_t numTrailingEmptyLines = 0;
 
     // Handle the next chunk, which will be done in-order and one at a time. This should do the
     // smallest amount of work possible, submitting any further processing as a job to be
@@ -290,14 +347,15 @@ struct ForEachLineProcessor: public ComputeContext {
         if (chunkData.add(reinterpret_cast<const char *>(chunk.data.data()), chunk.data.size()))
             keep.emplace_back(chunk.keep);
 
-        LineBlock lineBlock;
-        lineBlock.keep = keep;
-        lineBlock.blockNumber = outputChunkNumber;
-        lineBlock.startLine = outputLineNumber;
-        lineBlock.startOffset = outputStartOffset;
-        lineBlock.lastBlock = chunk.lastChunk;
 
-        auto & lines = lineBlock.lines;
+        LineBlock lineBlock {
+            .blockNumber = outputChunkNumber,
+            .startLine = outputLineNumber,
+            .startOffset = outputStartOffset,
+            .lastBlock = chunk.lastChunk,
+            .numLeadingEmptyLines = numTrailingEmptyLines,
+            .keep = keep,
+        };
 
         auto it = chunkData.begin(), end = chunkData.end();
         bool trailingSeparator = false;
@@ -309,9 +367,9 @@ struct ForEachLineProcessor: public ComputeContext {
                 break;
             auto next_it = it + skip_to_end;
 
-            if (auto lineSpan = chunkData.get_span(it, next_it)) {
+            if (auto lineView = chunkData.get_string_view(it, next_it)) {
                 // Push the contiguous line
-                lines.push_back(std::move(lineSpan.value()));
+                lineBlock.addLine(lineView.value());
             }
             else {
                 // Line is not in a contiguous range; need to extract as a string
@@ -319,26 +377,45 @@ struct ForEachLineProcessor: public ComputeContext {
                 std::shared_ptr<char[]> contiguous(new char[len]);
                 using std::copy;
                 copy(it, next_it, contiguous.get());
-                lineBlock.lines.emplace_back(contiguous.get(), len);
-                lineBlock.keep.emplace_back(std::move(contiguous));
+                std::string_view line(contiguous.get(), len);
+                lineBlock.addLine(line, std::move(contiguous));
             }
+
             splitterState = std::move(next_state);
             it = next_it + skip_separator;
             trailingSeparator = skip_separator > 0;
         }
 
-        if (options.outputTrailingEmptyLine && trailingSeparator && chunk.lastChunk) {
-            // We have a trailing separator at the end of the last chunk
-            // We need to add an empty line
-            lines.push_back({});
+        // If there is a trailing separator and this is the last block, we need to add an empty
+        // line.
+        if (trailingSeparator && chunk.lastChunk) {
+            lineBlock.addLine({});
         }
 
-        size_t lineCount = lines.size();
+        // The output block consists of:
+        // - numLeadingEmptyLines empty lines from the previous block
+        // - lines.size() lines from this block
+        // - numTrailingEmptyLines empty lines from this block
+        //
+        // We output the first and the second in this block; the rest are the responsibility of
+        // the next block (unless this is the last block).
 
-        if (options.maxLines != -1 && lineCount + outputLineNumber >= options.maxLines) {
+        lineBlock.pushEmptyLinesToTrailing();
+
+        if (chunk.lastChunk && !options.outputTrailingEmptyLines) {
+            lineBlock.removeTrailingEmptyLines();
+        }
+
+        if (options.maxLines != -1 && outputLineNumber + lineBlock.lineCount() >= options.maxLines) {
             // We've reached the maximum number of lines
-            lines.resize(options.maxLines - outputLineNumber);
+            lineBlock.truncate(options.maxLines - outputLineNumber);
             lineBlock.lastBlock = true;
+            numTrailingEmptyLines = 0;
+        }
+        else if (!chunk.lastChunk) {
+            // The next block deals with trailing empty lines
+            numTrailingEmptyLines = lineBlock.numTrailingEmptyLines;
+            lineBlock.numTrailingEmptyLines = 0;
         }
 
         // Reduce the chunk data to the leftover parts and remove the associated
@@ -350,8 +427,11 @@ struct ForEachLineProcessor: public ComputeContext {
         keep.erase(keep.begin(), keep.begin() + firstChunk);
 
         ExcAssertEqual(keep.size(), chunkData.range_count());
+        outputLineNumber += lineBlock.lineCount();
+        outputStartOffset = chunk.startOffset + chunk.data.size();
 
-        if (lineCount > 0) {
+        if (lineBlock.lineCount() > 0) {
+
             // Submit the line block for processing before we schedule another chunk so
             // we don't get ahead of ourselves.
             int priority = 1;
@@ -377,9 +457,6 @@ struct ForEachLineProcessor: public ComputeContext {
             }
             ++outputChunkNumber;
         }
-        outputLineNumber += lineCount;
-        outputStartOffset = chunk.startOffset + chunk.data.size();
-
     }
 
     std::function<bool (LineBlock)> handle_line_block;
@@ -406,7 +483,8 @@ struct ForEachLineProcessor: public ComputeContext {
             if (startBlock && !startBlock(blockInfo))
                 return false;
 
-            for (size_t i = 0; i < block.lines.size();  ++i) {
+            auto outputLine = [&] (std::string_view line, int64_t lineNumber, int64_t blockNumber, bool lastLine)
+            {
                 if (options.logger) {
                     auto new_done = done.fetch_add(1) + 1;
 
@@ -425,14 +503,34 @@ struct ForEachLineProcessor: public ComputeContext {
                     }
                 }
 
-                LineInfo lineInfo {
-                    .line         = { block.lines[i].data(), block.lines[i].size() },
-                    .lineNumber   = static_cast<int64_t>(block.startLine + i),
-                    .blockNumber  = static_cast<int64_t>(block.blockNumber),
-                    .lastLine     = block.lastBlock && i == block.lines.size() - 1,
-                };
+                LineInfo lineInfo { line, lineNumber, blockNumber, lastLine };
 
                 if (onLine && !onLine(lineInfo))
+                    return false;
+
+                return true;
+            };
+
+            size_t l = 0;
+
+            // Leading empty lines
+            for (size_t i = 0; i < block.numLeadingEmptyLines; ++i, ++l) {
+                bool lastLine = block.lastBlock && i == block.numLeadingEmptyLines - 1 && block.lines.empty() && block.numTrailingEmptyLines == 0;
+                if (!outputLine({}, block.startLine + l, block.blockNumber, lastLine))
+                    return false;
+            }
+
+            // Block lines
+            for (size_t i = 0; i < block.lines.size();  ++i, ++l) {
+                bool lastLine = i == block.lines.size() - 1 && block.lastBlock && block.numTrailingEmptyLines == 0;
+                if (!outputLine(block.lines[i], block.startLine + l, block.blockNumber, lastLine))
+                    return false;
+            }
+
+            // Trailing empty lines
+            for (size_t i = 0; i < block.numTrailingEmptyLines; ++i, ++l) {
+                bool lastLine = block.lastBlock && i == block.numTrailingEmptyLines - 1;
+                if (!outputLine({}, block.startLine + l, block.blockNumber, lastLine))
                     return false;
             }
 

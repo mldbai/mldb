@@ -317,6 +317,14 @@ struct CoalescedRange {
         return range_type(first, last - first);    
     }
 
+    std::optional<std::basic_string_view<std::remove_cv_t<value_type>>> get_string_view(const_iterator begin, const_iterator end) const
+    {
+        auto span = get_span(begin, end);
+        if (!span)
+            return std::nullopt;
+        return std::basic_string_view<std::remove_cv_t<value_type>>(span->data(), span->size());
+    }
+
     iterator find(const value_type & what) { return find(begin(), end(), what); }
     const_iterator find(const value_type & what) const { return find(begin(), end(), what); }
 

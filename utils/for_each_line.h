@@ -39,7 +39,7 @@ struct ForEachLineOptions {
     size_t startOffset = 0;                            // How much of the file to skip at the beginning
     size_t skipLines = 0;                              // How many lines to skip at the beginning
     ssize_t maxLines = -1;                             // Maximum number of lines to process
-    bool outputTrailingEmptyLine = false;              // Whether to output a trailing empty line if the file ends with a newline
+    bool outputTrailingEmptyLines = false;             // Whether to output trailing empty lines if the file ends with blank lines
     std::shared_ptr<spdlog::logger> logger = nullptr;  // Logger to use for logging
     size_t logInterval = 1000000;                      // How often to log a progress message to the logger (every n lines)
     const BlockSplitter * splitter = &newLineSplitter; // Block splitter to split into lines
@@ -78,7 +78,7 @@ DECLARE_OPTION_SPEC(ForEachLineOptions, defaultBlockSize);
 DECLARE_OPTION_SPEC(ForEachLineOptions, startOffset);
 DECLARE_OPTION_SPEC(ForEachLineOptions, skipLines);
 DECLARE_OPTION_SPEC(ForEachLineOptions, maxLines);
-DECLARE_OPTION_SPEC(ForEachLineOptions, outputTrailingEmptyLine);
+DECLARE_OPTION_SPEC(ForEachLineOptions, outputTrailingEmptyLines);
 DECLARE_OPTION_SPEC(ForEachLineOptions, logger);
 DECLARE_OPTION_SPEC(ForEachLineOptions, logInterval);
 DECLARE_OPTION_SPEC(ForEachLineOptions, splitter);
@@ -114,8 +114,11 @@ struct LineInfo {
 
 struct LineContinuationFn: public ContinuationFn<bool (LineInfo line)> {
     using Base = ContinuationFn<bool (LineInfo)>;
-    //template<typename... Args> LineContinuationFn(Args&&... args, std::enable_if_t<std::is_constructible_v<Base, Args...>> * = 0): Base(std::forward<Args>(args)...) {}
-    using Base::Base;
+
+    // Forward the base constructor    
+    template<typename Callable>
+    LineContinuationFn(Callable&& fn, std::enable_if_t<is_callable_with_v<Callable, LineInfo>> * = 0)
+        : Base(std::forward<Callable>(fn)) {}
 
     // Constructor for a function<bool/void (const char *, size_t, int64_t lineNumber, size_t numLinesInBlock)>
     template<typename Callable>

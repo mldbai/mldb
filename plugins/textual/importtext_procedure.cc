@@ -1038,11 +1038,13 @@ struct ImportTextProcedureWorkInstance
         
         atomic<ssize_t> lineCount(0);
         atomic<ssize_t> byteCount(0);
-        auto onLine = [&] (const char * line,
-                           size_t length,
-                           int chunkNum,
-                           int64_t lineNum)
+
+        auto onLine = [&] (LineInfo lineInfo)
         {
+            auto lineNum = lineInfo.lineNumber;
+            const char * line = lineInfo.line.data();
+            size_t length = lineInfo.line.size();
+
             try {
                 auto & threadAccum = accum.get();
 
@@ -1083,9 +1085,11 @@ struct ImportTextProcedureWorkInstance
                         return true;
                 }
                 
-                // MLDB-1111 empty lines are treated as error
-                if (length == 0)
+                // MLDB-1111 empty lines are treated as error, unless they are
+                // at the end of the file
+                if (length == 0) {
                     return handleError("empty line", actualLineNum, 0, "");
+                }
 
 
                 // Values that come in from the CSV file
@@ -1314,7 +1318,7 @@ struct ImportTextProcedureWorkInstance
 
         if(!config.allowMultiLines) {
             namespace o = ForEachLine::options;
-            forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines = config.limit);
+            forEachLineBlock(stream, onLine, startChunk, doneChunk, o::maxLines=config.limit, o::outputTrailingEmptyLine=false);
         }
         else {
             // very simplistic and not efficient way of doing multi-line. we send
@@ -1336,8 +1340,12 @@ struct ImportTextProcedureWorkInstance
                     line += ' ' + t_line;
                 }
 
-                if(!onLine(line.c_str(), line.size(),
-                           0 /* chunkNum */, lineNum)) {
+                LineInfo lineInfo {
+                    .line = line,
+                    .lineNumber = lineNum,
+                    .lastLine = false,
+                };
+                if(!onLine(lineInfo)) {
                     prevLine.assign(std::move(line));
                 } else {
                     prevLine.erase();

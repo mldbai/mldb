@@ -259,3 +259,18 @@ TEST_CASE("iterators")
         CHECK(it[-2] == '!');
     }
 }
+
+TEST_CASE("one character ranges")
+{
+    std::string s = "hello, world!";
+    std::string data;
+    for (char c: s) { data.push_back(c); data.push_back(0); }
+
+    CoalescedRange<const char> range;
+    for (size_t i = 0; i < s.size(); ++i) {
+        range.add(span<const char>(data.data() + 2 * i, 1));
+    }
+
+    CHECK(range.size() == s.size());
+    CHECK(range.to_string() == s);
+}
