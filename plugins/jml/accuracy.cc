@@ -980,8 +980,10 @@ run(const ProcedureRunConfig & run,
         weight
     };
 
+    Utf8String alias;
+    SelectExpression select;
     auto boundQuery =
-        BoundSelectQuery({} /* select */, *dataset, "" /* table alias */,
+        BoundSelectQuery(select, *dataset, alias /* table alias */,
                      runAccuracyConf.testingData.stm->when,
                      *runAccuracyConf.testingData.stm->where,
                      runAccuracyConf.testingData.stm->orderBy,
