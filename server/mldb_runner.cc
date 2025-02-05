@@ -408,6 +408,8 @@ int main(int argc, char ** argv)
 
         auto result = output.jsonBody();
         
+        server.shutdown();
+
         if (!success) {
             if (!muteFinalOutput) {
                 cerr << output << endl;
