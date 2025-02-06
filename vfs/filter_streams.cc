@@ -83,7 +83,7 @@ struct StreamCompressor {
             try {
                 MLDB_TRACE_EXCEPTIONS(false);
                 startPos = buf.pubseekoff(0, ios::cur, ios_base::in);
-            } catch (std::ios_base::failure exc) {
+            } catch (std::ios_base::failure & exc) {
                 startPos = -1;
             }
         }

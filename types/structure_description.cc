@@ -240,7 +240,7 @@ operator () (const std::string_view & v1, const std::string_view & v2) const
 #endif
 }
 
-StructureDescriptionBase::FieldDescription &
+ValueDescription::FieldDescription &
 StructureDescriptionBase::
 addFieldDesc(std::string name,
              size_t offset,
@@ -256,10 +256,10 @@ addFieldDesc(std::string name,
     const char * fieldName = fieldNames.back().get();
     
     auto it = fields.insert
-        (Fields::value_type(fieldName, FieldDescription()))
+        (Fields::value_type(fieldName, ValueDescription::FieldDescription()))
         .first;
     
-    FieldDescription & fd = it->second;
+    ValueDescription::FieldDescription & fd = it->second;
     fd.fieldName = fieldName;
     fd.comment = comment;
     fd.description = description;
@@ -293,7 +293,7 @@ addBitFieldDesc(std::string name,
 {
     size_t containingWidth = containingDescription->width * 8;
     ExcAssertLessEqual(bitOffset + bitWidth, containingWidth);
-    FieldDescription & fd = addFieldDesc(std::move(name), offset, std::move(comment), containingDescription);
+    ValueDescription::FieldDescription & fd = addFieldDesc(std::move(name), offset, std::move(comment), containingDescription);
 
 #if 0
     auto extract = [=] (const void * obj, void * val)
@@ -323,12 +323,12 @@ addDiscriminatedFieldDesc(std::string name,
                           std::function<bool (const void *)> isActive,
                           std::string isActiveStr)
 {
-    FieldDescription & fd = addFieldDesc(std::move(name), offset, std::move(comment), std::move(desc));
+    ValueDescription::FieldDescription & fd = addFieldDesc(std::move(name), offset, std::move(comment), std::move(desc));
     fd.isActive = std::move(isActive);
     fd.isActiveStr = std::move(isActiveStr);
 }                          
 
-const StructureDescriptionBase::FieldDescription *
+const ValueDescription::FieldDescription *
 StructureDescriptionBase::
 hasField(const void * val, const std::string & field) const
 {
@@ -338,7 +338,7 @@ hasField(const void * val, const std::string & field) const
     return nullptr;
 }
 
-const StructureDescriptionBase::FieldDescription *
+const ValueDescription::FieldDescription *
 StructureDescriptionBase::
 getFieldDescription(const void * val, const void * field) const
 {
@@ -354,14 +354,14 @@ getFieldDescription(const void * val, const void * field) const
 void
 StructureDescriptionBase::
 forEachField(const void * val,
-             const std::function<void (const FieldDescription &)> & onField) const
+             const std::function<void (const ValueDescription::FieldDescription &)> & onField) const
 {
     for (auto f: orderedFields) {
         onField(f->second);
     }
 }
 
-const StructureDescriptionBase::FieldDescription & 
+const ValueDescription::FieldDescription & 
 StructureDescriptionBase::
 getField(const std::string & field) const
 {
@@ -371,7 +371,7 @@ getField(const std::string & field) const
     throw MLDB::Exception("structure has no field " + field);
 }
 
-const StructureDescriptionBase::FieldDescription & 
+const ValueDescription::FieldDescription & 
 StructureDescriptionBase::
 getFieldByNumber(int fieldNum) const
 {

@@ -150,7 +150,7 @@ createEntitySync(PolyConfig config,
     
     // TODO: this sometimes crashes with this = 0
     // called from MldbServer::obtainDatasetSync()
-    ExcAssert((void*)this != nullptr);
+    //ExcAssert((void*)this != nullptr);
     return std::static_pointer_cast<Entity>
         (PolyCollectionBase::mustCreateSync(config, onProgress, overwrite));
 }

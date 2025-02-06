@@ -39,8 +39,6 @@
 #include "mldb/types/any_impl.h"
 #include "mldb/utils/lexical_cast.h"
 
-#include "datetime.h"
-
 #include <signal.h>
 #include <fcntl.h>
 

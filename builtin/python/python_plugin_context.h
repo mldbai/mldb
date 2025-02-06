@@ -27,6 +27,11 @@
 #include "mldb/rest/in_process_rest_connection.h"
 #include "mldb/rest/rest_request_router.h"
 
+#if defined(__GNUC__)
+// warning: '..' declared with greater visibility than the type of its field '..'
+#  pragma GCC diagnostic ignored "-Wattributes"
+#endif
+
 namespace MLDB {
 
 struct PythonContext;

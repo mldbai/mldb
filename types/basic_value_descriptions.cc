@@ -179,13 +179,13 @@ struct HalfValueDescription
     virtual void parseJsonTyped(half * val,
                                 JsonParsingContext & context) const
     {
-        *val = context.expectFloat();
+        *val = static_cast<half>(context.expectFloat());
     }
 
     virtual void parseJson(void * val,
                            JsonParsingContext & context) const
     {
-        *(half *)val = context.expectFloat();
+        *(half *)val = static_cast<half>(context.expectFloat());
     }
 
     virtual void printJsonTyped(const half * val,

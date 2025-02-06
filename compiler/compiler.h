@@ -43,7 +43,7 @@
 #else
 #define MLDB_CATCH_ALL \
     catch (__cxxabiv1::__forced_unwind& ) { \
-        throw;                       \
+        std::rethrow_exception(std::current_exception());                       \
     } catch (...)
 #endif
 

@@ -58,9 +58,6 @@ struct StructureDescriptionBase {
     /// Current set of old versions of the structure
     std::vector<OldVersion> oldVersions;
 
-
-    typedef ValueDescription::FieldDescription FieldDescription;
-
     // Comparison object to allow const char * objects to be looked up
     // in the map and so for comparisons to be done with no memory
     // allocations.
@@ -68,7 +65,7 @@ struct StructureDescriptionBase {
         bool operator () (const std::string_view & s1, const std::string_view & s2) const;
     };
 
-    typedef std::map<std::string_view, FieldDescription, StrCompare> Fields;
+    typedef std::map<std::string_view, ValueDescription::FieldDescription, StrCompare> Fields;
     Fields fields;
 
     /* A deleter that works with buffers allocated with malloc */
@@ -96,7 +93,7 @@ struct StructureDescriptionBase {
     virtual bool onEntry(void * output, JsonParsingContext & context) const = 0;
     virtual void onExit(void * output, JsonParsingContext & context) const = 0;
 
-    FieldDescription &
+    ValueDescription::FieldDescription &
     addFieldDesc(std::string name,
                  size_t offset,
                  std::string comment,
@@ -119,19 +116,19 @@ struct StructureDescriptionBase {
                                    std::function<bool (const void *)> isActive,
                                    std::string isActiveStr);
 
-    virtual const FieldDescription *
+    virtual const ValueDescription::FieldDescription *
     hasField(const void * val, const std::string & field) const;
 
-    virtual const FieldDescription *
+    virtual const ValueDescription::FieldDescription *
     getFieldDescription(const void * val, const void * field) const;
     
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const;
+                              const std::function<void (const ValueDescription::FieldDescription &)> & onField) const;
 
-    virtual const FieldDescription & 
+    virtual const ValueDescription::FieldDescription & 
     getField(const std::string & field) const;
 
-    virtual const FieldDescription & 
+    virtual const ValueDescription::FieldDescription & 
     getFieldByNumber(int fieldNum) const;
 
     virtual int getVersion() const;
@@ -193,31 +190,31 @@ struct GenericStructureDescription:
         return fields.size();
     }
 
-    virtual const FieldDescription *
+    virtual const ValueDescription::FieldDescription *
     hasField(const void * val, const std::string & field) const override
     {
         return StructureDescriptionBase::hasField(val, field);
     }
 
-    virtual const FieldDescription *
+    virtual const ValueDescription::FieldDescription *
     getFieldDescription(const void * val, const void * field) const override
     {
         return StructureDescriptionBase::getFieldDescription(val, field);
     }
     
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const override
+                              const std::function<void (const ValueDescription::FieldDescription &)> & onField) const override
     {
         return StructureDescriptionBase::forEachField(val, onField);
     }
 
-    virtual const FieldDescription & 
+    virtual const ValueDescription::FieldDescription & 
     getField(const std::string & field) const override
     {
         return StructureDescriptionBase::getField(field);
     }
 
-    virtual const FieldDescription & 
+    virtual const ValueDescription::FieldDescription & 
     getFieldByNumber(int fieldNum) const override
     {
         return StructureDescriptionBase::getFieldByNumber(fieldNum);
@@ -565,7 +562,7 @@ struct StructureDescription
         return true;
     }
 
-    virtual const FieldDescription *
+    virtual const ValueDescription::FieldDescription *
     hasField(const void * val, const std::string & field) const override
     {
         return StructureDescriptionBase::hasField(val, field);
@@ -576,25 +573,25 @@ struct StructureDescription
         return fields.size();
     }
 
-    virtual const FieldDescription *
+    virtual const ValueDescription::FieldDescription *
     getFieldDescription(const void * val, const void * field) const override
     {
         return StructureDescriptionBase::getFieldDescription(val, field);
     }
     
     virtual void forEachField(const void * val,
-                              const std::function<void (const FieldDescription &)> & onField) const override
+                              const std::function<void (const ValueDescription::FieldDescription &)> & onField) const override
     {
         return StructureDescriptionBase::forEachField(val, onField);
     }
 
-    virtual const FieldDescription & 
+    virtual const ValueDescription::FieldDescription & 
     getField(const std::string & field) const override
     {
         return StructureDescriptionBase::getField(field);
     }
 
-    virtual const FieldDescription & 
+    virtual const ValueDescription::FieldDescription & 
     getFieldByNumber(int fieldNum) const override
     {
         return StructureDescriptionBase::getFieldByNumber(fieldNum);
@@ -741,7 +738,7 @@ addParent(ValueDescriptionT<V> * description_)
     ExcAssert(!desc2->orderedFields.empty());
 
     for (auto & oit: description->orderedFields) {
-        FieldDescription & ofd = const_cast<FieldDescription &>(oit->second);
+        ValueDescription::FieldDescription & ofd = const_cast<ValueDescription::FieldDescription &>(oit->second);
         const std::string & name = ofd.fieldName;
 
         //cerr << "  bringing field " << ofd.fieldName << " of type " << ofd.description->typeName
@@ -751,8 +748,8 @@ addParent(ValueDescriptionT<V> * description_)
         fieldNames.emplace_back(::strdup(name.c_str()));
         const char * fieldName = fieldNames.back().get();
 
-        auto it = fields.insert(Fields::value_type(fieldName, FieldDescription())).first;
-        FieldDescription & fd = it->second;
+        auto it = fields.insert(Fields::value_type(fieldName, ValueDescription::FieldDescription())).first;
+        ValueDescription::FieldDescription & fd = it->second;
         fd.fieldName = fieldName;
         fd.comment = ofd.comment;
         fd.description = ofd.description;

@@ -233,6 +233,7 @@ public:
 
     // Data but not necessarily null terminated
     const char * rawData() const { return data_.c_str(); }
+    std::string_view rawView() const { return {data_.data(), data_.length()}; }
 
     // Null terminated string of utf8 encoded charadcters
     const char * c_str() const { return data_.c_str(); }

@@ -1096,21 +1096,21 @@ bool
 JsonParsingContext::
 inField(const char * fieldName)
 {
-    return fieldNameView() == fieldName;    
+    return fieldNameView() == string_view(fieldName, strlen(fieldName));
 }
 
 bool
 JsonParsingContext::
 inField(const std::string & fieldName)
 {
-    return fieldNameView() == fieldName;    
+    return fieldNameView() == string_view(fieldName);
 }
 
 bool
 JsonParsingContext::
 inField(const Utf8String & fieldName)
 {
-    return fieldNameView() == fieldName.c_str();
+    return fieldNameView() == fieldName.rawView();
 }
 
 

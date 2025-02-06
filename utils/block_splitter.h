@@ -54,16 +54,6 @@ struct BlockSplitter {
         State newState;             // New splitter state corresponding to the beginning of the next record
     };
 
-    // Result of the stateless next record function
-    template<>
-    struct NextRecordResultT<void> {
-        bool foundRecord = false;      // True if a new record was found within the data bounds
-        size_t skipToEndOfRecord = 0;  // Number of bytes to skip from the iterator to the end of the record
-        size_t skipSeparators = 0;     // Number of extra bytes to skip over the separator
-
-        operator bool() const { return foundRecord; }
-    };
-
     using NextRecordResult = NextRecordResultT<std::any>;
 
 
@@ -77,6 +67,16 @@ struct BlockSplitter {
     //   advanced by this number of bytes before this function is called again.
     virtual NextRecordResult
     nextRecord(const TextBlock & data, TextBlockIterator curr, bool noMoreData, const std::any & state) const = 0;
+};
+
+// Result of the stateless next record function
+template<>
+struct BlockSplitter::NextRecordResultT<void> {
+    bool foundRecord = false;      // True if a new record was found within the data bounds
+    size_t skipToEndOfRecord = 0;  // Number of bytes to skip from the iterator to the end of the record
+    size_t skipSeparators = 0;     // Number of extra bytes to skip over the separator
+
+    operator bool() const { return foundRecord; }
 };
 
 /* BlockSplitter with a specific state type. */
