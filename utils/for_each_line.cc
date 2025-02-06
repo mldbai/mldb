@@ -134,7 +134,8 @@ struct ForEachLineProcessor: public ComputeContext {
         return blockSize;
     }
 
-    // Returns true if and only if all continuations returned true
+    // Returns true if and only if all continuations returned true. Requires that the span remain
+    // valid for the lifetime of the containing for_each_line call.
     bool chunk_source(std::span<const std::byte> mem, size_t startOffset)
     {
         size_t numBytes = mem.size();
@@ -165,7 +166,7 @@ struct ForEachLineProcessor: public ComputeContext {
             if (relaxed_stopped() || chunks_in_finished_ || chunks_out_finished_) return false;
             bool lastChunk = lastBlock || chunkOffset + region.length() == contentSize;
             std::span<const std::byte> mem(reinterpret_cast<const std::byte *>(region.data()), region.length());
-            return handle_out_of_order_chunk({chunkNumber, chunkOffset, lastChunk, mem, {}});
+            return handle_out_of_order_chunk({chunkNumber, chunkOffset, lastChunk, mem, region.steal_handle()});
         };
     
         auto res = content.forEachBlockParallel(options.startOffset, blockSize, *this /*compute*/, 5 /* priority */, doBlock);

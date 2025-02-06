@@ -179,6 +179,21 @@ struct FrozenMemoryRegion {
     void reserialize(StructuredSerializer & serializer) const;
 #endif
 
+    // Return a handle to the region. This can be used to ensure that the lifetime
+    // of the memory extends beyond the lifetime of the region.
+    std::shared_ptr<const void> handle() const noexcept
+    {
+        return handle_;
+    }
+
+    // Steal the handle, making the region invalid.
+    std::shared_ptr<const void> steal_handle() noexcept
+    {
+        data_ = nullptr;
+        length_ = 0;
+        return std::move(handle_);
+    }
+
 private:
     const char * data_ = nullptr;
     size_t length_ = 0;
